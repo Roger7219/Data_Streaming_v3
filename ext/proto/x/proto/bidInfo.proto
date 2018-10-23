@@ -1,0 +1,85 @@
+syntax="proto2";
+package proto;     // 指定包名
+option go_package = "logproto";
+//protoc --go_out=plugins=grpc:. bidInfo.proto
+//protoc -I=./proto --java_out=./ ./proto/event.proto
+enum DEALTYPE {
+  UNKNOW = 0;
+  CPC = 1;
+  CPM = 2;
+}
+
+enum EVENTTYPE {
+    EVENT_UNKNOW = 0;
+    REQUEST    = 1; //请求
+    SEND       = 2; //下发
+    WINNOTICE  = 3; //中签
+    IMPRESSION = 4; //展示
+    CLICK      = 5; //点击
+}
+
+message RequestInfo {
+  optional int64    publisher_id = 1; //PUBLISHER唯一ID
+  optional int64    app_id       = 2; //APP唯一ID
+  optional int64    country_id   = 3; //国家ID
+  optional int64    carrier_id   = 4; //运营商ID
+  optional int64    ad_id        = 5; //广告位id
+  optional int64    ad_type      = 6;//广告类型
+  optional int64    width        = 7;//宽
+  optional int64    height       = 8;//高
+  optional string   iab1         = 9;//iab1
+  optional string   iab2         = 10;//iab2 
+  optional string   ip           = 11; //IP地址
+  optional string   raw_request  = 12; //请求内容
+}
+message TradeInfo {
+  optional DEALTYPE deal_type      = 11; //交易类型
+  optional int64    dsp_id         = 10; //DSP唯一ID, winner
+  optional int64    status         = 14;//是否有返回
+  optional int64    is_show         = 18;//是否显示
+  optional double   bid_price      = 12; //竞价
+  optional double   clear_price    = 22; //返回内容    
+  optional  double   media_price    = 13; //渠道竞价
+  optional string   win_notice_url = 15; //中签URL
+  optional string   click_url      = 16; //点击URL
+  optional string   pixel_url      = 17; //pixelUrl
+  optional string   raw_response   = 21; //返回内容
+
+}
+message Request {
+  optional string      click_id  = 1; // Click Id
+  optional RequestInfo request   = 3;
+  optional TradeInfo   trade     = 4;
+}
+message Send {
+  optional string      click_id  = 1; // Click Id
+  optional RequestInfo request   = 3;
+  optional TradeInfo   trade     = 4;
+}
+message WinNotice {
+  optional string      click_id  = 1; // Click Id
+  optional RequestInfo request   = 3;
+  optional TradeInfo   trade     = 4;
+}
+message Impression {
+  optional string      click_id  = 1; // Click Id
+  optional RequestInfo request   = 3;
+  optional TradeInfo   trade     = 4;
+}
+message Click {
+  optional string      click_id  = 1; // Click Id
+  optional RequestInfo request   = 3;
+  optional TradeInfo   trade     = 4;
+}
+
+message Event {
+  //事件类型
+  optional int64      timestamp  = 1;    
+  optional EVENTTYPE  event_type = 2;
+  optional string     event_key  = 3;
+  optional Request    request    = 4;
+  optional  Send       send       = 5;
+  optional  WinNotice  win_notice = 6;
+  optional Impression impression = 7;
+  optional  Click      click      = 8;
+}
