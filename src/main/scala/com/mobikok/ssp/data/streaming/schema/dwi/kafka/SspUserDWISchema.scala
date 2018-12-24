@@ -37,6 +37,8 @@ object SspUserDWISchema{
   StructField("lac",        IntegerType) ::
   StructField("cellid",     IntegerType) ::
   StructField("ctype",      IntegerType) ::
+    StructField("raterType",     IntegerType)  :: //
+    StructField("raterId",      StringType)    :: //
   Nil
   )
 }

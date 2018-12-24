@@ -1,3 +1,4 @@
+alter table add column
 
 ----------------------sql for topn-------------------------------
 -- set b_date = "2017-11-13";

@@ -24,19 +24,19 @@ trait PhoenixStorable extends HBaseStorable {
 
   //integer
   protected def getInt(source: collection.Map[(String, String), Array[Byte]], fieldName: String): Integer ={
-    ifNull(source.get(("0", fieldName)).get, null,  Bytes.toInt(source.get(("0", fieldName)).get) + Int.MaxValue + 1)
+    ifNull(source.get(("0", fieldName)), null,  Bytes.toInt(source.get(("0", fieldName)).get) + Int.MaxValue + 1)
   }
   //string
   protected def getStr(source: collection.Map[(String, String), Array[Byte]], fieldName: String): String ={
-    ifNull(source.get(("0", fieldName)).get, null, Bytes.toString(source.get(("0",fieldName)).get))
+    ifNull(source.get(("0", fieldName)), null, Bytes.toString(source.get(("0",fieldName)).get))
   }
   //double
   protected def getDou(source: collection.Map[(String, String), Array[Byte]], fieldName: String): java.lang.Double = {
-    ifNull(source.get(("0", fieldName)).get, null, java.lang.Double.valueOf( Bytes.toString(source.get(("0", fieldName)).get)))
+    ifNull(source.get(("0", fieldName)), null, java.lang.Double.valueOf( Bytes.toString(source.get(("0", fieldName)).get)))
   }
 
-  def ifNull[T] (o: Array[Byte], a: => T, b: => T): T = {
-    if(o == null) a else b
+  def ifNull[T] (o: Option[Array[Byte]], a: => T, b: => T): T = {
+    if(o == null || o.isEmpty) a else b
   }
 
   def ifNull (o: Any, a: => Array[Byte], b: => Array[Byte]): Array[Byte] = {

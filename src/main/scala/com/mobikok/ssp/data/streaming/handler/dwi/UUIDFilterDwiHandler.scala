@@ -25,16 +25,8 @@ class UUIDFilterDwiHandler extends Handler {
     this.isEnableDwiUuid = isEnableDwiUuid
   }
 
-  override def init(moduleName: String,
-                    transactionManager: TransactionManager,
-                    rDBConfig: RDBConfig,
-                    hbaseClient: HBaseClient,
-                    hiveClient: HiveClient,
-                    kafkaClient: KafkaClient,
-                    handlerConfig: Config,
-                    expr: String,
-                    as: Array[String]): Unit = {
-    super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, handlerConfig, expr, as)
+  override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, handlerConfig: Config, globalConfig: Config, expr: String, as: Array[String]): Unit = {
+    super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, handlerConfig, globalConfig, expr, as)
   }
 
   override def handle(newDwi: DataFrame): (DataFrame, Array[TransactionCookie]) = {

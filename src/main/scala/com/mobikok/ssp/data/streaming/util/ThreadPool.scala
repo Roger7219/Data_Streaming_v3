@@ -1,6 +1,6 @@
 package com.mobikok.ssp.data.streaming.util
 
-import java.util.concurrent.{CountDownLatch, TimeUnit}
+import java.util.concurrent.CountDownLatch
 
 object ThreadPool {
 
@@ -12,10 +12,9 @@ object ThreadPool {
         override def run(): Unit = {
           try {
             r.run()
+            countDownLatch.countDown()
           } catch {
             case e: Exception => throw new RuntimeException("concurrent task error")
-          } finally {
-            countDownLatch.countDown()
           }
         }
       })
@@ -36,10 +35,9 @@ object ThreadPool {
         override def run(): Unit = {
           try {
             r.run()
+            countDownLatch.countDown()
           } catch {
             case e: Exception => throw new RuntimeException("concurrent task error")
-          } finally {
-            countDownLatch.countDown()
           }
         }
       })
@@ -55,10 +53,9 @@ object ThreadPool {
         override def run(): Unit = {
           try {
             r.run()
+            countDownLatch.countDown()
           } catch {
             case e: Exception => throw new RuntimeException("concurrent task error")
-          } finally {
-            countDownLatch.countDown()
           }
         }
       }).start()
@@ -73,10 +70,9 @@ object ThreadPool {
       override def run(): Unit = {
         try {
           r1
+          countDownLatch.countDown()
         } catch {
           case e: Exception => throw new RuntimeException("concurrent task error", e)
-        } finally {
-          countDownLatch.countDown()
         }
       }
     })
@@ -90,10 +86,9 @@ object ThreadPool {
       override def run(): Unit = {
         try {
           r1
+          countDownLatch.countDown()
         } catch {
           case e: Exception => throw new RuntimeException("concurrent task error", e)
-        } finally {
-          countDownLatch.countDown()
         }
       }
     })
@@ -101,10 +96,9 @@ object ThreadPool {
       override def run(): Unit = {
         try {
           r2
+          countDownLatch.countDown()
         } catch {
           case e: Exception => throw new RuntimeException("concurrent task error", e)
-        } finally {
-          countDownLatch.countDown()
         }
       }
     })
@@ -118,10 +112,9 @@ object ThreadPool {
       override def run(): Unit = {
         try {
           r1
+          countDownLatch.countDown()
         } catch {
           case e: Exception => throw new RuntimeException("concurrent task error", e)
-        } finally {
-          countDownLatch.countDown()
         }
       }
     })
@@ -129,10 +122,9 @@ object ThreadPool {
       override def run(): Unit = {
         try {
           r2
+          countDownLatch.countDown()
         } catch {
           case e: Exception => throw new RuntimeException("concurrent task error", e)
-        } finally {
-          countDownLatch.countDown()
         }
       }
     })
@@ -140,10 +132,9 @@ object ThreadPool {
       override def run(): Unit = {
         try {
           r3
+          countDownLatch.countDown()
         } catch {
           case e: Exception => throw new RuntimeException("concurrent task error", e)
-        } finally {
-          countDownLatch.countDown()
         }
       }
     })
@@ -157,10 +148,9 @@ object ThreadPool {
       override def run(): Unit = {
         try {
           r1
+          countDownLatch.countDown()
         } catch {
           case e: Exception => throw new RuntimeException("concurrent task error", e)
-        } finally {
-          countDownLatch.countDown()
         }
       }
     })
@@ -168,10 +158,9 @@ object ThreadPool {
       override def run(): Unit = {
         try {
           r2
+          countDownLatch.countDown()
         } catch {
           case e: Exception => throw new RuntimeException("concurrent task error", e)
-        } finally {
-          countDownLatch.countDown()
         }
       }
     })
@@ -179,10 +168,9 @@ object ThreadPool {
       override def run(): Unit = {
         try {
           r3
+          countDownLatch.countDown()
         } catch {
           case e: Exception => throw new RuntimeException("concurrent task error", e)
-        } finally {
-          countDownLatch.countDown()
         }
       }
     })
@@ -190,14 +178,219 @@ object ThreadPool {
       override def run(): Unit = {
         try {
           r4
+          countDownLatch.countDown()
         } catch {
           case e: Exception => throw new RuntimeException("concurrent task error", e)
-        } finally {
-          countDownLatch.countDown()
         }
       }
     })
     // 无限等待，超过45分钟后通过killself自毁然后重启rollback
     countDownLatch.await()
   }
+
+  def concurrentExecuteStatic(r1: => Unit, r2: => Unit, r3: => Unit, r4: => Unit, r5: => Unit): Unit = {
+    val countDownLatch = new CountDownLatch(5)
+    threadPool.execute(new Runnable {
+      override def run(): Unit = {
+        try {
+          r1
+          countDownLatch.countDown()
+        } catch {
+          case e: Exception => throw new RuntimeException("concurrent task error, ", e)
+        }
+      }
+    })
+    threadPool.execute(new Runnable {
+      override def run(): Unit = {
+        try {
+          r2
+          countDownLatch.countDown()
+        } catch {
+          case e: Exception => throw new RuntimeException("concurrent task error", e)
+        }
+      }
+    })
+    threadPool.execute(new Runnable {
+      override def run(): Unit = {
+        try {
+          r3
+          countDownLatch.countDown()
+        } catch {
+          case e: Exception => throw new RuntimeException("concurrent task error", e)
+        }
+      }
+    })
+    threadPool.execute(new Runnable {
+      override def run(): Unit = {
+        try {
+          r4
+          countDownLatch.countDown()
+        } catch {
+          case e: Exception => throw new RuntimeException("concurrent task error", e)
+        }
+      }
+    })
+    threadPool.execute(new Runnable {
+      override def run(): Unit = {
+        try {
+          r5
+          countDownLatch.countDown()
+        } catch {
+          case e: Exception => throw new RuntimeException("concurrent task error", e)
+        }
+      }
+    })
+    // 无限等待，超过45分钟后通过killself自毁然后重启rollback
+    countDownLatch.await()
+  }
+
+  def concurrentExecuteStatic(r1: => Unit, r2: => Unit, r3: => Unit, r4: => Unit, r5: => Unit, r6: => Unit): Unit = {
+    val countDownLatch = new CountDownLatch(6)
+    threadPool.execute(new Runnable {
+      override def run(): Unit = {
+        try {
+          r1
+          countDownLatch.countDown()
+        } catch {
+          case e: Exception => throw new RuntimeException("concurrent task error", e)
+        }
+      }
+    })
+    threadPool.execute(new Runnable {
+      override def run(): Unit = {
+        try {
+          r2
+          countDownLatch.countDown()
+        } catch {
+          case e: Exception => throw new RuntimeException("concurrent task error", e)
+        }
+      }
+    })
+    threadPool.execute(new Runnable {
+      override def run(): Unit = {
+        try {
+          r3
+          countDownLatch.countDown()
+        } catch {
+          case e: Exception => throw new RuntimeException("concurrent task error", e)
+        }
+      }
+    })
+    threadPool.execute(new Runnable {
+      override def run(): Unit = {
+        try {
+          r4
+          countDownLatch.countDown()
+        } catch {
+          case e: Exception => throw new RuntimeException("concurrent task error", e)
+        }
+      }
+    })
+    threadPool.execute(new Runnable {
+      override def run(): Unit = {
+        try {
+          r5
+          countDownLatch.countDown()
+        } catch {
+          case e: Exception => throw new RuntimeException("concurrent task error", e)
+        }
+      }
+    })
+    threadPool.execute(new Runnable {
+      override def run(): Unit = {
+        try {
+          r6
+          countDownLatch.countDown()
+        } catch {
+          case e: Exception => throw new RuntimeException("concurrent task error", e)
+        }
+      }
+    })
+    // 无限等待，超过45分钟后通过killself自毁然后重启rollback
+    countDownLatch.await()
+  }
+
+  def concurrentExecuteStatic(r1: => Unit, r2: => Unit, r3: => Unit, r4: => Unit, r5: => Unit, r6: => Unit, r7: => Unit): Unit = {
+    val countDownLatch = new CountDownLatch(7)
+    threadPool.execute(new Runnable {
+      override def run(): Unit = {
+        try {
+          r1
+          countDownLatch.countDown()
+        } catch {
+          case e: Exception => throw new RuntimeException("concurrent task error", e)
+        }
+      }
+    })
+    threadPool.execute(new Runnable {
+      override def run(): Unit = {
+        try {
+          r2
+          countDownLatch.countDown()
+        } catch {
+          case e: Exception => throw new RuntimeException("concurrent task error", e)
+        }
+      }
+    })
+    threadPool.execute(new Runnable {
+      override def run(): Unit = {
+        try {
+          r3
+          countDownLatch.countDown()
+        } catch {
+          case e: Exception => throw new RuntimeException("concurrent task error", e)
+        }
+      }
+    })
+    threadPool.execute(new Runnable {
+      override def run(): Unit = {
+        try {
+          r4
+          countDownLatch.countDown()
+        } catch {
+          case e: Exception => throw new RuntimeException("concurrent task error", e)
+        }
+      }
+    })
+    threadPool.execute(new Runnable {
+      override def run(): Unit = {
+        try {
+          r5
+          countDownLatch.countDown()
+        } catch {
+          case e: Exception => throw new RuntimeException("concurrent task error", e)
+        }
+      }
+    })
+    threadPool.execute(new Runnable {
+      override def run(): Unit = {
+        try {
+          r6
+          countDownLatch.countDown()
+        } catch {
+          case e: Exception => throw new RuntimeException("concurrent task error", e)
+        }
+      }
+    })
+    threadPool.execute(new Runnable {
+      override def run(): Unit = {
+        try {
+          r7
+          countDownLatch.countDown()
+        } catch {
+          case e: Exception => throw new RuntimeException("concurrent task error", e)
+        }
+      }
+    })
+    // 无限等待，超过45分钟后通过killself自毁然后重启rollback
+    countDownLatch.await()
+  }
+
+  def execute(fun: => Unit) {
+    threadPool.execute(new Runnable {
+      override def run(): Unit = fun
+    })
+  }
+
+
 }

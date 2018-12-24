@@ -212,7 +212,7 @@ class DefaultUuidFilter extends UuidFilter{
       // 存起所有重复的rowkey
       val reps = _ids.filter{y=>
         val z = y._2
-        LOG.warn(s"ids._2=$z")
+//        LOG.warn(s"ids._2=$z")
         var re = false
         if(z == null || z.length == 0){
           re = false
@@ -222,7 +222,7 @@ class DefaultUuidFilter extends UuidFilter{
             if(!re) {
               val f = uuidBloomFilterMap.get(bt)
 
-              LOG.warn("filterRepeatedUuids", "uuidBloomFilterMap", uuidBloomFilterMap)
+//              LOG.warn("filterRepeatedUuids", "uuidBloomFilterMap", uuidBloomFilterMap)
               val k = new Key(z.getBytes())
 
               if(f.membershipTest(k)) {

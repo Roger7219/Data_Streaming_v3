@@ -73,6 +73,8 @@ object SspTrafficDWISchema{
       StructField("time",           IntegerType) ::
       StructField("isNew",          IntegerType) ::
       StructField("pbResp",         StringType)  :: //postback response信息
-      StructField("recommender",    IntegerType)  :: //推荐框架的算法标记
+      StructField("recommender",    IntegerType) :: //推荐框架的算法标记
+      StructField("raterType",     IntegerType)  :: //
+      StructField("raterId",      StringType)    :: //
         Nil)
 }

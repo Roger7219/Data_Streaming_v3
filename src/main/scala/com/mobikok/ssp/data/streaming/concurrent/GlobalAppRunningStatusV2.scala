@@ -76,7 +76,7 @@ object GlobalAppRunningStatusV2 {
 //            hasWinner.put(concurrentGroup, true)
 
             //
-            LOG.warn(s"Module start running", "moduleName", runningModule._2, "concurrentGroup", concurrentGroup, "threadId", Thread.currentThread().getId)
+              LOG.warn(s"Module start running", "moduleName", runningModule._2, "concurrentGroup", concurrentGroup, "threadId", Thread.currentThread().getId)
             setStatus(concurrentGroup, acquiresModule, STATUS_RUNNING)
           //            hasWinner.put(concurrentGroup, false)
 //          }

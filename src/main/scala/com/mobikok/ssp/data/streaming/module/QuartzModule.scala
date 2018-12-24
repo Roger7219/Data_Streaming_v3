@@ -87,6 +87,11 @@ class QuartzModule(config: Config,
     bigQueryClient = new BigQueryClient(moduleName, config, ssc, messageClient, hiveContext)
   }catch {case e:Throwable => LOG.warn("BigQueryClient init fail, Skiped it", s"${e.getClass.getName}: ${e.getMessage}")}
 
+  var clickHouseClient = null.asInstanceOf[ClickHouseClient]
+  try {
+    clickHouseClient = new ClickHouseClient(moduleName, config, ssc, messageClient, mixTransactionManager, hiveContext, moduleTracer)
+  } catch {case e: Exception => LOG.warn(s"Init clickhouse client failed, skip it, ${e.getMessage}")}
+
   val rDBConfig = new RDBConfig(mySqlJDBCClientV2)
 
   var dwiPhoenixEnable = false
@@ -221,7 +226,7 @@ class QuartzModule(config: Config,
     dwrGroupbyExtendedFields = config.getConfigList(s"modules.$moduleName.dwr.groupby.extended.fields").map{ x=>
       val hc = x.getConfig("handler")
       var h = Class.forName(hc.getString("class")).newInstance().asInstanceOf[com.mobikok.ssp.data.streaming.handler.dwr.Handler]
-      h.init(moduleName, hbaseClient, hiveContext, hc, x.getString("expr"), x.getString("as"))
+      h.init(moduleName, mixTransactionManager, hbaseClient, hiveClient, clickHouseClient, hc, config, x.getString("expr"), x.getString("as"))
       h
     }.toList
   }catch {case e:Exception =>}
@@ -238,7 +243,7 @@ class QuartzModule(config: Config,
     dwrGroupbyExtendedAggs = config.getConfigList(s"modules.$moduleName.dwr.groupby.extended.aggs").map{ x=>
       val hc = x.getConfig("handler")
       var h = Class.forName(hc.getString("class")).newInstance().asInstanceOf[com.mobikok.ssp.data.streaming.handler.dwr.Handler]
-      h.init(moduleName, hbaseClient, hiveContext, hc, x.getString("expr"), x.getString("as"))
+      h.init(moduleName, mixTransactionManager, hbaseClient, hiveClient, clickHouseClient, hc, config, x.getString("expr"), x.getString("as"))
       h
     }.toList
   }catch {case e:Exception =>}
@@ -356,7 +361,7 @@ class QuartzModule(config: Config,
       var h: Handler = Class.forName(x.getString("class")).newInstance().asInstanceOf[Handler]
       h.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient,kylinClient, hbaseClient, hiveContext, x)
       if (h.isInstanceOf[ClickHouseQueryByBTimeHandler] || h.isInstanceOf[ClickHouseQueryByBDateHandler]) {
-        h.setClickHouseClient(new ClickHouseClient(moduleName, config, ssc, messageClient, hiveContext))
+        h.setClickHouseClient(new ClickHouseClient(moduleName, config, ssc, messageClient, mixTransactionManager, hiveContext, moduleTracer))
       }
       dmHandlers.add(h)
     }
@@ -457,7 +462,7 @@ class QuartzModule(config: Config,
           as =  x.getStringList("as")
         }catch {case ex:Throwable=>}
 
-        h.init(moduleName, mixTransactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, hc, col/*x.getString("expr")*/, as.toArray( Array[String]() ))
+        h.init(moduleName, mixTransactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, hc, config, col/*x.getString("expr")*/, as.toArray( Array[String]() ))
         (as, expr(col), h)
       }.toList
     }

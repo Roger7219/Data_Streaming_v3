@@ -8,8 +8,7 @@ import com.mobikok.ssp.data.streaming.client.cookie.TransactionCookie
 trait Transactional {
 
   def init() : Unit
-  def commit(cookie: TransactionCookie) : Unit
   def rollback(cookies: TransactionCookie*) : Cleanable
+  def commit(cookie: TransactionCookie) : Unit
   def clean(cookies: TransactionCookie*): Unit
-
 }

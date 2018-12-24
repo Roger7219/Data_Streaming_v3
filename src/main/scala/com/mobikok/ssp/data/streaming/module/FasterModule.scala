@@ -15,7 +15,7 @@ import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.feature.HBaseStorable
 import com.mobikok.ssp.data.streaming.entity.{HivePartitionPart, LatestOffsetRecord, OffsetRange}
 import com.mobikok.ssp.data.streaming.exception.ModuleException
-import com.mobikok.ssp.data.streaming.handler.dm.Handler
+import com.mobikok.ssp.data.streaming.handler.dm.offline.{ClickHouseQueryByBDateHandler, ClickHouseQueryByBTimeHandler, ClickHouseQueryMonthHandler, Handler}
 import com.mobikok.ssp.data.streaming.handler.dwi.UUIDFilterDwiHandler
 import com.mobikok.ssp.data.streaming.handler.dwr.UUIDFilterDwrHandler
 import com.mobikok.ssp.data.streaming.module.support._
@@ -27,7 +27,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{Column, DataFrame}
+import org.apache.spark.sql.{Column, DataFrame, SaveMode, SparkSession}
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.streaming.dstream.InputDStream
@@ -53,7 +53,7 @@ class FasterModule(config: Config,
 
   //----------------------  Constants And Fields  -------------------------
   val appName = ssc.sparkContext.getConf.get("spark.app.name")
-  val ksc = Class.forName(config.getString(s"modules.${moduleName}.dwi.kafka.schema"))
+  val ksc = Class.forName(config.getString(s"modules.$moduleName.dwi.kafka.schema"))
   val dwiStructType = ksc.getMethod("structType").invoke(ksc.newInstance()).asInstanceOf[StructType]
 
   val dwiUuidFieldsSeparator = "^"
@@ -66,6 +66,10 @@ class FasterModule(config: Config,
   val COOKIE_KIND_DWR_T = "dwrT"
   val COOKIE_KIND_DWR_ACC_DAY_T = "dwrAccDayT"
   val COOKIE_KIND_DWR_ACC_MONTH_T = "dwrAccMonthT"
+  val COOKIE_KIND_DWR_MYSQL_DAY_T = "dwrMySQLDayT"
+  val COOKIE_KIND_DWR_MYSQL_MONTH_T = "dwrMySQLMonthT"
+  val COOKIE_KIND_DWR_CLICKHOUSE_T = "dwrClickHouseT"
+  val COOKIE_KIND_DWR_CLICKHOUSE_DAY_T = "dwrClickHouseDayT"
   //  val COOKIE_KIND_DWI_PHOENIX_T = "dwiPhoenixT"
   val COOKIE_KIND_KAFKA_T = "kafkaT"
   val COOKIE_KIND_DM_T = "dmT"
@@ -157,41 +161,58 @@ class FasterModule(config: Config,
     case _: Exception =>
   }
 
+  var isMaster = mixModulesBatchController.isMaster(moduleName)
+
   // h2 数据库参数
   val h2Driver = "org.h2.Driver"
   var h2JDBCConnectionUrl = "jdbc:h2:tcp://node14:10010/mem:campaign;DB_CLOSE_DELAY=-1"
-  try {
-    h2JDBCConnectionUrl = config.getString(s"modules.$moduleName.h2.url")
-  } catch {
-    case _: Exception =>
-  }
+  runInTry{h2JDBCConnectionUrl = config.getString(s"modules.$moduleName.h2.url")}
+
   var h2PersistFields: Array[(String, String)] = _
-  try {
+  runInTry{
     h2PersistFields = config.getConfigList(s"modules.$moduleName.h2.fields").map{ x =>
       (x.getString("expr"), x.getString("as"))
     }.toArray
-  } catch {
-    case _: Exception =>
   }
+
   var h2PersistAggFields: Array[(String, String)] = _
-  try {
+  runInTry{
     h2PersistAggFields = config.getConfigList(s"modules.$moduleName.h2.agg").map{ x =>
       (x.getString("expr"), x.getString("as"))
     }.toArray
-  } catch {
-    case _: Exception =>
   }
+
   var h2TableName = "CampaignSearch"
-  try {
-    h2TableName = config.getString(s"modules.$moduleName.h2.table.name")
-  } catch {
-    case _: Exception =>
+  runInTry{h2TableName = config.getString(s"modules.$moduleName.h2.table.name")}
+
+  // clickhouse缓存批次数据
+  // 小时
+  var clickhousePersis = false
+  runInTry{ clickhousePersis = config.getBoolean(s"modules.$moduleName.dwr.clickhouse.hour.enable") }
+  var clickhousePeresisTable: String =_
+//  var clickhousePeresisFields: Array[String] = _
+  if (clickhousePersis) {
+    clickhousePeresisTable = config.getString(s"modules.$moduleName.dwr.clickhouse.hour.table.name")
+//    clickhousePeresisFields = config.getStringList(s"modules.$moduleName.dwr.clickhouse.hour.fields").asScala.toArray
   }
-
-  var mysqlPersis = false
-  var mysqlPersisDay = false
-  var mysqlPersisMonth = false
-
+  // 天
+  var clickhousePersisDay = false
+  runInTry{clickhousePersisDay = config.getBoolean(s"modules.$moduleName.dwr.clickhouse.day.enable")}
+  var clickhousePeresisTableDay: String =_
+//  var clickhousePeresisFieldsDay: Array[String] = _
+  if (clickhousePersisDay) {
+    clickhousePeresisTableDay = config.getString(s"modules.$moduleName.dwr.clickhouse.day.table.name")
+//    clickhousePeresisFieldsDay = config.getStringList(s"modules.$moduleName.dwr.clickhouse.day.fields").asScala.toArray
+  }
+  // 月
+  var clickhousePersisMonth = false
+  runInTry{clickhousePersisMonth = config.getBoolean(s"modules.$moduleName.dwr.clickhouse.month.enable")}
+  var clickhousePeresisTableMonth: String =_
+//  var clickhousePeresisFieldsMonth: Array[String] = _
+  if (clickhousePersisMonth) {
+    clickhousePeresisTableMonth = config.getString(s"modules.$moduleName.dwr.clickhouse.month.table.name")
+//    clickhousePeresisFieldsMonth = config.getStringList(s"modules.$moduleName.dwr.clickhouse.month.fields").asScala.toArray
+  }
   //-------------------------  Constants And Fields End  -------------------------
 
 
@@ -238,7 +259,18 @@ class FasterModule(config: Config,
   val phoenixClient = new PhoenixClient(moduleName, ssc.sparkContext, config, mixTransactionManager, moduleTracer)
   //  val greenplumClient = new GreenplumClient(moduleName, config, ssc, messageClient, mixTransactionManager, moduleTracer)
   val greenplumClient = null.asInstanceOf[GreenplumClient]
-  val h2JDBCClient = new H2JDBCClient(h2JDBCConnectionUrl, "", "")
+  var h2JDBCClient = null.asInstanceOf[H2JDBCClient]
+  try {
+    h2JDBCClient = new H2JDBCClient(h2JDBCConnectionUrl, "", "")
+  } catch {
+    case e: Exception => LOG.warn(s"Init h2 client failed, skip it, ${e.getMessage}")
+  }
+
+  val mysqlClient = new MySQLClient(moduleName, ssc.sparkContext, config, messageClient, mixTransactionManager, moduleTracer)
+  var clickHouseClient = null.asInstanceOf[ClickHouseClient]
+  try {
+    clickHouseClient = new ClickHouseClient(moduleName, config, ssc, messageClient, mixTransactionManager, hiveContext, moduleTracer)
+  } catch {case e: Exception => LOG.warn(s"Init clickhouse client failed, skip it, ${e.getMessage}")}
   //-------------------------  Clients End  -------------------------
 
 
@@ -317,13 +349,6 @@ class FasterModule(config: Config,
     uuidFilter = new DefaultUuidFilter()
   }
   uuidFilter.init(moduleName, config, hiveContext, moduleTracer, dwiUuidFieldsAlias, businessTimeExtractBy, dwiTable)
-  //  table = "app", on = "app.id  = dwi.appid", select = "app.publisherId"
-  //  var dwiLeftJoin:List[(String, String, String)] = null
-  //  try{
-  //    dwiLeftJoin = config.getConfigList(s"modules.$moduleName.dwi.join.left").map{x=>
-  //      (x.getString("table"), x.getString("on"), x.getString("select"))
-  //    }.toList
-  //  } catch {case e:Exception=>}
   //-------------------------  Dwi End  -------------------------
 
 
@@ -331,8 +356,19 @@ class FasterModule(config: Config,
   var dwrGroupByExprs: List[Column] = _
   try {
     dwrGroupByExprs = config.getConfigList(s"modules.$moduleName.dwr.groupby.fields").map {
-      x => expr(x.getString("expr")).as(x.getString("as"))
+      x => expr(x.getString("overwrite")).as(x.getString("as"))
+//      (x.getString("expr"), x.getString("as"), x.getString("overwrite"))
     }.toList
+  } catch {
+    case e: Exception =>
+  }
+
+  var dwrGroupByOverwrite = new util.HashMap[String, (String, String)]()
+  try {
+    config.getConfigList(s"modules.$moduleName.dwr.groupby.fields").foreach { x =>
+//      x => expr(x.getString("groupby"))
+      dwrGroupByOverwrite.put(x.getString("overwrite"), (x.getString("expr"), x.getString("groupby")))
+    }
   } catch {
     case e: Exception =>
   }
@@ -370,7 +406,7 @@ class FasterModule(config: Config,
   }
 
   var dwrHandlers: List[com.mobikok.ssp.data.streaming.handler.dwr.Handler] = _
-  if (!dwrIncludeRepeated) {
+  if (!dwrIncludeRepeated && isMaster) {
     dwrHandlers = List(new UUIDFilterDwrHandler(uuidFilter))
   } else {
     dwrHandlers = List()
@@ -380,35 +416,14 @@ class FasterModule(config: Config,
     dwrHandlers = dwrHandlers ++ config.getConfigList(s"modules.$moduleName.dwr.handler").map { x =>
       val hc = x.getConfig("handler")
       var h = Class.forName(hc.getString("class")).newInstance().asInstanceOf[com.mobikok.ssp.data.streaming.handler.dwr.Handler]
-      h.init(moduleName, hbaseClient, hiveContext, hc, x.getString("expr"), x.getString("as"))
+      h.init(moduleName, mixTransactionManager, hbaseClient, hiveClient, clickHouseClient, hc, config, x.getString("expr"), x.getString("as"))
       h
     }.toList
   } catch {
     case e: Exception =>
   }
 
-
-  //  var dwrGroupbyExtendedFieldsAlias = Array[String]()
-  //  try {
-  //    dwrGroupbyExtendedFieldsAlias = config.getConfigList(s"modules.$moduleName.dwr.handler").map {
-  //      x => x.getString("as")
-  //    }.toArray[String]
-  //  }catch {case  e:Exception=>}
-
-
-  //  var dwrBeforeFilter: String = null
-  //  try {
-  //    dwrBeforeFilter = config.getString(s"modules.$moduleName.dwr.filter.before")
-  //  }catch {case e:Exception=>}
-
-  //  var dwrAfterFilter: String = null
-  //  try {
-  //    dwrAfterFilter = config.getString(s"modules.$moduleName.dwr.filter.after")
-  //  }catch {case e:Exception=>}
-
-
   var isEnableDwr = false
-  var isMaster = mixModulesBatchController.isMaster(moduleName)
 
   var dwrTable: String = _
   try {
@@ -420,7 +435,6 @@ class FasterModule(config: Config,
     dwrTable = config.getString(s"modules.$moduleName.dwr.table")
   }
   //-------------------------  Dwr End  -------------------------
-
 
   //-------------------------  Dm about  -------------------------
   var dmLoadTimeFormat = CSTTime.formatter("yyyy-MM-dd HH:mm:ss")
@@ -465,8 +479,11 @@ class FasterModule(config: Config,
     try {
       dmHandlers = new util.ArrayList[Handler]()
       config.getConfigList(s"modules.$moduleName.dm.handler.setting").foreach { setting =>
-        var h = Class.forName(setting.getString("class")).newInstance().asInstanceOf[com.mobikok.ssp.data.streaming.handler.dm.Handler]
+        var h = Class.forName(setting.getString("class")).newInstance().asInstanceOf[com.mobikok.ssp.data.streaming.handler.dm.offline.Handler]
         h.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient, kylinClient, hbaseClient, hiveContext, setting)
+        if (h.isInstanceOf[ClickHouseQueryByBTimeHandler] || h.isInstanceOf[ClickHouseQueryByBDateHandler] || h.isInstanceOf[ClickHouseQueryMonthHandler]) {
+          h.setClickHouseClient(clickHouseClient)
+        }
         dmHandlers.add(h)
       }
     } catch {
@@ -478,7 +495,7 @@ class FasterModule(config: Config,
 
   def initDwiHandlers(): Unit = {
     val uuidFilterHandler = new UUIDFilterDwiHandler(uuidFilter, businessTimeExtractBy, isEnableDwiUuid)
-    uuidFilterHandler.init(moduleName, mixTransactionManager, rDBConfig, hbaseClient, hiveClient, null, config, "null", Array[String]())
+    uuidFilterHandler.init(moduleName, mixTransactionManager, rDBConfig, hbaseClient, hiveClient, null, config, config, "null", Array[String]())
 
     if (config.hasPath(s"modules.$moduleName.dwi.handler")) {
       dwiHandlers = config.getConfigList(s"modules.$moduleName.dwi.handler").map { x =>
@@ -499,7 +516,7 @@ class FasterModule(config: Config,
           case ex: Throwable =>
         }
 
-        h.init(moduleName, mixTransactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, hc, col /*x.getString("expr")*/ , as.toArray(Array[String]()))
+        h.init(moduleName, mixTransactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, hc, config, col /*x.getString("expr")*/ , as.toArray(Array[String]()))
         LOG.warn("init dwi handler", h.getClass.getName)
         (as, expr(col), h)
       }.toList
@@ -507,7 +524,7 @@ class FasterModule(config: Config,
     dwiHandlers = (new util.ArrayList[String](), expr("null"), uuidFilterHandler) :: (if (dwiHandlers == null) Nil else dwiHandlers)
   }
 
-  @volatile var hiveCleanable, hbaseCleanable, kafkaCleanable, phoenixCleanable: Cleanable = _
+  @volatile var hiveCleanable, mysqlCleanable, clickHouseCleanable, hbaseCleanable, kafkaCleanable, phoenixCleanable: Cleanable = _
 
   override def init(): Unit = {
     try {
@@ -519,13 +536,17 @@ class FasterModule(config: Config,
       if (hbaseClient != null) hbaseClient.init()
       kafkaClient.init()
       phoenixClient.init()
+      mysqlClient.init()
+      clickHouseClient.init()
 
       initDwiHandlers()
 
       hiveCleanable = hiveClient.rollback()
+      mysqlCleanable = mysqlClient.rollback()
       if (hbaseClient != null) hbaseCleanable = hbaseClient.rollback()
       kafkaCleanable = kafkaClient.rollback()
       phoenixCleanable = phoenixClient.rollback()
+      clickHouseCleanable = clickHouseClient.rollback()
 
       mySqlJDBCClientV2.execute(
         s"""
@@ -572,28 +593,8 @@ class FasterModule(config: Config,
       override def run(): Unit = {
         val last = ""
         while (true) {
-          //          val r = moduleTracer.getHistoryBatchesTraceResult()
           LOG.warn("Module heartbeat", moduleTracer.getHistoryBatchesTraceResult())
-          //          if(r != null && !r.equals(last)) {
-          //            mySqlJDBCClientV2.execute(
-          //              s"""
-          //                 |insert into module_running_status(
-          //                 |  app_name,
-          //                 |  module_name,
-          //                 |  update_time,
-          //                 |  batch_using_time_trace
-          //                 |)values(
-          //                 |  "$appName",
-          //                 |  "$moduleName",
-          //                 |  now(),
-          //                 |  "${r}"
-          //                 |)
-          //                 |on duplicate key update
-          //                 |  app_name = values(app_name),
-          //                 |  update_time = values(update_time),
-          //                 |  batch_using_time_trace = values(batch_using_time_trace)
-          //                 |""".stripMargin)
-          //          }
+
           Thread.sleep(1000 * 60 * 3L)
         }
       }
@@ -724,7 +725,7 @@ class FasterModule(config: Config,
             dwi = dwi.select(expr(s"null as $dwiUuidFieldsAlias"), col("*"))
           }
 
-          dwi = dwi.alias("dwi").persist(StorageLevel.MEMORY_ONLY_SER)
+          dwi = dwi.alias("dwi").cache()//.persist(StorageLevel.MEMORY_ONLY_SER)
           dwi.count()
           moduleTracer.trace("read kafka")
           moduleReadingKafkaMarks.put(moduleName, false)
@@ -761,33 +762,6 @@ class FasterModule(config: Config,
                 // 待删
                 var uuidDwi: DataFrame = null
 
-                //              // Statistical repeats
-                //              if (isEnableDwiUuid) {
-                //                uuidDwi = uuidFilter.filter(dwi).alias("dwi")
-                //
-                //                uuidDwi = uuidDwi.selectExpr(
-                //                  s"dwi.*",
-                //                  s"$dwiLTimeExpr as l_time",
-                //                  s"cast(to_date($businessTimeExtractBy) as string)  as b_date",
-                //                  s"from_unixtime(unix_timestamp($businessTimeExtractBy), '$dwiBTimeFormat')  as b_time"
-                //                )
-                //              } else {
-                //                uuidDwi = dwi
-                //                  .selectExpr(
-                //                    s"0 as repeats",
-                //                    s"dwi.*",
-                //                    s"'N' as repeated",
-                //                    s"$dwiLTimeExpr as l_time",
-                //                    s"cast(to_date($businessTimeExtractBy) as string)  as b_date",
-                //                    s"from_unixtime(unix_timestamp($businessTimeExtractBy), '$dwiBTimeFormat')  as b_time"
-                //                  )
-                //              }
-                //
-                //              uuidDwi.persist(StorageLevel.MEMORY_ONLY_SER)
-                //              uuidDwi.count()
-                //              dwi.unpersist()
-                //              moduleTracer.trace("uuid repeats stat")
-
                 //-----------------------------------------------------------------------------------------------------------------
                 //  DWI Handler
                 //-----------------------------------------------------------------------------------------------------------------
@@ -804,38 +778,17 @@ class FasterModule(config: Config,
                   }
                 }
 
-                //              // 待删
-                //              //left join
-                //              if (dwiLeftJoin != null) {
-                //                dwiLeftJoin.foreach { x =>
-                //                  val table = hiveContext.read.table(x._1).alias(x._1)
-                //                  handledDwi = handledDwi.join(table, expr(x._2), "left_outer").selectExpr("dwi.*", x._3)
-                //                }
-                //                moduleTracer.trace("dwi left join")
-                //              }
-
                 var dwrDwi = handledDwi
                 // Group by, Do not contain duplicate
                 if (isEnableDwr) {
-                  //                // 待删
-                  //                if (!dwrIncludeRepeated) {
-                  //                  dwrDwi = dwrDwi.where(uuidFilter.dwrNonRepeatedWhere())
-                  //                }
-                  //
-                  //                // 待删
                   var filteredDwi: DataFrame = dwrDwi
-                  //                if (dwrBeforeFilter != null) {
-                  //                  filteredDwi = dwrDwi.where(dwrBeforeFilter)
-                  //                  LOG.warn("filteredNewDwi filter by dwr.filter.before", dwrBeforeFilter)
-                  //                } else {
-                  //                  filteredDwi = dwrDwi
-                  //                }
 
                   //-----------------------------------------------------------------------------------------------------------------
                   //  DWR prepare handle
                   //-----------------------------------------------------------------------------------------------------------------
                   if (dwrHandlers != null && dwrHandlers.nonEmpty) {
-                    if (!isMaster && dwrHandlers.size == 1 && !dwrHandlers.head.isInstanceOf[UUIDFilterDwrHandler]) {
+//                    if (!isMaster && dwrHandlers.size == 1 && !dwrHandlers.head.isInstanceOf[UUIDFilterDwrHandler]) {
+                    if (!isMaster && dwrHandlers.size > 0) {
                       LOG.warn(dwrHandlers.head.getClass.getName)
                       throw new ModuleException("Module of include 'dwr.handler' must config: master=true")
                     }
@@ -846,7 +799,9 @@ class FasterModule(config: Config,
                     }
                   }
 
-                  val dwr = filteredDwi
+                  val dwiFs = filteredDwi.schema.fieldNames
+//                  val dwrGroupBy = dwrGroupByExprs.map{ x => x._2 }
+                  val dwr = filteredDwi.selectExpr(dwiFs.map{ x => if (dwrGroupByOverwrite.contains(x)) s"${dwrGroupByOverwrite.get(x)._1} as ${dwrGroupByOverwrite.get(x)._2}" else x}: _*)
                     .withColumn("l_time", expr(dwrLTimeExpr))
                     .withColumn("b_date", to_date(expr(businessTimeExtractBy)).cast("string"))
                     .withColumn("b_time", expr(s"from_unixtime(unix_timestamp($businessTimeExtractBy), '$dwrBTimeFormat')").as("b_time"))
@@ -864,32 +819,19 @@ class FasterModule(config: Config,
                   //  DWR handle
                   //-----------------------------------------------------------------------------------------------------------------
                   if (dwrHandlers != null && dwrHandlers.nonEmpty) {
-                    if (!isMaster && dwrHandlers.size == 1 && !dwrHandlers.head.isInstanceOf[UUIDFilterDwrHandler]) {
+//                    if (!isMaster && dwrHandlers.size == 1 && !dwrHandlers.head.isInstanceOf[UUIDFilterDwrHandler]) {
+                    if (!isMaster && dwrHandlers.size > 0) {
                       LOG.warn(dwrHandlers.head.getClass.getName)
                       throw new ModuleException("Module of include 'dwr.handler' must config: master=true")
                     }
                     dwrHandlers.foreach { x =>
                       mixModulesBatchController.set({
-                        x.handle(mixModulesBatchController.get())
+                        x.handle(mixModulesBatchController.get())._2
                       })
                       LOG.warn(s"Dwr ${x.getClass.getSimpleName} handle completed")
                       moduleTracer.trace(s"dwr ${x.getClass.getSimpleName} handle")
                     }
                   }
-
-                  // 待删，在Handler.handle中实现
-                  //                if (dwrAfterFilter != null) {
-                  //                  if (!isMaster) {
-                  //                    throw new ModuleException("Module of include 'dwr.filter.after' must config: master=true")
-                  //                  }
-                  //                  mixModulesBatchController.set({
-                  //                    mixModulesBatchController.get().where(dwrAfterFilter)
-                  //                  })
-                  //                  //            cacheGroupByDwr = cacheGroupByDwr.where(dwrAfterFilter)
-                  //                  LOG.warn("hiveClient cacheGroupByDwr filter by dwr.filter.after", dwrAfterFilter)
-                  //                }
-                  //
-                  //                moduleTracer.trace("dwr after filter")
                 }
 
                 //-----------------------------------------------------------------------------------------------------------------
@@ -900,14 +842,15 @@ class FasterModule(config: Config,
 
                 var uuidT, dwrT, dwiT, dwiPhoenixT, kafkaT, dmT: TransactionCookie = null
                 var dwrAccDayT, dwrAccMonthT: TransactionCookie = null
+                var dwrMySQLT, dwrMySQLDayT, dwrMySQLMonthT, dwrMySQLYearT: TransactionCookie = null
+                var dwrClickHouseT, dwrClickHouseDayT: TransactionCookie= null
+                val transactionCookies: Array[TransactionCookie] = null
 
-                //          var pDwi: DataFrame = null
-                //          var pDwr: DataFrame = null
                 var ts = Array("repeated", "l_time", "b_date", "b_time")
                 var iPs: Array[Array[HivePartitionPart]] = null
                 var rPs: Array[Array[HivePartitionPart]] = null
-                var rPs_accday: Array[Array[HivePartitionPart]] = null
-                var rPs_accmonth: Array[Array[HivePartitionPart]] = null
+//                var rPs_accday: Array[Array[HivePartitionPart]] = null
+//                var rPs_accmonth: Array[Array[HivePartitionPart]] = null
 
                 //-----------------------------------------------------------------------------------------------------------------
                 // DWI partitions count
@@ -943,30 +886,29 @@ class FasterModule(config: Config,
                   LOG.warn("count dwr partitions")
                   moduleTracer.trace("count dwr partitions")
 
-                  if (needDwrAccDay) {
-                    rPs_accday = convertRPsToDayFormat(rPs)
-                  }
-
-                  if (needDwrAccMonth) {
-                    rPs_accmonth = convertRPsToMonthFormat(rPs)
-                  }
+//                  if (needDwrAccDay) {
+//                    rPs_accday = convertRPsToDayFormat(rPs)
+//                  }
+//
+//                  if (needDwrAccMonth) {
+//                    rPs_accmonth = convertRPsToMonthFormat(rPs)
+//                  }
                 }
 
                 //-----------------------------------------------------------------------------------------------------------------
                 // DWR Hive Persistence
                 //-----------------------------------------------------------------------------------------------------------------
-                // TODO 线程池开始
+                // 线程池开始
                 ThreadPool.concurrentExecuteStatic({
                   if (isEnableDwr && dwiCount > 0) {
                     if (isMaster) {
                       LOG.warn("master start to calc new data to hive")
                       var dwrFields = mixModulesBatchController.get().schema.fieldNames
-
                       moduleTracer.startBatch
 
                       ThreadPool.concurrentExecuteStatic({
                         moduleTracer.startBatch
-                        dwrT = hiveClient.overwriteUnionSum(
+                        dwrT = hiveClient.overwriteUnionSum (
                           parentTid,
                           dwrTable,
                           mixModulesBatchController.get(),
@@ -1015,15 +957,15 @@ class FasterModule(config: Config,
                               aggExprsAlias,
                               unionAggExprsAndAlias,
                               dwrGroupByExprsAlias,
-                              rPs_accday,
+//                              rPs_accday,
                               "l_time",
                               "b_date",
                               "b_time"
                             )
-                          } catch{ case e: Exception => {
+                          } catch { case e: Exception =>
                             LOG.warn("overwriteUnionSum acc day error")
-                            throw new RuntimeException(s"module ${moduleName} overwrite union sum error at time ${new Date().toString}")
-                          }}
+                            throw new RuntimeException(s"module $moduleName overwrite union sum error at time ${new Date().toString}")
+                          }
 
                           moduleTracer.trace("hive acc day dwr save")
                         }
@@ -1061,25 +1003,39 @@ class FasterModule(config: Config,
                               aggExprsAlias,
                               unionAggExprsAndAlias,
                               dwrGroupByExprsAlias, //dwrGroupByExprsAlias ++ dwrGroupbyExtendedFieldsAlias,
-                              rPs_accmonth,
+//                              rPs_accmonth,
                               "l_time",
                               "b_date",
                               "b_time"
                             )
                           } catch {
-                            case e: Exception => {
+                            case e: Exception =>
                               LOG.warn("overwriteUnionSum acc month error")
-                              throw new RuntimeException(s"module ${moduleName} overwrite union sum error at time ${new Date().toString}")
-                            }
+                              throw new RuntimeException(s"module $moduleName overwrite union sum error at time ${new Date().toString}")
                           }
-
                           moduleTracer.trace("hive acc month dwr save")
+                        }
+                      }, {
+                        if (clickhousePersis) {
+                          moduleTracer.startBatch
+                          LOG.warn(s"ClickHouseClient overwriteUnionSum dwrTable start")
+                          dwrClickHouseT = clickHouseClient.overwriteUnionSum(
+                            parentTid,
+                            dwrTable,
+                            clickhousePeresisTable,
+                            mixModulesBatchController.get(),
+                            rPs,
+                            "l_time",
+                            "b_date",
+                            "b_time"
+                          )
+                          LOG.warn("clickHouseClient overwriteUnionSum dwrTable completed", dwrClickHouseT)
+                          moduleTracer.trace("clickhosue dwr save")
                         }
                       })
                       moduleTracer.trace("hive all dwr save")
                     }
                   }
-
                 }, {
                   //-----------------------------------------------------------------------------------------------------------------
                   // DWI Hive Persistence
@@ -1096,16 +1052,15 @@ class FasterModule(config: Config,
                     moduleTracer.trace("hive dwi save")
                     //          traceBatchUsingTime("hvie dwi save", lastTraceTime, traceBatchUsingTimeLog)
                   }
-
                 })
-                // TODO 线程池结束
+                // 线程池结束
 
-                if (needH2Persistence) {
+                if (isMaster && needH2Persistence) {
                   // create table if not exists
-                  var fields = (h2PersistFields.map{x => s"${x._1} as ${x._2}"}) ++ (h2PersistAggFields.map{ x => x._2})
+                  var fields = h2PersistFields.map{x => s"${x._1} as ${x._2}"} ++ h2PersistAggFields.map{ x => x._2}
                   var persistData = hiveContext.read.table(dwrTable).selectExpr(fields:_*)
                   val h2Fields = persistData.schema.fields.map{ x =>
-                    s"${x.name} ${convertHiveDataTypeToH2DataType(x.dataType)}"
+                    s"${x.name} ${x.dataType.simpleString}"
                   }
                   val sqlBuilder = new mutable.StringBuilder()
                   sqlBuilder.append("CREATE MEMORY TABLE IF NOT EXISTS ").append(h2TableName).append("(")
@@ -1119,7 +1074,7 @@ class FasterModule(config: Config,
                     .agg(h2PersistAggFields.map{ x => expr(x._1).as(x._2)}.head, h2PersistAggFields.map{ x => expr(x._1).as(x._2)}.tail:_*)
                     .collect()
                   LOG.warn("h2 data length", s"data length = ${data.length}")
-                  fields = (h2PersistFields.map{x => s"${x._2}"}) ++ (h2PersistAggFields.map{ x => x._2})
+                  fields = h2PersistFields.map{x => s"${x._2}"} ++ h2PersistAggFields.map{ x => x._2}
                   h2JDBCClient.executeBatch(data.map{ x=>
                     val insertSQL = s"""INSERT INTO $h2TableName(${fields.mkString(", ")}) VALUES(${x.mkString(",")})"""
                     LOG.warn("h2 insert", "insert sql: \n" + insertSQL)
@@ -1127,7 +1082,6 @@ class FasterModule(config: Config,
 //                    s"""INSERT INTO $h2TableName(${fields.mkString(", ")}) VALUES(${x.mkString(",")})"""
                   }:_*)
                 }
-
 
 
                 //-----------------------------------------------------------------------------------------------------------------
@@ -1156,10 +1110,10 @@ class FasterModule(config: Config,
                         LatestOffsetRecord(moduleName, o.topic, o.partition, o.untilOffset)
                       }
 
-                    MC.push(new PushReq(latestPartitionOffsetTopic, OM.toJOSN(data)))
+                    MC.push(PushReq(latestPartitionOffsetTopic, OM.toJOSN(data)))
 
 
-                    MC.push(new PushReq(KEEP_OFFSET_TOPIC, CSTTime.now.time()))
+                    MC.push(PushReq(KEEP_OFFSET_TOPIC, CSTTime.now.time()))
 
                   }
 
@@ -1217,6 +1171,10 @@ class FasterModule(config: Config,
                 cacheTransactionCookies(COOKIE_KIND_DWR_T, dwrT)
                 cacheTransactionCookies(COOKIE_KIND_DWR_ACC_DAY_T, dwrAccDayT)
                 cacheTransactionCookies(COOKIE_KIND_DWR_ACC_MONTH_T, dwrAccMonthT)
+//                cacheTransactionCookies(COOKIE_KIND_DWR_MYSQL_DAY_T, dwrMySQLDayT)
+//                cacheTransactionCookies(COOKIE_KIND_DWR_MYSQL_MONTH_T, dwrMySQLMonthT)
+                cacheTransactionCookies(COOKIE_KIND_DWR_CLICKHOUSE_T, dwrClickHouseT)
+                cacheTransactionCookies(COOKIE_KIND_DWR_CLICKHOUSE_DAY_T, dwrClickHouseDayT)
                 cacheTransactionCookies(COOKIE_KIND_KAFKA_T, kafkaT)
                 cacheTransactionCookies(COOKIE_KIND_DM_T, dmT)
 
@@ -1225,7 +1183,7 @@ class FasterModule(config: Config,
                 //------------------------------------------------------------------------------------
                 if (isEnableDwr && isMaster && dwiCount > 0) {
                   //                  val threadPool = new ThreadPool()
-                  // TODO 线程池开始
+                  // 线程池开始
                   ThreadPool.concurrentExecuteStatic({
                     moduleTracer.startBatch
                     hiveClient.commit(dwrT)
@@ -1242,8 +1200,16 @@ class FasterModule(config: Config,
                       hiveClient.commit(dwrAccMonthT)
                       moduleTracer.trace("hive acc month dwr commit")
                     }
+                  }, {
+                    if (clickhousePersis) {
+                      moduleTracer.startBatch
+                      clickHouseClient.commit(dwrClickHouseT)
+                      moduleTracer.trace("clickhouse dwr commit")
+                    }
                   })
-                  // TODO 线程池结束
+                  moduleTracer.trace("Dwr all commit")
+
+                  // 线程池结束
                   LOG.warn("hiveClient dwr committed", dwrT)
                 }
 
@@ -1333,6 +1299,14 @@ class FasterModule(config: Config,
                     hiveCleanable.doActions()
                     hiveCleanable = null
                   }
+                  if (mysqlCleanable != null) {
+                    mysqlCleanable.doActions()
+                    mysqlCleanable = null
+                  }
+                  if (clickHouseCleanable != null) {
+                    clickHouseCleanable.doActions()
+                    clickHouseCleanable = null
+                  }
                   if (hbaseCleanable != null) {
                     hbaseCleanable.doActions()
                     hbaseCleanable = null
@@ -1352,6 +1326,12 @@ class FasterModule(config: Config,
                   hiveClient.clean(popNeedCleanTransactions(COOKIE_KIND_DWR_ACC_DAY_T, parentTid): _*)
                   hiveClient.clean(popNeedCleanTransactions(COOKIE_KIND_DWR_ACC_MONTH_T, parentTid): _*)
                   moduleTracer.trace("clean hive dwr")
+
+                  if (clickhousePersis) {
+                    clickHouseClient.clean(popNeedCleanTransactions(COOKIE_KIND_DWR_CLICKHOUSE_T, parentTid): _*)
+                  }
+                  moduleTracer.trace("clean clickhouse dwr")
+
                 }
                 if (isEnableDwi && dwiCount > 0) {
                   hiveClient.clean(popNeedCleanTransactions(COOKIE_KIND_DWI_T, parentTid): _*)
@@ -1438,6 +1418,8 @@ class FasterModule(config: Config,
     if (transactionCookie.isInstanceOf[HiveRollbackableTransactionCookie]
       || transactionCookie.isInstanceOf[KafkaRollbackableTransactionCookie]
       || transactionCookie.isInstanceOf[HBaseTransactionCookie]
+      || transactionCookie.isInstanceOf[MySQLRollbackableTransactionCookie]
+      || transactionCookie.isInstanceOf[ClickHouseRollbackableTransactionCookie]
     ) {
 
       var pr = batchsTransactionCookiesCache.get(cookieKind)
@@ -1494,49 +1476,46 @@ class FasterModule(config: Config,
 
   }
 
-  def convertRPsToDayFormat(rPs: Array[Array[HivePartitionPart]]): Array[Array[HivePartitionPart]] = {
-    val filter = new util.ArrayList[Integer]()
-    val timeFormatter = CSTTime.formatter("yyyy-MM-dd 00:00:00")
-    rPs.map { ps =>
-      ps.map { p =>
-        if (("l_time".equals(p.getName) || "b_time".equals(p.getName)) && p.getValue.length > 0) {
-          HivePartitionPart(p.getName, timeFormatter.format(CSTTime.formatter("yyyy-MM-dd HH:mm:ss").parse(p.getValue)))
-        } else {
-          HivePartitionPart(p.getName, p.getValue)
-        }
-      }.filter { p =>
-        var stay = true
-        stay = filter.contains(p.getName.hashCode + p.getValue.hashCode)
-        filter.add(p.getName.hashCode + p.getValue.hashCode)
-        !stay
-      }
-    }.filter { p => p.length > 0 }
-  }
-
-  def convertRPsToMonthFormat(rPs: Array[Array[HivePartitionPart]]): Array[Array[HivePartitionPart]] = {
-    val filter = new util.ArrayList[Integer]()
-    val timeFormatter = CSTTime.formatter("yyyy-MM-01 00:00:00")
-    val dayFormatter = CSTTime.formatter("yyyy-MM-01")
-
-    rPs.map { ps =>
-      ps.map { p =>
-        if (("l_time".equals(p.getName) || "b_time".equals(p.getName)) && p.getValue.length > 0) {
-          HivePartitionPart(p.getName, timeFormatter.format(CSTTime.formatter("yyyy-MM-dd HH:mm:ss").parse(p.getValue)))
-        } else if ("b_date".equals(p.getName) && p.getValue.length > 0) {
-          HivePartitionPart(p.getName, dayFormatter.format(CSTTime.formatter("yyyy-MM-dd").parse(p.getValue)))
-        } else {
-          HivePartitionPart(p.getName, p.getValue)
-        }
-      }.filter { p =>
-        var stay = true
-        stay = filter.contains(p.getName.hashCode + p.getValue.hashCode)
-        filter.add(p.getName.hashCode + p.getValue.hashCode)
-        !stay
-      }.filter { p =>
-        !(p == null)
-      }
-    }.filter { p => p.length > 0 }
-  }
+//  def convertRPsToDayFormat(rPs: Array[Array[HivePartitionPart]]): Array[Array[HivePartitionPart]] = {
+//    val filter = new util.HashSet[String]()
+//    val timeFormatter = CSTTime.formatter("yyyy-MM-dd 00:00:00")
+//    rPs.map { ps =>
+//      ps.map { p =>
+//        if (("l_time".equals(p.getName) || "b_time".equals(p.getName)) && p.getValue.length > 0) {
+//          HivePartitionPart(p.getName, timeFormatter.format(CSTTime.formatter("yyyy-MM-dd HH:mm:ss").parse(p.getValue)))
+//        } else {
+//          HivePartitionPart(p.getName, p.getValue)
+//        }
+//      }.filter { p =>
+//        filter.add(p.getName + p.getValue)
+//      }
+//    }.filter { p => p.length > 0 }
+//  }
+//
+//  def convertRPsToMonthFormat(rPs: Array[Array[HivePartitionPart]]): Array[Array[HivePartitionPart]] = {
+//    val filter = new util.ArrayList[Integer]()
+//    val timeFormatter = CSTTime.formatter("yyyy-MM-01 00:00:00")
+//    val dayFormatter = CSTTime.formatter("yyyy-MM-01")
+//
+//    rPs.map { ps =>
+//      ps.map { p =>
+//        if (("l_time".equals(p.getName) || "b_time".equals(p.getName)) && p.getValue.length > 0) {
+//          HivePartitionPart(p.getName, timeFormatter.format(CSTTime.formatter("yyyy-MM-dd HH:mm:ss").parse(p.getValue)))
+//        } else if ("b_date".equals(p.getName) && p.getValue.length > 0) {
+//          HivePartitionPart(p.getName, dayFormatter.format(CSTTime.formatter("yyyy-MM-dd").parse(p.getValue)))
+//        } else {
+//          HivePartitionPart(p.getName, p.getValue)
+//        }
+//      }.filter { p =>
+//        var stay = true
+//        stay = filter.contains(p.getName.hashCode + p.getValue.hashCode)
+//        filter.add(p.getName.hashCode + p.getValue.hashCode)
+//        !stay
+//      }.filter { p =>
+//        !(p == null)
+//      }
+//    }.filter { p => p.length > 0 }
+//  }
 
   def tryKillSelfApp(): Unit = {
     var killSelfApp = false
@@ -1564,22 +1543,22 @@ class FasterModule(config: Config,
     }
   }
 
-  def convertHiveDataTypeToH2DataType(dataType: DataType): String = {
-    if (dataType.isInstanceOf[IntegerType]) {
-      "Int"
-    } else if (dataType.isInstanceOf[LongType]) {
-      "Long"
-    } else if (dataType.isInstanceOf[StringType]) {
-      "String"
-    } else if (dataType.isInstanceOf[FloatType]) {
-      "Double"
-    } else if (dataType.isInstanceOf[DecimalType]) {
-      "Decimal"
-    } else {
-      throw new IllegalArgumentException("Unknown Type")
+  def runInTry(func: => Unit) {
+    try {
+      func
+    } catch {
+      case e: Exception =>
     }
   }
 
+  def runInTry(func: => Unit, catchFunc: => Unit): Unit = {
+    try {
+      func
+    } catch {
+      case e: Exception =>
+        catchFunc
+    }
+  }
 
   def stop(): Unit = {
     try {
@@ -1589,9 +1568,5 @@ class FasterModule(config: Config,
         LOG.error(s"${getClass.getName} '$moduleName' stop fail!", e)
     }
   }
-
-
-  //  private var executorService = ExecutorServiceUtil.createdExecutorService(1)// must is 1
-
 
 }

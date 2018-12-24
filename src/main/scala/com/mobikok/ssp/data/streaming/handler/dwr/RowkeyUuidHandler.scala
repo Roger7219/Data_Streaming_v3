@@ -3,7 +3,8 @@ package com.mobikok.ssp.data.streaming.handler.dwr
 import java.text.SimpleDateFormat
 import java.util.Date
 
-import com.mobikok.ssp.data.streaming.client.HBaseClient
+import com.mobikok.ssp.data.streaming.client.cookie.TransactionCookie
+import com.mobikok.ssp.data.streaming.client.{ClickHouseClient, HBaseClient, HiveClient, TransactionManager}
 import com.mobikok.ssp.data.streaming.entity.RowkeyUuid
 import com.mobikok.ssp.data.streaming.exception.HandlerException
 import com.mobikok.ssp.data.streaming.util.{Logger, MySqlJDBCClient}
@@ -21,19 +22,18 @@ class RowkeyUuidHandler extends Handler {
 
   var LOG: Logger = _
 
-  var hiveContext: HiveContext = _
-  var handlerConfig: Config = _
-  var hbaseClient: HBaseClient = _
   var hbaseTable: String = _
   var exprStr:String = _
   var as: String = _
 
-  override def init (moduleName: String, hbaseClient: HBaseClient, hiveContext: HiveContext, handlerConfig: Config, exprStr: String, as: String): Unit = {
+  override def init(moduleName: String, transactionManager: TransactionManager, hbaseClient: HBaseClient, hiveClient: HiveClient, clickHouseClient: ClickHouseClient, handlerConfig: Config, globalConfig: Config, expr: String, as: String): Unit = {
+    super.init(moduleName, transactionManager, hbaseClient, hiveClient, clickHouseClient, handlerConfig, globalConfig, expr, as)
 
     LOG = new Logger(moduleName, getClass.getName, new Date().getTime)
 
     this.hbaseClient = hbaseClient
-    this.hiveContext = hiveContext
+    this.hiveClient = hiveClient
+    this.hiveContext = hiveClient.hiveContext
     this.handlerConfig = handlerConfig
     this.hbaseTable = handlerConfig.getString("table")
     this.exprStr = exprStr
@@ -41,7 +41,7 @@ class RowkeyUuidHandler extends Handler {
   }
 
   //persistenceDwr take(0): [2017-07-20,355364982160757,7486,1]
-  override def handle (persistenceDwr: DataFrame): DataFrame = {
+  override def handle (persistenceDwr: DataFrame): (String, DataFrame, TransactionCookie) = {
 
     val rk = "rowkey"
 
@@ -101,8 +101,6 @@ class RowkeyUuidHandler extends Handler {
 
     LOG.warn("RowkeyUuidHandler persistenceDwr joined uuid take(5)", res.take(5))
 
-    res
+    ("", res, null)
   }
-
-  override def prepare(dwi: DataFrame): DataFrame = dwi
 }

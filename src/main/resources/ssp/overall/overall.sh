@@ -150,19 +150,19 @@ spark-submit \
 --name test__overall \
 --class com.mobikok.ssp.data.streaming.OptimizedMixApp \
 --master yarn-cluster \
---driver-memory 7g \
---executor-memory 7g \
+--driver-memory 10g \
+--executor-memory 10g \
 --executor-cores 3 \
 --num-executors 3 \
 --queue default \
---jars file:///root/kairenlo/data-streaming/test/h2-1.4.197.jar,file:///root/kairenlo/data-streaming/data_lib/metrics-core-2.2.0.jar,file:///root/kairenlo/data-streaming/data_lib/spark-streaming-kafka-0-10_2.11-2.1.1.jar,file:///root/kairenlo/data-streaming/data_lib/kafka_2.11-0.10.2.1.jar,file:///root/kairenlo/data-streaming/data_lib/kafka-clients-0.10.2.1.jar,file:///root/kairenlo/data-streaming/data_lib/tephra-api-0.7.0.jar,file:///root/kairenlo/data-streaming/data_lib/twill-discovery-api-0.6.0-incubating.jar,file:///root/kairenlo/data-streaming/data_lib/twill-zookeeper-0.6.0-incubating.jar,file:///root/kairenlo/data-streaming/data_lib/tephra-core-0.7.0.jar,file:///root/kairenlo/data-streaming/data_lib/phoenix-core-4.7.0-HBase-1.1.jar,file:///root/kairenlo/data-streaming/data_lib/config-1.3.1.jar,file:///root/kairenlo/data-streaming/data_lib/hbase-server-1.1.10.jar,file:///root/kairenlo/data-streaming/data_lib/mysql-connector-java-5.1.42.jar,file:///root/kairenlo/data-streaming/data_lib/hbase-protocol-1.1.10.jar,file:///root/kairenlo/data-streaming/data_lib/hbase-common-1.1.10.jar,file:///root/kairenlo/data-streaming/data_lib/hbase-client-1.1.10.jar,hdfs:/libs/spark-streaming-kafka-0-10_2.11-2.1.1.jar,hdfs:/libs/kafka_2.11-0.11.0.1.jar,hdfs:/libs/kafka-clients-0.11.0.1.jar,hdfs:/libs/config-1.3.1.jar \
+--jars file:///root/kairenlo/data-streaming/data_lib/metrics-core-2.2.0.jar,file:///root/kairenlo/data-streaming/data_lib/spark-streaming-kafka-0-10_2.11-2.1.1.jar,file:///root/kairenlo/data-streaming/data_lib/kafka_2.11-0.10.2.1.jar,file:///root/kairenlo/data-streaming/data_lib/kafka-clients-0.10.2.1.jar,file:///root/kairenlo/data-streaming/data_lib/tephra-api-0.7.0.jar,file:///root/kairenlo/data-streaming/data_lib/twill-discovery-api-0.6.0-incubating.jar,file:///root/kairenlo/data-streaming/data_lib/twill-zookeeper-0.6.0-incubating.jar,file:///root/kairenlo/data-streaming/data_lib/tephra-core-0.7.0.jar,file:///root/kairenlo/data-streaming/data_lib/phoenix-core-4.7.0-HBase-1.1.jar,file:///root/kairenlo/data-streaming/data_lib/config-1.3.1.jar,file:///root/kairenlo/data-streaming/data_lib/hbase-server-1.1.10.jar,file:///root/kairenlo/data-streaming/data_lib/mysql-connector-java-5.1.42.jar,file:///root/kairenlo/data-streaming/data_lib/hbase-protocol-1.1.10.jar,file:///root/kairenlo/data-streaming/data_lib/hbase-common-1.1.10.jar,file:///root/kairenlo/data-streaming/data_lib/hbase-client-1.1.10.jar,hdfs:/libs/spark-streaming-kafka-0-10_2.11-2.1.1.jar,hdfs:/libs/kafka_2.11-0.11.0.1.jar,hdfs:/libs/kafka-clients-0.11.0.1.jar,hdfs:/libs/config-1.3.1.jar \
 --verbose \
 --conf spark.ui.port=1111 \
 --conf spark.app.name=test__overall \
---conf spark.yarn.executor.memoryOverhead=2g \
+--conf spark.yarn.executor.memoryOverhead=6g \
 --files /root/kairenlo/data-streaming/test/test___overall.conf \
 /root/kairenlo/data-streaming/test/data-streaming.jar \
-test___overall.conf buration = 300 kill=true modules = test__overall_fee, test__overall_user_new, test__overall_user_active, test__overall_send
+test___overall.conf buration = 300 kill=true modules = test__overall_fee, test__overall_user_new, test__overall_user_active, test__overall_send offsetRollback=true
 
 
 
@@ -184,3 +184,24 @@ spark-submit \
 --conf spark.yarn.executor.memoryOverhead=2g \
 --files /root/kairenlo/data-streaming/test/test___overall.conf \
 /root/kairenlo/data-streaming/test/data-streaming.jar test___overall.conf buration = 300 kill=true
+
+
+
+
+cd /root/kairenlo/data-streaming/test;
+spark-submit \
+--name ck_to_hive \
+--class com.mobikok.ssp.data.streaming.OptimizedMixApp \
+--master yarn-cluster \
+--driver-memory 10g \
+--executor-memory 10g \
+--executor-cores 1 \
+--num-executors 1 \
+--queue default \
+--jars file:///root/kairenlo/data-streaming/test/h2-1.4.197.jar,file:///root/kairenlo/data-streaming/data_lib/metrics-core-2.2.0.jar,file:///root/kairenlo/data-streaming/data_lib/spark-streaming-kafka-0-10_2.11-2.1.1.jar,file:///root/kairenlo/data-streaming/data_lib/kafka_2.11-0.10.2.1.jar,file:///root/kairenlo/data-streaming/data_lib/kafka-clients-0.10.2.1.jar,file:///root/kairenlo/data-streaming/data_lib/tephra-api-0.7.0.jar,file:///root/kairenlo/data-streaming/data_lib/twill-discovery-api-0.6.0-incubating.jar,file:///root/kairenlo/data-streaming/data_lib/twill-zookeeper-0.6.0-incubating.jar,file:///root/kairenlo/data-streaming/data_lib/tephra-core-0.7.0.jar,file:///root/kairenlo/data-streaming/data_lib/phoenix-core-4.7.0-HBase-1.1.jar,file:///root/kairenlo/data-streaming/data_lib/config-1.3.1.jar,file:///root/kairenlo/data-streaming/data_lib/hbase-server-1.1.10.jar,file:///root/kairenlo/data-streaming/data_lib/mysql-connector-java-5.1.42.jar,file:///root/kairenlo/data-streaming/data_lib/hbase-protocol-1.1.10.jar,file:///root/kairenlo/data-streaming/data_lib/hbase-common-1.1.10.jar,file:///root/kairenlo/data-streaming/data_lib/hbase-client-1.1.10.jar,hdfs:/libs/spark-streaming-kafka-0-10_2.11-2.1.1.jar,hdfs:/libs/kafka_2.11-0.11.0.1.jar,hdfs:/libs/kafka-clients-0.11.0.1.jar,hdfs:/libs/config-1.3.1.jar \
+--verbose \
+--conf spark.ui.port=1111 \
+--conf spark.app.name=ck_to_hive \
+--conf spark.yarn.executor.memoryOverhead=2g \
+--files /root/kairenlo/data-streaming/test/test___overall_history.conf \
+/root/kairenlo/data-streaming/test/data-streaming-history.jar test___overall_history.conf modules=clickhouse_to_hive buration = 60 kill=true

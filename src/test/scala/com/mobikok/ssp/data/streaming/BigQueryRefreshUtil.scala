@@ -116,7 +116,7 @@ object BigQueryRefreshUtil {
 //    sendMsg_b_date("ssp_report_overall_dwr_day", "2018-04-30")
 //    sendMsg_b_date("ssp_report_overall_dwr_day", "2018-05-01")
 //    sendMsg_b_date("ssp_report_overall_dwr_day", "2018-05-02")
-//    sendMsg_b_date("ssp_report_overall_dwr_day", "2018-05-03")
+//    sendMsg_b_date("ck_report_overall_day", "2018-08-14")
 
 //    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2018-06-25", "2018-06-29") // 26到29
 
@@ -135,6 +135,7 @@ object BigQueryRefreshUtil {
 
 //        sendMsg_btime_00_00_00("ssp_report_overall_dm_day_v2_update", "2018-04-01", "2018-04-15")
 //    sendMsg_btime("ssp_report_overall_dm_day_v2_update", "2018-04-01 00:00:00")
+    sendMsg_btime("ck_report_overall", "2018-12-03 12:00:00")
 
 //    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2018-06-10", "2018-06-10")
 //    sendMsg_l_time("ssp_report_overall_dwr_day_test", "2018-06-12 00:00:00")
@@ -161,7 +162,7 @@ object BigQueryRefreshUtil {
     // overall for month init
 //    sendMaxWaitingTimeMS(DynamicConfig.of("ssp_report_overall_dwr_month", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(1000*60*60*100L)) // 4小时
 //    sendMaxWaitingTimeMS(DynamicConfig.of("ssp_report_overall_dm_month", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(1000*60*60*100L)) // 4小时
-//        sendMaxWaitingTimeMS(DynamicConfig.of("bq_report_overall_day_v2", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(1000*60*60*100L)) // 4小时
+//    sendMaxWaitingTimeMS(DynamicConfig.of("ck_report_overall_month", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(1000*60*60*100L)) // 4小时
 //    sendMaxWaitingTimeMS(DynamicConfig.of("bq_report_overall ", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(1000*60*60*100L)) // 4小时
 //    sendMaxWaitingTimeMS(DynamicConfig.of("ssp_send ", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(1000*60*60*100L)) // 4小时
 
@@ -192,11 +193,41 @@ object BigQueryRefreshUtil {
 
 //    messageResetToLastest("kill_self_cer", Array("s__overall"))
 
-//    killApp("s__overall")
+//    killApp("overall_dwi")
+//    killApp("overall")
 
+//    killApp("quartz_mix")
 //    messageResetToLastest("bq_report_overall_day_v2_bqcer", Array("ssp_report_overall_dm_day_v2_update"))
 //    messageResetToLastest("bq_report_overall_day_v2_bqcer_tmp", Array("bq_report_overall_day_v2_tmp_update"))
-    sendMsg_btime("ck_report_overall_day", "2018-09-20 00:00:00")
+//    sendMsg_btime("ssp_report_overall_dwr_month", "2016-10-01 00:00:00")
+//    sendMsg_btime("ssp_report_overall_dwr_month", "2016-11-01 00:00:00")
+//    sendMsg_btime("ssp_report_overall_dwr_month", "2016-12-01 00:00:00")
+//    sendMsg_btime("ssp_report_overall_dwr_month", "2017-01-01 00:00:00")
+//    sendMsg_btime("ssp_report_overall_dwr_month", "2017-02-01 00:00:00")
+//    sendMsg_btime("ssp_report_overall_dwr_month", "2017-03-01 00:00:00")
+//    sendMsg_btime("ssp_report_overall_dwr_month", "2017-04-01 00:00:00")
+//    sendMsg_btime("ssp_report_overall_dwr_month", "2017-05-01 00:00:00")
+//    sendMsg_btime("ssp_report_overall_dwr_month", "2017-06-01 00:00:00")
+//    sendMsg_btime("ssp_report_overall_dwr_month", "2017-07-01 00:00:00")
+//    sendMsg_btime("ssp_report_overall_dwr_month", "2017-08-01 00:00:00")
+//    sendMsg_btime("ssp_report_overall_dwr_month", "2017-09-01 00:00:00")
+//    sendMsg_btime("ssp_report_overall_dwr_month", "2017-10-01 00:00:00")
+//    sendMsg_btime("ssp_report_overall_dwr_month", "2017-11-01 00:00:00")
+//    sendMsg_btime("ssp_report_overall_dwr_month", "2017-12-01 00:00:00")
+//    sendMsg_btime("ssp_report_overall_dwr_month", "2018-01-01 00:00:00")
+//    sendMsg_btime("ssp_report_overall_dwr_month", "2018-02-01 00:00:00")
+//    sendMsg_btime("ssp_report_overall_dwr_month", "2018-03-01 00:00:00")
+//    sendMsg_btime("ssp_report_overall_dwr_month", "2018-04-01 00:00:00")
+//    sendMsg_btime("ssp_report_overall_dwr_month", "2018-05-01 00:00:00")
+//    sendMsg_btime("ssp_report_overall_dwr_month", "2018-06-01 00:00:00")
+//    sendMsg_btime("ssp_report_overall_dwr_month", "2018-07-01 00:00:00")
+//    sendMsg_btime("ssp_report_overall_dwr_month", "2018-08-01 00:00:00")
+//    sendMsg_btime("ssp_report_overall_dwr_month", "2018-09-01 00:00:00")
+//    sendMsg_btime("ssp_report_overall_dwr_month", "2018-10-01 00:00:00")
+//    sendMsg_btime("ck_report_overall_day", "2017-11-21 00:00:00")
+
+
+
 //    sendMsg_btime_00_00_00("test__overall_history", "2018-09-01", "2018-09-15")
   }
 

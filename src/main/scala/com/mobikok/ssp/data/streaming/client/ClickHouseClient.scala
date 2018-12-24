@@ -1,41 +1,45 @@
 package com.mobikok.ssp.data.streaming.client
 
-import java.io.InputStream
+import java.io.{ByteArrayOutputStream, InputStream}
 import java.net.{HttpURLConnection, URL, URLEncoder}
 import java.nio.charset.Charset
+import java.util
 import java.util.Date
 import java.util.concurrent.{CountDownLatch, ExecutorService}
 
 import com.mobikok.message.client.MessageClient
-import com.mobikok.ssp.data.streaming.exception.HandlerException
+import com.mobikok.ssp.data.streaming.client.cookie._
+import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
+import com.mobikok.ssp.data.streaming.exception.{ClickHouseClientException, HandlerException}
 import com.mobikok.ssp.data.streaming.util._
 import com.mobikok.ssp.data.streaming.util.http.{Callback, Entity, Requests}
 import com.typesafe.config.Config
-import okio.Okio
+import okio.{Buffer, GzipSink, Okio}
 import org.apache.hadoop.fs.{FileStatus, FileSystem, Path, PathFilter}
 import org.apache.hadoop.hdfs.HdfsConfiguration
-import org.apache.spark.sql.SaveMode
+import org.apache.spark.sql.functions._
 import org.apache.spark.sql.hive.HiveContext
+import org.apache.spark.sql.{DataFrame, Dataset, SaveMode}
+import org.apache.spark.storage.StorageLevel
 import org.apache.spark.streaming.StreamingContext
 
 import scala.collection.JavaConversions._
+import scala.collection.mutable
+import scala.collection.mutable.ListBuffer
 
 class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext,
-                       messageClient: MessageClient, hiveContext: HiveContext) {
+                       messageClient: MessageClient, transactionManager: TransactionManager,
+                       hiveContext: HiveContext, moduleTracer: ModuleTracer) extends Transactional {
 
   private val LOG: Logger = new Logger(moduleName, getClass.getName, new Date().getTime)
   private val conf = new HdfsConfiguration()
   private val fileSystem = FileSystem.get(conf)
 
-  //  private val dateFormat = CSTTime.formatter("yyyyMMddHHmmss")
-  private val hosts = config.getStringList("clickhouse.hosts")
+//  private val hosts = config.getStringList("clickhouse.hosts")
+  private val hosts = List("node111", "node110", "node16" , "node15")
   private var THREAD_POOL = null.asInstanceOf[ExecutorService]
   val THREAD_COUNT = 2
   val dataCountMap = new FixedLinkedMap[String, Long](THREAD_COUNT)
-  //ExecutorServiceUtil.createdExecutorService(5)
-  //  private val semaphore = new Semaphore(2)
-
-  //  private val countDownLatch = new CountDownLatch()
 
   @volatile private var lastLengthMap: FixedLinkedMap[String, java.lang.Long] = new FixedLinkedMap[String, java.lang.Long](24 * 3)
 
@@ -53,9 +57,6 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
     }
 
     hivePartitionBDates.foreach { b_date =>
-      //        THREAD_POOL.execute(new Runnable {
-      //          override def run(): Unit = {
-      //            semaphore.acquire()
       val time = b_date.replace("-", "_")
       val gzDir = s"/root/kairenlo/data-streaming/test/${hiveTable}_${time}_gz.dir"
       var gzFiles = null.asInstanceOf[Array[FileStatus]]
@@ -117,7 +118,7 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
           // 文件在这里出现合并后找不到文件时重新导出文件
           val in = fileSystem.open(file.getPath)
           LOG.warn(file.getPath.toString)
-          if (uploadToClickHouse(clickHouseTable, hosts(0), in)) {
+          if (uploadToClickHouse(clickHouseTable, hosts.head, in)) {
             // 需要等待一段时间导入数据
             Thread.sleep(5000)
             LOG.warn(s"copy to ${clickHouseTable}_for_select")
@@ -174,7 +175,7 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
                   .where(s""" b_date = "$b_date" and b_time = "$b_time" """)
                   .selectExpr(fields: _*)
 
-                rows.cache()
+//                rows.cache()
                 dataCount = rows.count()
                 dataCountMap.put(Thread.currentThread().getName, dataCount)
 
@@ -184,12 +185,7 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
                   .format("json")
                   .option("compression", "gzip")
                   .save(gzDir)
-                rows.unpersist()
-//                dataCount = hiveContext
-//                  .sql(s"""SELECT COUNT(*) FROM $hiveTable WHERE b_time="$b_time"""")
-//                  .collect()
-//                  .head
-//                  .getLong(0)
+
                 LOG.warn(s"dataCount at $b_time is $dataCount")
 
                 LOG.warn(s"gz file saved completed at $gzDir")
@@ -199,7 +195,7 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
                     path.getName.startsWith("part-")
                   }
                 })
-                // 其实可以多个文件
+                // 最好一个文件
                 if (gzFiles.length > 1) {
                   throw new RuntimeException(s"ClickHouse must upload only one file, but now it finds ${gzFiles.length} in '$gzDir' !!")
                 }
@@ -225,7 +221,7 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
                 gzFiles.foreach { file =>
                   val in = fileSystem.open(file.getPath)
                   LOG.warn(file.getPath.toString)
-                  if (uploadToClickHouse(clickHouseTable, hosts(0), in)) {
+                  if (uploadToClickHouse(clickHouseTable, hosts.head, in)) {
                     // 上传完成后clickHouse会额外做一些操作，需要等待一小段时间再复制到查询表中
                     Thread.sleep(5 * 1000)
                     var importCount = copyToClickHouseForSearch(clickHouseTable, s"${clickHouseTable}_for_select", b_date, b_time)
@@ -252,9 +248,321 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
       }
     }
     countDownLatch.await()
-//    countDownLatch.await(5, TimeUnit.MINUTES)
+    //    countDownLatch.await(5, TimeUnit.MINUTES)
   }
 
+  // TODO 临时用于写进月表里
+  def hiveWriteToClickHouse(clickHouseTable: String, hiveTable: String, hivePartitionBTime: Array[String]): Unit = {
+    LOG.warn(s"clickHouseTable: $clickHouseTable, hiveTable: $hiveTable, hivePartitionBTimes: ${OM.toJOSN(hivePartitionBTime)}")
+    //    taskCount.addAndGet(hivePartitionBTime.length)
+
+    var dataCount = -1L
+    if (hosts == null || hosts.size() == 0) {
+      throw new NullPointerException("ClickHouse hosts length is 0")
+    }
+
+    val b_dates = hivePartitionBTime.map { eachTime => eachTime.split(" ")(0) }.distinct
+
+    b_dates.foreach { b_date =>
+      hivePartitionBTime.foreach { b_time =>
+        if (b_date.equals(b_time.split(" ")(0))) {
+
+          val time = b_time.replace("-", "_").replace(" ", "__").replace(":", "_")
+          val gzDir = s"/root/kairenlo/data-streaming/test/${hiveTable}_${time}_gz.dir"
+          var gzFiles = null.asInstanceOf[Array[FileStatus]]
+
+          RunAgainIfError.run {
+//            val fields = hiveContext
+//              .read
+//              .table(hiveTable)
+//              .schema
+//              .fieldNames
+//              .map { name =>
+//                s"$name as ${name.toLowerCase}"
+//              }
+
+            val rows = hiveContext.sql(
+              s"""
+                |select
+                |    coalesce(dwr.publisherId, a.publisherId) as publisherid,
+                |    dwr.appId         as appid,
+                |    dwr.countryId     as countryid,
+                |    dwr.carrierId     as carrierid,
+                |    dwr.adType        as adtype,
+                |    dwr.campaignId    as campaignid,
+                |    dwr.offerId       as offerid,
+                |    dwr.imageId       as imageid,
+                |    dwr.affSub        as affsub,
+                |    dwr.requestCount  as requestcount,
+                |    dwr.sendCount     as sendcount,
+                |    dwr.showCount     as showcount,
+                |    dwr.clickCount    as clickcount,
+                |    dwr.feeReportCount as feereportcount,
+                |    dwr.feeSendCount   as feesendcount,
+                |    dwr.feeReportPrice as feereportprice,
+                |    dwr.feeSendPrice  as feesendprice,
+                |    dwr.cpcBidPrice   as cpcbidprice,
+                |    dwr.cpmBidPrice   as cpmbidprice,
+                |    dwr.conversion    as conversion,
+                |    dwr.allConversion as allconversion,
+                |    dwr.revenue       as revenue,
+                |    dwr.realRevenue   as realrevenue,
+                |    dwr.b_time,
+                |    dwr.l_time,
+                |    dwr.b_date,
+                |    nvl(p.amId, a_p.amId)      as publisheramid,
+                |    nvl(p_am.name, ap_am.name) as publisheramname,
+                |    ad.amId           as advertiseramid,
+                |    a_am.name         as advertiseramname,
+                |    a.mode            as appmodeid,
+                |    m.name            as appmodename,
+                |    cam.adCategory1   as adcategory1id,
+                |    adc.name          as adcategory1name,
+                |    cam.name          as campaignname,
+                |    cam.adverId       as adverid,
+                |    ad.name           as advername,
+                |    o.optStatus       as offeroptstatus,
+                |    o.name            as offername,
+                |    nvl(p.name, a_p.name ) as publishername,
+                |    a.name            as appname,
+                |    i.iab1name        as iab1name,
+                |    i.iab2name        as iab2name,
+                |    c.name            as countryname,
+                |    ca.name           as carriername,
+                |    dwr.adType        as adtypeid,
+                |    adt.name          as adtypename,
+                |    v.id              as versionid,
+                |    dwr.versionName   as versionname,
+                |    p_am.proxyId      as publisherproxyid,
+                |    cast(null as string)    as data_type,
+                |    feeCpcTimes             as feecpctimes,
+                |    feeCpmTimes             as feecpmtimes,
+                |    feeCpaTimes             as feecpatimes,
+                |    feeCpaSendTimes         as feecpasendtimes,
+                |    feeCpcReportPrice       as feecpcreportprice,
+                |    feeCpmReportPrice       as feecpmreportprice,
+                |    feeCpaReportPrice       as feecpareportprice,
+                |    feeCpcSendPrice         as feecpcsendprice,
+                |    feeCpmSendPrice         as feecpmsendprice,
+                |    feeCpaSendPrice         as feecpasendprice,
+                |    c.alpha2_code           as countrycode,
+                |    dwr.respStatus          as respstatus,
+                |    dwr.winPrice            as winprice,
+                |    dwr.winNotices          as winnotices,
+                |    a.isSecondHighPriceWin  as issecondhighpricewin,
+                |    co.id                   as companyid,
+                |    co.name                 as companyname,
+                |    dwr.test,
+                |    dwr.ruleId        as ruleid,
+                |    dwr.smartId       as smartid,
+                |    pro.id            as proxyid,
+                |    s.name            as smartname,
+                |    sr.name           as rulename,
+                |    co.id             as appcompanyid,
+                |    co_o.id           as offercompanyid,
+                |    newCount          as newcount,
+                |    activeCount       as activecount,
+                |    cam.adCategory2   as adcategory2id,
+                |    adc2.name         as adcategory2name,
+                |    coalesce(p.ampaId, a_p.ampaId)    as publisherampaid,
+                |    coalesce(p_amp.name, ap_amp.name) as publisherampaname,
+                |    ad.amaaId                         as advertiseramaaid,
+                |    a_ama.name                        as advertiseramaaname,
+                |    dwr.eventName                     as eventname
+                |from ${hiveTable}_copy dwr
+                |    left join campaign cam      on cam.id = dwr.campaignId
+                |    left join advertiser ad     on ad.id = cam.adverId
+                |    left join employee a_am     on a_am.id = ad.amid
+                |    left join offer o           on o.id = dwr.offerId
+                |    left join publisher p       on p.id = dwr.publisherId
+                |    left join employee p_am     on p_am.id = p.amid
+                |    left join app a             on a.id = dwr.appId
+                |    left join iab i             on i.iab1 = a.iab1 and i.iab2 = a.iab2
+                |    left join app_mode m        on m.id = a.mode
+                |    left join country c         on c.id = dwr.countryId
+                |    left join carrier ca        on ca.id = dwr.carrierId
+                |    left join ad_type adt       on adt.id = dwr.adType
+                |    left join version_control v on v.version = dwr.versionName
+                |    left join ad_category1 adc  on adc.id =  cam.adCategory1
+                |    left join ad_category2 adc2 on adc2.id =  cam.adCategory2
+                |    left join publisher a_p     on  a_p.id = a.publisherId
+                |    left join employee ap_am    on  ap_am.id  = a_p.amId
+                |    left join proxy pro         on  pro.id  = ap_am.proxyId
+                |    left join company co        on  co.id = pro.companyId
+                |    left join other_smart_link s  on s.ID = dwr.smartId
+                |    left join smartlink_rules sr  on sr.ID = dwr.ruleId
+                |    left join campaign cam_o    on cam_o.id = o.campaignId
+                |    left join advertiser ad_o   on ad_o.id = cam_o.adverId
+                |    left join employee em_o     on em_o.id = ad_o.amId
+                |    left join company co_o      on co_o.id = em_o.companyId
+                |    left join employee p_amp    on p_amp.id = p.ampaId
+                |    left join employee ap_amp   on  ap_amp.id  = a_p.ampaId
+                |    left join employee a_ama    on a_ama.id = ad.amaaId
+                |where v.id is not null and b_date='$b_date' and b_time='$b_time'
+                |union all (select
+                |  null           as    publisherid,
+                |  appid        as    appid,
+                |  countryId    as    countryid,
+                |  -1             as    carrierid,
+                |  -1             as    adtype,
+                |  -1             as    campaignid,
+                |  -1             as    offerid,
+                |  -1             as    imageid,
+                |  'third-income' as    affsub,
+                |  0              as    requestcount,
+                |  0              as    sendcount,
+                |  0              as    showcount,
+                |  0              as    clickcount,
+                |  0              as    feereportcount,
+                |  0              as    feesendcount,
+                |  0              as    feereportprice,
+                |  0              as    feesendprice,
+                |  0              as    cpcbidprice,
+                |  0              as    cpmbidprice,
+                |  0              as    conversion,
+                |  0              as    allconversion,
+                |  0              as    revenue,
+                |  0              as    realrevenue,
+                |  concat(date_format(statdate,'yyyy-MM-01'),' 00:00:00')    as    b_time,
+                |  concat(date_format(statdate,'yyyy-MM-01'),' 00:00:00')    as    l_time,
+                |  date_format(statdate,'yyyy-MM-01')                       as    b_date,
+                |  -1              as    publisheramid,
+                |  null            as    publisheramname,
+                |  -1              as    advertiseramid,
+                |  null            as    advertiseramname,
+                |  -1              as    appmodeid,
+                |  null            as    appmodename,
+                |  -1              as    adcategory1id,
+                |  null            as    adcategory1name,
+                |  null            as    campaignname,
+                |  -1              as    adverid,
+                |  null            as    advername,
+                |  -1              as    offeroptstatus,
+                |  null            as    offername,
+                |  null            as    publishername,
+                |  null            as    appname,
+                |  null            as    iab1name,
+                |  null            as    iab2name,
+                |  c.name          as    countryname,
+                |  null            as    carriername,
+                |  -1              as    adtypeid,
+                |  null            as    adtypename,
+                |  -1              as    versionid,
+                |  'third-income'  as    versionname,
+                |  -1              as    publisherproxyid,
+                |  null            as    data_type,
+                |  0               as    feecpctimes,
+                |  0               as    feecpmtimes,
+                |  0               as    feecpatimes,
+                |  0               as    feecpasendtimes,
+                |  0               as    feecpcreportprice,
+                |  0               as    feecpmreportprice,
+                |  0               as    feecpareportprice,
+                |  0               as    feecpcsendprice,
+                |  0               as    feecpmsendprice,
+                |  0               as    feecpasendprice,
+                |  null            as    countrycode,
+                |  -1              as    respstatus,
+                |  0               as    winprice,
+                |  0               as    winnotices,
+                |  0               as    issecondhighpricewin,
+                |  -1              as    companyid,
+                |  null            as    companyname,
+                |  -1              as    test,
+                |  -1              as    ruleid,
+                |  -1              as    smartid,
+                |  -1              as    proxyid,
+                |  null            as    smartname,
+                |  null            as    rulename,
+                |  -1              as    appcompanyid,
+                |  -1              as    offercompanyid,
+                |  0               as    newcount,
+                |  0               as    activecount,
+                |  -1              as    adcategory2id,
+                |  null            as    adcategory2name,
+                |  -1              as    publisherampaid,
+                |  null            as    publisherampaname,
+                |  -1              as    advertiseramaaid,
+                |  null            as    advertiseramaaname,
+                |  null            as    eventname
+                |from ssp_report_publisher_third_income
+                |  left join country c         on c.id = countryId
+                |where year(statdate)=year('$b_time') and month(statdate)=month('$b_time')
+                |  )
+              """.stripMargin)
+
+            dataCount = rows.count()
+
+            dataCountMap.put(Thread.currentThread().getName, dataCount)
+
+            rows.coalesce(1)
+              .write
+              .mode(SaveMode.Overwrite)
+              .format("json")
+              .option("compression", "gzip")
+              .save(gzDir)
+
+            LOG.warn(s"dataCount at $b_time is $dataCount")
+
+            LOG.warn(s"gz file saved completed at $gzDir")
+
+            gzFiles = fileSystem.listStatus(new Path(gzDir), new PathFilter {
+              override def accept(path: Path): Boolean = {
+                path.getName.startsWith("part-")
+              }
+            })
+            // 最好一个文件
+            if (gzFiles.length > 1) {
+              throw new RuntimeException(s"ClickHouse must upload only one file, but now it finds ${gzFiles.length} in '$gzDir' !!")
+            }
+
+            // 验证数据完整性
+            gzFiles.foreach { file =>
+              val current = file.getLen
+              val last = lastLengthMap.get(s"$hiveTable^$b_time")
+              if (last != null && current * 1.5 < last) {
+                throw new RuntimeException(s"Hive table '$hiveTable' b_time = '$b_time' reading data are incomplete, less than before.")
+              }
+              lastLengthMap.put(s"$hiveTable^$b_time", current)
+            }
+          }
+
+          LOG.warn("ClickHouseClient generate gz file completed", gzDir)
+
+          RunAgainIfError.run {
+            // 先删除分区
+            dropPartition(clickHouseTable, b_date, b_time)
+
+            // 上传到ClickHouse
+            gzFiles.foreach { file =>
+              val in = fileSystem.open(file.getPath)
+              LOG.warn(file.getPath.toString)
+              if (uploadToClickHouse(clickHouseTable, hosts.head, in)) {
+                // 上传完成后clickHouse会额外做一些操作，需要等待一小段时间再复制到查询表中
+                Thread.sleep(5 * 1000)
+                var importCount = copyToClickHouseForSearch(clickHouseTable, s"${clickHouseTable}_for_select", b_date, b_time)
+                if (importCount == -1) {
+                  throw new HandlerException("Import to select table failed!")
+                }
+                // 如果数据不相等，继续等待一段时间重试
+                var times = 6
+                while (dataCountMap.get(Thread.currentThread().getName) != importCount && times > 0) {
+                  LOG.warn(s"dataCount = $dataCount and importCount = $importCount, times left $times")
+                  Thread.sleep(5 * 1000)
+                  importCount = copyToClickHouseForSearch(clickHouseTable, s"${clickHouseTable}_for_select", b_date, b_time)
+                  times -= 1
+                }
+                // 复制完成后删除原表的分区
+                dropPartition(clickHouseTable, b_date, b_time)
+              }
+            }
+          }
+
+        }
+      }
+    }
+
+  }
 
   def dropPartition(clickHouseTable: String, b_date: String, b_time: String): Unit = {
     LOG.warn(s"Start drop partition in table:$clickHouseTable")
@@ -276,6 +584,30 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
           }
         }, false)
         LOG.warn(this.getClass.getSimpleName, s"DROP PARTITION($b_date, $b_time) at $host")
+      }
+    }
+  }
+
+  def dropPartition(clickHouseTable: String, partition: String, hosts: String*): Unit = {
+    LOG.warn(s"Start drop partition in table:$clickHouseTable")
+    hosts.foreach { host =>
+      RunAgainIfError.run {
+        val request = new Requests(1)
+        request.post(s"http://$host:8123/", new Entity {
+          {
+            this.setStr(s"ALTER TABLE $clickHouseTable DROP PARTITION ($partition)", Entity.CONTENT_TYPE_TEXT)
+          }
+        }, new Callback {
+          override def prepare(conn: HttpURLConnection): Unit = {}
+
+          override def completed(responseStatus: String, response: String): Unit = {}
+
+          override def failed(responseStatus: String, responseError: String, ex: Exception): Unit = {
+            LOG.warn("DROP PARTITION ERROR", s"$responseStatus\n$responseError\n${ex.getMessage} at host $host")
+            throw new HandlerException(ex.getMessage)
+          }
+        }, false)
+        LOG.warn(this.getClass.getSimpleName, s"DROP PARTITION($partition) at $host")
       }
     }
   }
@@ -331,7 +663,7 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
       // 上传出现异常时，重新drop partition后再上传
       dropPartition(s"$destTable", b_date, b_time)
 
-      request.post(s"http://${hosts(0)}:8123/", new Entity {
+      request.post(s"http://${hosts.head}:8123/", new Entity {
         {
           val sql = s"INSERT INTO ${destTable}_all SELECT * FROM ${sourceTable}_all WHERE b_date='$b_date' AND b_time='$b_time'"
           LOG.warn("sql=", sql)
@@ -359,9 +691,9 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
     val request = new Requests(1)
     var importCount = -1L
     RunAgainIfError.run {
-      request.post(s"http://${hosts(0)}:8123/", new Entity {
+      request.post(s"http://${hosts.head}:8123/", new Entity {
         {
-          val sql = s"SELECT COUNT(*) FROM ${checkTable}_all WHERE b_date='$b_date' AND b_time='$b_time'"
+          val sql = s"SELECT SUM(1) FROM ${checkTable}_all WHERE b_date='$b_date' AND b_time='$b_time'"
           LOG.warn("sql=", sql)
           this.setStr(sql, Entity.CONTENT_TYPE_TEXT)
         }
@@ -389,4 +721,597 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
     importCount
   }
 
+  /**
+    * 这里开始为新增实现事务的方法和变量
+    */
+
+  private val transactionalTmpTableSign = s"_m_${moduleName}_trans_"
+  private val transactionalLegacyDataBackupCompletedTableSign = s"_m_${moduleName}_backup_completed_"
+  private val transactionalLegacyDataBackupProgressingTableSign = s"_m_${moduleName}_backup_progressing_"
+
+  private val uploadTmpTableSign = "_upload_tmp"
+
+  private var dmJoinTableAndExpr: Array[(String, String, String)] = _
+  private var dmSelectFields: Array[String] = _
+  try {
+    dmJoinTableAndExpr = config.getConfigList(s"modules.$moduleName.dm.join.table").map { x =>
+      (x.getString("table"), x.getString("as"), x.getString("expr"))
+    }.toArray
+    dmSelectFields = config.getConfigList(s"modules.$moduleName.dm.join.select").map { x =>
+      s"""${x.getString("expr")}  as  ${x.getString("as")}"""
+    }.toArray
+  } catch {
+    case e: Exception =>
+  }
+  override def init(): Unit = {}
+
+  override def rollback(cookies: TransactionCookie*): Cleanable = {
+    try {
+      val cleanable = new Cleanable
+      if (cookies.isEmpty) {
+        val cookieTables = sql(s"show tables like '%$transactionalLegacyDataBackupCompletedTableSign%'", tryAgainWhenError = true)
+          .split("[\r]?\n")
+          .filter(t => t.length > 0)
+
+        cookieTables.sortBy{ cookieTable => (
+          cookieTable.split(transactionalLegacyDataBackupCompletedTableSign)(0)
+            .split(TransactionManager.parentTransactionIdSeparator)(0),
+          cookieTable.split(transactionalLegacyDataBackupCompletedTableSign)(1)
+            .split(TransactionManager.parentTransactionIdSeparator)(1).toInt
+        )}.reverse
+          .foreach{ cookieTable =>
+            val parentId = cookieTable.split(transactionalLegacyDataBackupCompletedTableSign)(1)
+              .split(TransactionManager.parentTransactionIdSeparator)(0)
+            val tid = cookieTable.split(transactionalLegacyDataBackupCompletedTableSign)(1)
+
+            val needRollBack = transactionManager.isActiveButNotAllCommited(parentId)
+            if (needRollBack) {
+              LOG.warn("ClickHouse client roll back start")
+              val targetTable = s"${cookieTable.split(transactionalLegacyDataBackupCompletedTableSign)(0)}_for_select"
+
+//              val tables = Array(cookieTable)
+              val ps = partitions(cookieTable)
+
+              clickHousePartitionAlterSQL(ps).foreach{ partition =>
+//                sql(s"alter table $targetTable drop partition($partition)", tryAgainWhenError = true)
+                dropPartition(targetTable, partition, hosts:_*)
+              }
+
+              val targetFieldSchema = sql(s"desc $targetTable", tryAgainWhenError = true).split("[\r]?\n").map{ field =>
+                val schema = field.split("\t")
+                (schema(0), schema(1))
+              }
+              val targetFieldString = targetFieldSchema.map{f => f._1}
+
+              val backupFieldSchema = sql(s"desc $cookieTable", tryAgainWhenError = true).split("[\r]?\n").map{ field =>
+                val schema = field.split("\t")
+                (schema(0), schema(1))
+              }
+              val backupFieldString = backupFieldSchema.map{ f => f._1}
+
+              val selects = ListBuffer[String]()
+              targetFieldString.zipWithIndex.foreach{ case(field, i) =>
+                if (backupFieldString.contains(field)) {
+                  selects.append(s"`${targetFieldSchema(i)._1}`")
+                } else {
+                  if ("String".eq(targetFieldSchema(i)._2)) {
+                    selects.append(s"""'' as `${targetFieldSchema(i)._1}`""")
+                  } else if (targetFieldSchema(i)._2.startsWith("Int") || targetFieldSchema(i)._2.startsWith("Float")) {
+                    // (Int64 or Int32) || (Float64 or Float32)
+                    selects.append(s"""0 as ${targetFieldSchema(i)._1}""")
+                  } else if (targetFieldSchema(i)._2.startsWith("Date")) {
+                    // Date or DateTime(一般不会是这个)
+                    selects.append(s"""now() as ${targetFieldSchema(i)._1}""")
+                  }
+                }
+              }
+
+              val batchCount = sql(s"select count(1) from $cookieTable", tryAgainWhenError = true).trim.toInt
+              if (batchCount == 0) {
+                LOG.warn(s"ClickHouseClient rollback", s"Reverting to the legacy data, Backup table is empty, Drop partitions of targetTable!! \ntable: $targetTable \npartitions: ${partitionsWhereSQL(ps)}")
+              } else {
+//                var isFirstRun = true
+                RunAgainIfError.run {
+//                  if (!isFirstRun) {
+                    clearRedundantData(ps, targetTable, hosts:_*)
+//                  }
+//                  isFirstRun = false
+                  // 正常情况下只执行一次，防止因为网络问题导致sql执行成功却返回非200，导致数据重复导入的问题
+                  sql(s"""insert into ${targetTable}_all select ${selects.mkString(",")} from $cookieTable""")
+                }
+              }
+            }
+          }
+
+        sql(s"""show tables like '%$transactionalLegacyDataBackupCompletedTableSign%'""", tryAgainWhenError = true).split("[\r]?\n")
+          .filter( t => t.length > 0)
+          .sortBy{ x => (
+            x.split(transactionalLegacyDataBackupCompletedTableSign)(1)
+              .split(TransactionManager.parentTransactionIdSeparator)(0),
+            Integer.parseInt(x.split(transactionalLegacyDataBackupCompletedTableSign)(1)
+              .split(TransactionManager.parentTransactionIdSeparator)(1))
+          )}
+          .reverse
+          .foreach{ t => cleanable.addAction(sql(s"drop table if exists $t", tryAgainWhenError = true))}
+
+        sql(s"""show tables like '%$transactionalLegacyDataBackupProgressingTableSign%'""", tryAgainWhenError = true).split("[\r]?\n")
+          .filter( t => t.length > 0)
+          .foreach{ t => cleanable.addAction(sql(s"drop table if exists $t", tryAgainWhenError = true))}
+
+        sql(s"""show tables like '%$transactionalTmpTableSign%'""", tryAgainWhenError = true).split("[\r]?\n")
+          .filter( t => t.length > 0)
+          .foreach{ t => cleanable.addAction(sql(s"drop table if exists $t", tryAgainWhenError = true))}
+
+        return cleanable
+      }
+
+      val cs = cookies.asInstanceOf[Array[ClickHouseRollbackableTransactionCookie]]
+      cs.foreach{ c =>
+        val parentId = c.parentId.split(TransactionManager.parentTransactionIdSeparator)(0)
+
+        // 这里获取唯一需要rollback的最新表，后面的返回false
+        val needRollBack = transactionManager.isActiveButNotAllCommited(parentId)
+        if (needRollBack) {
+
+          LOG.warn("ClickHouse client roll back start")
+          clickHousePartitionAlterSQL(c.partitions).foreach{partition =>
+//            sql(s"alter table ${c.targetTable} drop partition($partition)", tryAgainWhenError = true)
+            dropPartition(s"${c.targetTable}_for_select", partition, hosts: _*)
+          }
+
+          val batchCount = sql(s"select count(1) from ${c.transactionalCompletedBackupTable}", tryAgainWhenError = true).trim.toInt
+          if (batchCount == 0) {
+            LOG.warn(s"ClickHouseClient rollback", s"Reverting to the legacy data, Backup table is empty, Drop partitions of targetTable!! \ntable: ${c.transactionalCompletedBackupTable} \npartitions: ${partitionsWhereSQL(c.partitions)}")
+          } else {
+            var isFirstRun = true
+            RunAgainIfError.run{
+              if (!isFirstRun) {
+                clearRedundantData(c.partitions, s"${c.targetTable}_for_select", hosts:_*)
+              }
+              isFirstRun = false
+              // 正常情况下只执行一次，防止因为网络问题导致sql执行成功却返回非200，导致数据重复导入的问题
+              sql(s"insert into ${c.targetTable}_for_select_all select * from ${c.transactionalCompletedBackupTable}")
+            }
+          }
+        }
+      }
+
+      cs.foreach{ c =>
+        cleanable.addAction(sql(s"drop table if exists ${c.transactionalCompletedBackupTable}", tryAgainWhenError = true))
+        cleanable.addAction(sql(s"drop table if exists ${c.transactionalProgressingBackupTable}", tryAgainWhenError = true))
+        cleanable.addAction(sql(s"drop table if exists ${c.transactionalTmpTable}", tryAgainWhenError = true))
+      }
+
+      cleanable
+    } catch {
+      case e: Exception =>
+        throw new ClickHouseClientException(s"ClickHouse Transaction Rollback Fail, module: $moduleName, cookies: " + cookies, e)
+    }
+  }
+
+  def overwriteUnionSum(transactionParentId: String,
+                        dwrTable: String,
+                        clickHouseTable: String,
+                        newDF: DataFrame,
+                        partitionField: String,
+                        partitionFields: String*): ClickHouseTransactionCookie = {
+    val ts = Array(partitionField) ++ partitionFields
+    val ps = newDF
+      .dropDuplicates(ts)
+      .collect()
+      .map { x =>
+        ts.map { y =>
+          HivePartitionPart(y, x.getAs[String](y))
+        }
+      }
+    overwriteUnionSum(transactionParentId, dwrTable, clickHouseTable, newDF, ps, partitionField, partitionFields:_*)
+  }
+
+  def overwriteUnionSum(transactionParentId: String,
+                        hiveTable: String,
+                        clickHouseTable: String,
+                        newDF: DataFrame,
+                        ps: Array[Array[HivePartitionPart]],
+                        partitionField: String,
+                        partitionFields: String*): ClickHouseTransactionCookie = {
+    var tid: String = null
+    try {
+      tid = transactionManager.generateTransactionId(transactionParentId)
+
+//      val dmTable = dwrTable.replace("dwr", "dm")
+      val dmTable = clickHouseTable
+      val tempTable = dmTable + transactionalTmpTableSign + tid
+      val processingTable = dmTable + transactionalLegacyDataBackupProgressingTableSign + tid
+      val completeTable = dmTable + transactionalLegacyDataBackupCompletedTableSign + tid
+
+      val ts = Array(partitionField) ++ partitionFields // l_time, b_date and b_time
+
+      val whereCondition = partitionsWhereSQL(ps) // (l_time="2018-xx-xx xx:00:00" and b_date="2018-xx-xx" and b_time="2018-xx-xx xx:00:00")
+
+      LOG.warn(s"ClickHouseClient overwriteUnionSum overwrite partitions where", whereCondition)
+
+      // Group by fields with partition fields
+
+      val fs = hiveContext.read.table(hiveTable).schema.fieldNames
+
+      val aggList = config.getConfigList(s"modules.$moduleName.dwr.groupby.aggs").map{ x => x.getString("as").toLowerCase }
+//      val gs = (groupByFields :+ partitionField) ++ partitionFields
+      val gs = fs.filter{ field => !aggList.contains(field) }
+//      val unionAggExprsAndAlias = autoRecognizeAggFields(fs).map{ f => sum(f).as(f) }
+      val unionAggExprsAndAlias = aggList.map{ field => sum(field).as(field) }
+
+
+      val _newDF = newDF.select(fs.head, fs.tail: _*)
+      moduleTracer.trace("    clickhouse client start overwrite union")
+      // Sum
+      val updated = //original
+//        .union(_newDF)
+        _newDF
+        .groupBy(gs.head, gs.tail:_*)
+        .agg(
+          unionAggExprsAndAlias.head,
+          unionAggExprsAndAlias.tail:_*
+        )
+        .as("dwr")
+        .select(fs.head, fs.tail:_*)
+      // 直接通过sql join
+      var templateSQL: String = null
+      try {
+        templateSQL = config.getString(s"modules.$moduleName.dm.persist.sql")
+      } catch {case e: Exception =>}
+      var updatedData: Dataset[String] = null
+      if (templateSQL == null) {
+        updatedData = updated.selectExpr(fs.map{ f => f.toLowerCase() }:_*).toJSON
+      } else {
+        updated.toDF().createOrReplaceTempView("dwr") // 注册成为临时表
+        updatedData = hiveContext.sql(templateSQL).toJSON
+      }
+
+      moduleTracer.trace("    clickhouse client join finished")
+
+//      LOG.warn(s"update content array length: ${updated.length}, updated take(1):\n${updated.take(1)}")
+
+      // 纯内存可能会OOM
+      updatedData.persist(StorageLevel.MEMORY_AND_DISK)
+      LOG.warn(s"update content array length: ${updatedData.count()}, updated take(1):\n${updatedData.take(1)}")
+
+      if (transactionManager.needTransactionalAction()) {
+        sql(s"""CREATE TABLE IF NOT EXISTS $tempTable AS ${dmTable}_for_select""", tryAgainWhenError = true)
+        // 事务上传到临时表
+        val dmFieldsSchema = sql(s"desc ${dmTable}_for_select").split("[\r]?\n").map{ field => field.split("[\t ]")(0) }
+        val dmAggFields = config.getConfigList(s"modules.$moduleName.dwr.groupby.aggs").map{ x => x.getString("as").toLowerCase() }
+        RunAgainIfError.run{
+          sql(s"""CREATE TABLE IF NOT EXISTS $tempTable$uploadTmpTableSign AS $tempTable""", tryAgainWhenError = true)
+//          clearRedundantData(ps, tempTable, hosts(0))
+//          val uploadResult = uploadToClickHouseSingleTable(s"$tempTable$uploadTmpTableSign", hosts(0), gzOutputStream.toByteArray)
+          val uploadResult = uploadToClickHouseSingleTable(s"$tempTable$uploadTmpTableSign", tempTable, hosts.head, updatedData)
+          val dataCount = sql(s"select count(1) from $tempTable$uploadTmpTableSign").trim.toInt
+
+          if (uploadResult && dataCount == updatedData.count()) {
+            // TODO 这里做聚合操作，在commit直接到查询表的时候就直接插入，减少数据波动延时
+//            sql(s"INSERT INTO $tempTable SELECT * FROM $tempTable$uploadTmpTableSign UNION ALL SELECT * FROM ${dmTable}_for_select_all WHERE $whereCondition")
+            // 每天0点的时候会对一天的数据做聚合，可能会产生clickHouse的内存不够的问题，通过user.xml配置增加内存
+            sql(
+              s"""INSERT INTO $tempTable
+                 |  SELECT ${dmFieldsSchema.map{ f => if (dmAggFields.contains(f)) s"sum($f) as $f" else f}.mkString(", ")}
+                 |  FROM
+                 |    (SELECT *
+                 |    FROM $tempTable$uploadTmpTableSign
+                 |    UNION ALL
+                 |    SELECT *
+                 |    FROM ${dmTable}_for_select_all
+                 |    WHERE $whereCondition
+                 |    )
+                 |  GROUP BY ${dmFieldsSchema.toSet.diff(dmAggFields.toSet).mkString(", ")}"""
+                .stripMargin)
+            sql(s"DROP TABLE $tempTable$uploadTmpTableSign")
+            updatedData.unpersist()
+          } else {
+            sql(s"DROP TABLE $tempTable$uploadTmpTableSign")
+            throw new ClickHouseClientException(s"upload to $tempTable$uploadTmpTableSign failed")
+          }
+        }
+      } else {
+        // 非事务直接上传到目标表
+        RunAgainIfError.run {
+          sql(s"""create table if not exists $dmTable$uploadTmpTableSign as ${dmTable}_for_select""", tryAgainWhenError = true)
+          // 先上传到临时表，再通过insert into select的方式复制
+//          clearRedundantData(ps, dmTable, hosts:_*)
+//          val uploadResult = uploadToClickHouseSingleTable(s"$dmTable$uploadTmpTableSign", hosts(0), gzOutputStream.toByteArray)
+          val uploadResult = uploadToClickHouseSingleTable(s"$dmTable$uploadTmpTableSign", s"${dmTable}_for_select", hosts.head, updatedData)
+          val dataCount = sql(s"select count(1) from $dmTable$uploadTmpTableSign").trim.toInt
+
+          if (uploadResult && dataCount == updatedData.count()) {
+            sql(s"insert into ${dmTable}_for_select_all select * from $dmTable$uploadTmpTableSign")
+            sql(s"drop table $dmTable$uploadTmpTableSign")
+            updatedData.unpersist()
+          } else {
+            sql(s"drop table $dmTable$uploadTmpTableSign")
+            throw new ClickHouseClientException(s"upload to $dmTable$uploadTmpTableSign failed")
+          }
+        }
+
+        moduleTracer.trace("    clickhouse client updated to source table finished")
+        return new ClickHouseNonTransactionCookie(transactionParentId, tid, dmTable, ps)
+      }
+
+      val isE = newDF.take(1).isEmpty
+      moduleTracer.trace("    clickhouse client updated to tmp table finished")
+      new ClickHouseRollbackableTransactionCookie(transactionParentId, tid, tempTable, dmTable, SaveMode.Overwrite, ps, processingTable, completeTable, isE)
+    } catch {
+      case e: Exception =>
+        throw new ClickHouseClientException(s"ClickHouse Insert Overwrite Fail, module: $moduleName, transactionId:  $tid", e)
+    }
+  }
+
+  private def uploadToClickHouseSingleTable(clickHouseTable: String, host: String, data: Array[Byte]): Boolean = {
+    val query = URLEncoder.encode(s"INSERT INTO $clickHouseTable FORMAT JSONEachRow", "utf-8")
+    val conn = new URL(s"http://$host:8123/?enable_http_compression=1&query=$query")
+      .openConnection()
+      .asInstanceOf[HttpURLConnection]
+    conn.setRequestMethod("POST")
+    conn.setChunkedStreamingMode(1048576) // 1M
+    conn.setRequestProperty("Content-Encoding", "gzip")
+    conn.setRequestProperty("Connection", "Keep-Alive")
+    conn.setDoInput(true)
+    conn.setDoOutput(true)
+    val out = conn.getOutputStream
+    out.write(data)
+    try {
+      conn.getInputStream
+      if (conn.getResponseCode == 200) {
+        return true
+      }
+
+    } catch {
+      case e: Exception =>
+        LOG.warn(e.getLocalizedMessage)
+        val errorSource = Okio.buffer(Okio.source(conn.getErrorStream))
+        val error = errorSource.readString(Charset.forName("UTF-8"))
+        errorSource.close()
+        throw new HandlerException(error)
+    }
+    false
+  }
+
+  private def uploadToClickHouseSingleTable(targetTable: String, sourceTable: String, host: String, data: Dataset[String]): Boolean = {
+//    sql(s"CREATE TABLE IF NOT EXISTS $targetTable as $sourceTable")
+    val fileCount = (data.count() / 2000000 + 1).toInt    // 200w条数据为一个文件
+    LOG.warn(s"Data count: ${data.count()}, fileCount: $fileCount")
+    val dataArray = data.repartition(fileCount).rdd.mapPartitions{ rows =>
+      val buffer = new Buffer()
+      rows.foreach{ row =>
+        buffer.write((row + "\n").getBytes())
+      }
+//      buffer.write(rows.mkString("\n").getBytes())
+      val gzBytes = new ByteArrayOutputStream()
+      val gzSink = new GzipSink(Okio.buffer(Okio.sink(gzBytes)))
+      gzSink.write(buffer, buffer.size())
+      gzSink.flush()
+      gzSink.close()
+
+      // 记录gzip文件的长度，4个字节表示
+      val length = new Array[Byte](4)
+      // 高16位
+      length(3) = (gzBytes.size() >> 24).toByte
+      length(2) = (gzBytes.size() >> 16 & 0xFF).toByte
+      // 低16位
+      length(1) = (gzBytes.size() >> 8 & 0xFF).toByte
+      length(0) = (gzBytes.size() & 0xFF).toByte
+      val gzBytesWithLength = new ByteArrayOutputStream()
+      gzBytesWithLength.write(length)
+      gzBytesWithLength.write(gzBytes.toByteArray)
+      gzBytesWithLength.toByteArray.iterator
+    }.collect()
+
+//    LOG.warn(s"Data length: ${dataArray.length} array: ${dataArray.mkString("[", ", ", "]")}")
+
+    val gzFilesArray = new util.ArrayList[ByteArrayOutputStream]()
+    var i = 0 // 索引
+    while (i < dataArray.length) {
+      val gzFileBytes = new ByteArrayOutputStream()
+      val fileLength =
+        ((dataArray(i + 3).toInt & 0xFF) << 24) |
+        ((dataArray(i + 2).toInt & 0xFF) << 16) |
+        ((dataArray(i + 1).toInt & 0xFF) << 8)  |
+        (dataArray(i).toInt & 0xFF)
+      LOG.warn(s"GZFile length: $fileLength, index=$i")
+      i += 4
+      gzFileBytes.write(dataArray, i, fileLength)
+      gzFilesArray.add(gzFileBytes)
+//      LOG.warn(s"""GZFile bytes: ${gzFileBytes.toByteArray.mkString("[", ", ", "]")}""")
+      i += fileLength
+    }
+    LOG.warn(s"Total gzFile count: ${gzFilesArray.length}")
+    var isFirstRun = true
+    RunAgainIfError.run {
+      if (!isFirstRun) {
+        sql(s"DROP TABLE $targetTable")
+        sql(s"CREATE TABLE IF NOT EXISTS $targetTable as $sourceTable")
+      }
+      isFirstRun = false
+      gzFilesArray.par.foreach{ gzFileArray =>
+        if (!uploadToClickHouseSingleTable(targetTable, hosts.head, gzFileArray.toByteArray)) {
+          throw new ClickHouseClientException(s"Upload to $targetTable failed at thread:${Thread.currentThread().getName}, try again")
+        }
+      }
+    }
+    true
+  }
+
+  override def commit(cookie: TransactionCookie): Unit = {
+    if (cookie.isInstanceOf[ClickHouseNonTransactionCookie]) {
+      return
+    }
+
+    try {
+      val c = cookie.asInstanceOf[ClickHouseRollbackableTransactionCookie]
+      if (c.isEmptyData) {
+        LOG.warn(s"ClickHouse commit skip, Because no data is inserted (into or overwrite) !!")
+      } else {
+        sql(s"CREATE TABLE IF NOT EXISTS ${c.transactionalProgressingBackupTable} AS ${c.targetTable}_for_select", tryAgainWhenError = true)
+
+        val bw = c.partitions.map { x => x.filter(y => "l_time".equals(y.name)) }
+
+        //正常情况下只会有一个l_time值
+        val flatBw = bw.flatMap { x => x }.toSet
+        if (flatBw.size != 1) {
+          throw new ClickHouseClientException(s"l_time must be only one value for backup, But has ${flatBw.size} values: $flatBw !")
+        }
+
+        LOG.warn(s"ClickHouse before commit backup table ${c.targetTable}_for_select where: ", bw)
+
+        // 只有l_time
+        val w = partitionsWhereSQL(bw) // l_time = '201x-xx-xx 00:00:00'
+        var isFirstRun = true
+
+        // toSet会改变原先的顺序
+//        val dmFieldsSchema = sql(s"desc ${c.targetTable}_for_select").split("[\r]?\n").map{ field => field.split("[\t ]")(0) }
+//        val dmAggFields = config.getConfigList(s"modules.$moduleName.dwr.groupby.aggs").map{ x => x.getString("as").toLowerCase() }
+        RunAgainIfError.run {
+          if (!isFirstRun) {
+            // 也可以drop table再create(temp表，processing表，complete表只在host(0)中)
+//            clearRedundantData(c.partitions, c.transactionalProgressingBackupTable, hosts(0))
+            sql(s"DROP TABLE ${c.transactionalProgressingBackupTable}", tryAgainWhenError = true)
+            sql(s"CREATE TABLE IF NOT EXISTS ${c.transactionalProgressingBackupTable} AS ${c.targetTable}_for_select")
+          }
+          // 聚合操作(备份当前l_time数据)
+//          sql(s"""INSERT INTO ${c.transactionalProgressingBackupTable} SELECT ${dmFieldsSchema.map{ f => if (dmAggFields.contains(f)) s"sum($f) as $f" else f}.mkString(", ")} FROM ${c.targetTable}_for_select_all WHERE $w GROUP BY ${dmFieldsSchema.toSet.diff(dmAggFields.toSet).mkString(", ")}""")
+          sql(s"""INSERT INTO ${c.transactionalProgressingBackupTable} SELECT * FROM ${c.targetTable}_for_select_all WHERE $w""")
+          isFirstRun = false
+        }
+
+        LOG.warn("ClickHouse insert into progressing backup table")
+        sql(s"RENAME TABLE ${c.transactionalProgressingBackupTable} TO ${c.transactionalCompletedBackupTable}", tryAgainWhenError = true)
+        LOG.warn("ClickHouse rename to completed backup table")
+
+
+        // 需要先删除分区再进行插入
+
+        RunAgainIfError.run {
+          clickHousePartitionAlterSQL(c.partitions).foreach { partition =>
+            dropPartition(s"${c.targetTable}_for_select", partition, hosts: _*)
+          }
+          //            sql(s"""alter table ${c.targetTable} drop partition($partition)""")
+          //            dropPartition(s"${c.targetTable}_for_select", partition, hosts:_*)
+          //            sql(s"""INSERT INTO ${c.targetTable}_for_select_all SELECT ${dmFieldsSchema.map{ f => if (dmAggFields.contains(f)) s"sum($f) as $f" else f}.mkString(", ")} FROM ${c.transactionalTmpTable} GROUP BY ${dmFieldsSchema.toSet.diff(dmAggFields.toSet).mkString(", ")}""")
+          sql(s"""INSERT INTO ${c.targetTable}_for_select_all SELECT * FROM ${c.transactionalTmpTable}""")
+        }
+//        }
+
+        LOG.warn("ClickHouse insert into target table")
+      }
+    }
+  }
+
+  private def clickHousePartitionAlterSQL(ps: Array[Array[HivePartitionPart]]): Array[String] = {
+    ps.map { x =>
+      x.map { y =>
+//        "\"" + y.value + "\""
+        s"""'${y.value}'"""
+        //y._1 + "=" + y._2
+      }.mkString(", ")
+    }
+  }
+
+  private def clearRedundantData(ps: Array[Array[HivePartitionPart]], table: String, hosts: String*): Unit = {
+    LOG.warn(s"Run into clear redundant data for table: $table at partition: ${OM.toJOSN(ps)}")
+    clickHousePartitionAlterSQL(ps).foreach { partition =>
+//      sql(s"alter table $table drop partition($partition)", tryAgainWhenError = true)
+      dropPartition(table, partition, hosts:_*)
+    }
+  }
+
+  private def partitionsWhereSQL(ps: Array[Array[HivePartitionPart]]): String = {
+//    [
+//    ["l_time": "2018-10-24 10:00:00", "b_date": "2018-10-24", "b_time": "2018-10-24 10:00:00"],
+//    ["l_time": "2018-10-24 11:00:00", "b_date": "2018-10-24", "b_time": "2018-10-24 11:00:00"],
+//    ["l_time": "2018-10-24 12:00:00", "b_date": "2018-10-24", "b_time": "2018-10-24 12:00:00"],
+//    ["l_time": "2018-10-24 13:00:00", "b_date": "2018-10-24", "b_time": "2018-10-24 13:00:00"],
+//    ]
+//    =>
+//    (l_time="2018-10-24 10:00:00" and b_date="2018-10-24" and b_time="2018-10-24 10:00:00") or
+//    (l_time="2018-10-24 11:00:00" and b_date="2018-10-24" and b_time="2018-10-24 11:00:00") or
+//    (l_time="2018-10-24 12:00:00" and b_date="2018-10-24" and b_time="2018-10-24 12:00:00") or
+//    (l_time="2018-10-24 13:00:00" and b_date="2018-10-24" and b_time="2018-10-24 13:00:00")
+    var w = ps.map { x =>
+      x.map { y =>
+        y.name + "=\'" + y.value + "\'"
+        //y._1 + "=" + y._2
+      }.mkString("(", " and ", ")")
+    }.mkString(" or ")
+    if ("".equals(w)) w = "1 = 1"
+    w
+  }
+
+  override def clean(cookies: TransactionCookie*): Unit = {
+    try {
+      cookies.foreach {
+        case c: ClickHouseRollbackableTransactionCookie =>
+          sql(s"drop table if exists ${c.transactionalCompletedBackupTable}", tryAgainWhenError = true)
+          sql(s"drop table if exists ${c.transactionalProgressingBackupTable}", tryAgainWhenError = true)
+          sql(s"drop table if exists ${c.transactionalTmpTable}", tryAgainWhenError = true)
+        //          sql(s"drop table if exists ${c.transactionalTmpTable}$uploadTmpTableSign", tryAgainWhenError = true)
+        case other =>
+          LOG.warn(other.getClass.getName)
+      }
+    } catch {
+      case e: Exception =>
+        throw new ClickHouseClientException(s"ClickHouse Transaction Clean Fail, module: $moduleName, cookie: " + OM.toJOSN(cookies), e)
+    }
+  }
+
+
+  def partitions(tableNames:String*): Array[Array[HivePartitionPart]] ={
+    val ps = mutable.ListBuffer[Array[HivePartitionPart]]()
+    tableNames.foreach{ tableName =>
+      sql(s"SELECT partition FROM system.parts WHERE table='$tableName' and active=1", tryAgainWhenError = true).split("[\r]?\n")
+        .filter(line => line.length > 0)
+        .foreach{ partition =>
+          ps += parseShowPartition(partition)
+        }
+    }
+    ps.toArray[Array[HivePartitionPart]]
+  }
+
+  def parseShowPartition (partition: String): Array[HivePartitionPart] = {
+    val part = partition.replaceAll("[\\\\\\'()]", "").split(",").map{ p => p.trim }
+    if (part.length != 3) {
+      throw new ClickHouseClientException("partition must be (l_time, b_date, b_time)")
+    }
+    val partitionFields = Array("l_time", "b_date", "b_time")
+    part.zipWithIndex.map{ case(each, i) =>
+      HivePartitionPart(partitionFields(i), each)
+    }
+  }
+
+  def sql(sql: String, tryAgainWhenError: Boolean = false): String = {
+    LOG.warn(s"execute clickhouse sql:\n$sql")
+    if (tryAgainWhenError) {
+      RunAgainIfError.run{
+        sendSQLToClickHouse(sql)
+      }
+    } else {
+      sendSQLToClickHouse(sql)
+    }
+  }
+
+  val request = new Requests(1)
+  def sendSQLToClickHouse(sql: String): String ={
+    var result = ""
+    request.post(s"http://${hosts.head}:8123/", new Entity().setStr(sql, Entity.CONTENT_TYPE_TEXT),
+      new Callback {
+        override def prepare(conn: HttpURLConnection): Unit = {}
+
+        override def failed(responseStatus: String, responseError: String, ex: Exception): Unit = {
+          LOG.warn(ex.getLocalizedMessage)
+          throw new ClickHouseClientException(s"sql may be failed:\n$sql")
+        }
+
+        override def completed(responseStatus: String, response: String): Unit = {
+          result = response
+        }
+      }, false)
+    result
+  }
 }

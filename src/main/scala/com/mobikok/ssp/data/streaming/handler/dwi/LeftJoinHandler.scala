@@ -14,8 +14,8 @@ class LeftJoinHandler extends Handler {
   //  table = "app", on = "app.id  = dwi.appid", select = "app.publisherId"
   var dwiLeftJoin: List[(String, String, String)] = _
 
-  override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, handlerConfig: Config, expr: String, as: Array[String]): Unit = {
-    super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, handlerConfig, expr, as)
+  override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, handlerConfig: Config, globalConfig: Config, expr: String, as: Array[String]): Unit = {
+    super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, handlerConfig, globalConfig, expr, as)
 
     dwiLeftJoin = handlerConfig.getConfigList("join.left").map{ x =>
       (x.getString("table"), x.getString("on"), x.getString("select"))

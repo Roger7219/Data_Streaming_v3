@@ -75,8 +75,8 @@ case class  SspTrafficDWI (
                        @BeanProperty var appPercent:     Integer, //app比例
                        @BeanProperty var salePercent:    Integer, //按条比例
                        @BeanProperty var appSalePercent: Integer,
-
                        @BeanProperty var eventName:      String,  //eventName
+
                        @BeanProperty var eventValue:     Integer, //eventValue
                        @BeanProperty var refer:          String,  //refer
                        @BeanProperty var status:         Integer, //下发状态
@@ -87,7 +87,11 @@ case class  SspTrafficDWI (
                        @BeanProperty var times:          Integer,
                        @BeanProperty var time:           Integer,
                        @BeanProperty var isNew:          Integer,
+                       @BeanProperty var pbResp:         String, //postback response信息
 
+                       @BeanProperty var recommender:    Integer,//推荐框架的算法标记
+                       @BeanProperty var raterId:        String,//推荐框架的算法标记
+                       @BeanProperty var raterType:       Integer,//推荐框架的算法标记
 
                        @BeanProperty var repeated:       String,
                        @BeanProperty var l_time:         String,
@@ -109,7 +113,8 @@ case class  SspTrafficDWI (
         appPrice,     test,        ruleId,      smartId,        reportIp,
         pricePercent, appPercent,  salePercent, appSalePercent, eventName,
         eventValue,   refer,       status,      region,         city,
-        uid,          times,       time,        isNew,
+        uid,          times,       time,        isNew,          pbResp,
+        recommender,  raterId,     raterType,
         repeated,  l_time, b_date, b_time)
   }
 
@@ -121,55 +126,55 @@ case class  SspTrafficDWI (
 //      classOf[String]
 //    )
 
-    repeats = ifNull(source.get(("0","repeats")).get, null,  Bytes.toInt(source.get(("0","repeats")).get) + Int.MaxValue + 1)
-    rowkey = ifNull(source.get(("0","rowkey")).get, null, Bytes.toString(source.get(("0","rowkey")).get))
+    repeats = ifNull(source.get(("0","repeats")), null,  Bytes.toInt(source.get(("0","repeats")).get) + Int.MaxValue + 1)
+    rowkey = ifNull(source.get(("0","rowkey")), null, Bytes.toString(source.get(("0","rowkey")).get))
 
-    id =  ifNull(source.get(("0","id")).get, null,  Bytes.toInt(source.get(("0","id")).get) + Int.MaxValue + 1)
-    publisherId = ifNull(source.get(("0","publisherId")).get, null,  Bytes.toInt(source.get(("0","publisherId")).get) + Int.MaxValue + 1)
-    subId =       ifNull(source.get(("0","subId")).get, null,  Bytes.toInt(source.get(("0","subId")).get) + Int.MaxValue + 1)
-    offerId =     ifNull(source.get(("0","offerId")).get, null,  Bytes.toInt(source.get(("0","offerId")).get) + Int.MaxValue + 1)
-    campaignId = ifNull(source.get(("0","campaignId")).get, null,  Bytes.toInt(source.get(("0","campaignId")).get) + Int.MaxValue + 1)
+    id =  ifNull(source.get(("0","id")), null,  Bytes.toInt(source.get(("0","id")).get) + Int.MaxValue + 1)
+    publisherId = ifNull(source.get(("0","publisherId")), null,  Bytes.toInt(source.get(("0","publisherId")).get) + Int.MaxValue + 1)
+    subId =       ifNull(source.get(("0","subId")), null,  Bytes.toInt(source.get(("0","subId")).get) + Int.MaxValue + 1)
+    offerId =     ifNull(source.get(("0","offerId")), null,  Bytes.toInt(source.get(("0","offerId")).get) + Int.MaxValue + 1)
+    campaignId = ifNull(source.get(("0","campaignId")), null,  Bytes.toInt(source.get(("0","campaignId")).get) + Int.MaxValue + 1)
 
-    countryId = ifNull(source.get(("0","countryId")).get, null,  Bytes.toInt(source.get(("0","countryId")).get) + Int.MaxValue + 1)
-    carrierId = ifNull(source.get(("0","carrierId")).get, null,  Bytes.toInt(source.get(("0","carrierId")).get) + Int.MaxValue + 1)
-    deviceType = ifNull(source.get(("0","deviceType")).get, null,  Bytes.toInt(source.get(("0","deviceType")).get) + Int.MaxValue + 1)
-    userAgent = ifNull(source.get(("0","userAgent")).get, null,  Bytes.toString(source.get(("0","userAgent")).get))
-    ipAddr = ifNull(source.get(("0","ipAddr")).get, null,  Bytes.toString(source.get(("0","ipAddr")).get))
+    countryId = ifNull(source.get(("0","countryId")), null,  Bytes.toInt(source.get(("0","countryId")).get) + Int.MaxValue + 1)
+    carrierId = ifNull(source.get(("0","carrierId")), null,  Bytes.toInt(source.get(("0","carrierId")).get) + Int.MaxValue + 1)
+    deviceType = ifNull(source.get(("0","deviceType")), null,  Bytes.toInt(source.get(("0","deviceType")).get) + Int.MaxValue + 1)
+    userAgent = ifNull(source.get(("0","userAgent")), null,  Bytes.toString(source.get(("0","userAgent")).get))
+    ipAddr = ifNull(source.get(("0","ipAddr")), null,  Bytes.toString(source.get(("0","ipAddr")).get))
 
-    clickId = ifNull(source.get(("0","clickId")).get, null,  Bytes.toString(source.get(("0","clickId")).get))
-    price = ifNull(source.get(("0","price")).get, null,  java.lang.Double.valueOf( Bytes.toString(source.get(("0","price")).get)))
-    reportTime = ifNull(source.get(("0","reportTime")).get, null,  Bytes.toString(source.get(("0","reportTime")).get))
-    createTime = ifNull(source.get(("0","createTime")).get, null,  Bytes.toString(source.get(("0","createTime")).get))
-    clickTime = ifNull(source.get(("0","clickTime")).get, null, Bytes.toString(source.get(("0","clickTime")).get))
+    clickId = ifNull(source.get(("0","clickId")), null,  Bytes.toString(source.get(("0","clickId")).get))
+    price = ifNull(source.get(("0","price")), null,  java.lang.Double.valueOf( Bytes.toString(source.get(("0","price")).get)))
+    reportTime = ifNull(source.get(("0","reportTime")), null,  Bytes.toString(source.get(("0","reportTime")).get))
+    createTime = ifNull(source.get(("0","createTime")), null,  Bytes.toString(source.get(("0","createTime")).get))
+    clickTime = ifNull(source.get(("0","clickTime")), null, Bytes.toString(source.get(("0","clickTime")).get))
 
-    showTime = ifNull(source.get(("0","showTime")).get, null, Bytes.toString(source.get(("0","showTime")).get))
-    requestType = ifNull(source.get(("0","requestType")).get, null, Bytes.toString(source.get(("0","requestType")).get))
-    priceMethod = ifNull(source.get(("0","priceMethod")).get, null, Bytes.toInt(source.get(("0","priceMethod")).get) + Int.MaxValue + 1)
-    bidPrice = ifNull(source.get(("0","bidPrice")).get, null, java.lang.Double.valueOf( Bytes.toString(source.get(("0","bidPrice")).get)))
-    adType = ifNull(source.get(("0","adType")).get, null, Bytes.toInt(source.get(("0","adType")).get) + Int.MaxValue + 1)
+    showTime = ifNull(source.get(("0","showTime")), null, Bytes.toString(source.get(("0","showTime")).get))
+    requestType = ifNull(source.get(("0","requestType")), null, Bytes.toString(source.get(("0","requestType")).get))
+    priceMethod = ifNull(source.get(("0","priceMethod")), null, Bytes.toInt(source.get(("0","priceMethod")).get) + Int.MaxValue + 1)
+    bidPrice = ifNull(source.get(("0","bidPrice")), null, java.lang.Double.valueOf( Bytes.toString(source.get(("0","bidPrice")).get)))
+    adType = ifNull(source.get(("0","adType")), null, Bytes.toInt(source.get(("0","adType")).get) + Int.MaxValue + 1)
 
-    isSend = ifNull(source.get(("0","isSend")).get, null,  Bytes.toInt(source.get(("0","isSend")).get) + Int.MaxValue + 1)
-    reportPrice = ifNull(source.get(("0","reportPrice")).get, null,  java.lang.Double.valueOf( Bytes.toString(source.get(("0","reportPrice")).get)))
-    sendPrice = ifNull(source.get(("0","sendPrice")).get, null, java.lang.Double.valueOf( Bytes.toString(source.get(("0","sendPrice")).get)))
-    s1 = ifNull(source.get(("0","s1")).get, null,  Bytes.toString(source.get(("0","s1")).get))
-    s2 = ifNull(source.get(("0","s2")).get, null,  Bytes.toString(source.get(("0","s2")).get))
+    isSend = ifNull(source.get(("0","isSend")), null,  Bytes.toInt(source.get(("0","isSend")).get) + Int.MaxValue + 1)
+    reportPrice = ifNull(source.get(("0","reportPrice")), null,  java.lang.Double.valueOf( Bytes.toString(source.get(("0","reportPrice")).get)))
+    sendPrice = ifNull(source.get(("0","sendPrice")), null, java.lang.Double.valueOf( Bytes.toString(source.get(("0","sendPrice")).get)))
+    s1 = ifNull(source.get(("0","s1")), null,  Bytes.toString(source.get(("0","s1")).get))
+    s2 = ifNull(source.get(("0","s2")), null,  Bytes.toString(source.get(("0","s2")).get))
 
-    gaid = ifNull(source.get(("0","gaid")).get, null,  Bytes.toString(source.get(("0","gaid")).get))
-    androidId = ifNull(source.get(("0","androidId")).get, null, Bytes.toString(source.get(("0","androidId")).get))
-    idfa = ifNull(source.get(("0","idfa")).get, null,  Bytes.toString(source.get(("0","idfa")).get))
-    postBack = ifNull(source.get(("0","postBack")).get, null,  Bytes.toString(source.get(("0","postBack")).get))
-    sendStatus = ifNull(source.get(("0","sendStatus")).get, null,  Bytes.toInt(source.get(("0","sendStatus")).get) + Int.MaxValue + 1)
+    gaid = ifNull(source.get(("0","gaid")), null,  Bytes.toString(source.get(("0","gaid")).get))
+    androidId = ifNull(source.get(("0","androidId")), null, Bytes.toString(source.get(("0","androidId")).get))
+    idfa = ifNull(source.get(("0","idfa")), null,  Bytes.toString(source.get(("0","idfa")).get))
+    postBack = ifNull(source.get(("0","postBack")), null,  Bytes.toString(source.get(("0","postBack")).get))
+    sendStatus = ifNull(source.get(("0","sendStatus")), null,  Bytes.toInt(source.get(("0","sendStatus")).get) + Int.MaxValue + 1)
 
-    sendTime = ifNull(source.get(("0","sendTime")).get, null,  Bytes.toString(source.get(("0","sendTime")).get))
-    sv = ifNull(source.get(("0","sv")).get, null,  Bytes.toString(source.get(("0","sv")).get))
-    imei = ifNull(source.get(("0","imei")).get, null,  Bytes.toString(source.get(("0","imei")).get))
-    imsi = ifNull(source.get(("0","imsi")).get, null,  Bytes.toString(source.get(("0","imsi")).get))
-    imageId = ifNull(source.get(("0","imageId")).get, null,  Bytes.toInt(source.get(("0","imageId")).get) + Int.MaxValue + 1)
+    sendTime = ifNull(source.get(("0","sendTime")), null,  Bytes.toString(source.get(("0","sendTime")).get))
+    sv = ifNull(source.get(("0","sv")), null,  Bytes.toString(source.get(("0","sv")).get))
+    imei = ifNull(source.get(("0","imei")), null,  Bytes.toString(source.get(("0","imei")).get))
+    imsi = ifNull(source.get(("0","imsi")), null,  Bytes.toString(source.get(("0","imsi")).get))
+    imageId = ifNull(source.get(("0","imageId")), null,  Bytes.toInt(source.get(("0","imageId")).get) + Int.MaxValue + 1)
 
-    affSub = ifNull(source.get(("0","affSub")).get, null,  Bytes.toString(source.get(("0","affSub")).get))
-    s3 = ifNull(source.get(("0","s3")).get, null,  Bytes.toString(source.get(("0","s3")).get))
-    s4 = ifNull(source.get(("0","s4")).get, null,  Bytes.toString(source.get(("0","s4")).get))
-    s5 = ifNull(source.get(("0","s5")).get, null,  Bytes.toString(source.get(("0","s5")).get))
+    affSub = ifNull(source.get(("0","affSub")), null,  Bytes.toString(source.get(("0","affSub")).get))
+    s3 = ifNull(source.get(("0","s3")), null,  Bytes.toString(source.get(("0","s3")).get))
+    s4 = ifNull(source.get(("0","s4")), null,  Bytes.toString(source.get(("0","s4")).get))
+    s5 = ifNull(source.get(("0","s5")), null,  Bytes.toString(source.get(("0","s5")).get))
 
     //新版写法
     packageName = getStr(source, "packageName")
@@ -177,6 +182,7 @@ case class  SspTrafficDWI (
     respStatus  = getInt(source, "respStatus")
     winPrice    = getDou(source, "winPrice")
     winTime     = getStr(source, "winTime")
+
     appPrice    = getDou(source, "appPrice")
     test        = getInt(source, "test")
     ruleId      = getInt(source, "ruleId")
@@ -199,16 +205,29 @@ case class  SspTrafficDWI (
     times          = getInt(source, "times")
     time           = getInt(source, "time")
     isNew          = getInt(source, "isNew")
+    pbResp         = getStr(source, "pbResp")
 
-    repeated = ifNull(source.get(("0","repeated")).get, null,  Bytes.toString(source.get(("0","repeated")).get))
-    l_time = ifNull(source.get(("0","l_time")).get, null,   Bytes.toString(source.get(("0","l_time")).get))
-    b_date = ifNull(source.get(("0","b_date")).get, null,   Bytes.toString(source.get(("0","b_date")).get))
-    b_time = ifNull(source.get(("0","b_time")).get, null,   Bytes.toString(source.get(("0","b_time")).get))
+    recommender    = getInt(source, "recommender")
+    raterId        = getStr(source, "raterId")
+    raterType       = getInt(source, "raterType")
+
+    repeated = ifNull(source.get(("0","repeated")), null,  Bytes.toString(source.get(("0","repeated")).get))
+    l_time = ifNull(source.get(("0","l_time")), null,   Bytes.toString(source.get(("0","l_time")).get))
+    b_date = ifNull(source.get(("0","b_date")), null,   Bytes.toString(source.get(("0","b_date")).get))
+    b_time = ifNull(source.get(("0","b_time")), null,   Bytes.toString(source.get(("0","b_time")).get))
   }
 
   //保存
   override def toHBaseRowkey: Array[Byte] = {
     if(clickId == null ) null else Bytes.toBytes(clickId)
+  }
+
+  override def hashCode(): Int = {
+    String.valueOf(clickId).hashCode
+  }
+
+  override def equals(obj: scala.Any): Boolean = {
+    String.valueOf(clickId).equals(String.valueOf(obj))
   }
 
   override def toColumns: Map[(String, String), Array[Byte]] = {
@@ -270,6 +289,7 @@ case class  SspTrafficDWI (
       ("0","respStatus")  -> setInt(respStatus),
       ("0","winPrice")    -> setDou(winPrice),
       ("0","winTime")     -> setStr(winTime),
+
       ("0","appPrice")    -> setDou(appPrice),
       ("0","test")        -> setInt(test),
       ("0","ruleId")      -> setInt(ruleId),
@@ -292,6 +312,11 @@ case class  SspTrafficDWI (
       ("0","times")          -> setInt(times),
       ("0","time")           -> setInt(time),
       ("0","isNew")          -> setInt(isNew),
+      ("0","pbResp")         -> setStr(pbResp),
+
+      ("0","recommender")    -> setInt(recommender),
+      ("0","raterId")         -> setStr(raterId),
+      ("0","raterType")      -> setInt(raterType),
 
       ("0","repeated") -> ifNull(repeated, null, Bytes.toBytes(repeated)),
       ("0","l_time") ->   ifNull(l_time, null, Bytes.toBytes(l_time)),
@@ -381,6 +406,11 @@ case class  SspTrafficDWI (
       null.asInstanceOf[Integer], //times
       null.asInstanceOf[Integer], //time
       null.asInstanceOf[Integer], //isNew
+      null.asInstanceOf[String], //pbResp
+
+      null.asInstanceOf[Integer], //recommender
+      null.asInstanceOf[String], //raterId
+      null.asInstanceOf[Integer], //raterType
 
       null.asInstanceOf[String],
       null.asInstanceOf[String],

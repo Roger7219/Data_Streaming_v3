@@ -440,12 +440,12 @@ object OptimizedMixApp {
     var streamingModuleNum = 0
     allModulesConfig.getConfig("modules").root().map { case (moduleName, _) =>
 
-      streamingModuleNum += allModulesConfig.getConfigList(s"modules.$moduleName.kafka.consumer.partitoins").filter { x =>
+      streamingModuleNum += allModulesConfig.getConfigList(s"modules.$moduleName.kafka.consumer.partitoins")/*.filter { x =>
 
 //        LOG.warn("hasSparkStreaming",  "topic", x.getString("topic"))
         !"topic_empty".equals(x.getString("topic"))
 
-      }.size
+      }*/.size
 
 //      if(!"topic_empty".equals(config.getString(s"modules.$moduleName.kafka.consumer.partitoins.topic"))){
 //        return true

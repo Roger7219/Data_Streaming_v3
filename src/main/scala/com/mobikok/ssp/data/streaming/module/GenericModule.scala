@@ -99,6 +99,11 @@ class GenericModule (config: Config,
     bigQueryClient = new BigQueryClient(moduleName, config, ssc, messageClient, hiveContext)
   }catch {case e:Throwable => }
 
+  var clickHouseClient = null.asInstanceOf[ClickHouseClient]
+  try {
+    clickHouseClient = new ClickHouseClient(moduleName, config, ssc, messageClient, transactionManager, hiveContext, moduleTracer)
+  } catch {case e: Exception => LOG.warn(s"Init clickhouse client failed, skip it, ${e.getMessage}")}
+
   val rDBConfig = new RDBConfig(mySqlJDBCClientV2)
 
   val transactionManager: MixTransactionManager = new MixTransactionManager(
@@ -214,7 +219,7 @@ class GenericModule (config: Config,
           col = x.getString("expr")
         }
       } catch {case ex:Exception=>}
-      h.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, hc, col/*x.getString("expr")*/, x.getStringList("as").toArray( Array[String]() ))
+      h.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, hc, config, col/*x.getString("expr")*/, x.getStringList("as").toArray( Array[String]() ))
         (
           x.getStringList("as"),
           expr(col),
@@ -243,7 +248,7 @@ class GenericModule (config: Config,
     dwrGroupbyExtendedFields = config.getConfigList(s"modules.$moduleName.dwr.groupby.extended.fields").map{ x=>
         val hc = x.getConfig("handler")
         var h = Class.forName(hc.getString("class")).newInstance().asInstanceOf[com.mobikok.ssp.data.streaming.handler.dwr.Handler]
-        h.init(moduleName, hbaseClient, hiveContext, hc, x.getString("expr"), x.getString("as"))
+        h.init(moduleName, transactionManager, hbaseClient, hiveClient, clickHouseClient, hc, config, x.getString("expr"), x.getString("as"))
         h
     }.toList
   }catch {case e:Exception =>}
@@ -260,7 +265,7 @@ class GenericModule (config: Config,
     dwrGroupbyExtendedAggs = config.getConfigList(s"modules.$moduleName.dwr.groupby.extended.aggs").map{ x=>
       val hc = x.getConfig("handler")
       var h = Class.forName(hc.getString("class")).newInstance().asInstanceOf[com.mobikok.ssp.data.streaming.handler.dwr.Handler]
-      h.init(moduleName, hbaseClient, hiveContext, hc, x.getString("expr"), x.getString("as"))
+      h.init(moduleName, transactionManager, hbaseClient, hiveClient, clickHouseClient, hc, config, x.getString("expr"), x.getString("as"))
       h
     }.toList
   }catch {case e:Exception =>}
@@ -970,7 +975,7 @@ class GenericModule (config: Config,
         if (isEnableDwr) {
           if(dwrGroupbyExtendedFields != null) {
             dwrGroupbyExtendedFields.foreach{ x=>
-              cacheGroupByDwr = x.handle(cacheGroupByDwr)
+              cacheGroupByDwr = x.handle(cacheGroupByDwr)._2
               cacheGroupByDwr = hiveContext.createDataFrame(cacheGroupByDwr.collectAsList(), cacheGroupByDwr.schema).repartition(shufflePartitions)
             }
             LOG.warn("hiveClient dwrExtendedFields all handlers completed, take(2)", cacheGroupByDwr.take(2))

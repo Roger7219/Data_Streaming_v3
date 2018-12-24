@@ -1,20 +1,12 @@
 package com.mobikok.ssp.data.streaming.handler.dwi
 
-import java.util.Date
-
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.client.cookie.TransactionCookie
 import com.mobikok.ssp.data.streaming.config.RDBConfig
-import com.mobikok.ssp.data.streaming.entity.{AggTrafficDWI, RowkeyUuid}
-import com.mobikok.ssp.data.streaming.schema.dwi
-import com.mobikok.ssp.data.streaming.schema.dwi.AggTrafficDWISchema
-import com.mobikok.ssp.data.streaming.util.Logger
+import com.mobikok.ssp.data.streaming.entity.AggTrafficDWI
 import com.typesafe.config.Config
-import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.functions.{expr, _}
-import org.apache.spark.sql.hive.HiveContext
-import org.apache.spark.sql.types.{StringType, StructField}
+import org.apache.spark.sql.functions._
 
 import scala.collection.JavaConversions._
 /**
@@ -30,8 +22,8 @@ class JoinPhoenixHandler extends Handler {
   @volatile var subIncrTid:Int = 7
 
 
-  override def init (moduleName: String, transactionManager:TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, handlerConfig: Config, expr: String, as: Array[String]): Unit = {
-    super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, handlerConfig, expr, as)
+  override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, handlerConfig: Config, globalConfig: Config, expr: String, as: Array[String]): Unit = {
+    super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, handlerConfig, globalConfig, expr, as)
 
     unjoinDataTable = handlerConfig.getString("table.unjoin")
 

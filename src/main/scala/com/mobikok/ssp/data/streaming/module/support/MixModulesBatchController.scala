@@ -26,12 +26,8 @@ class MixModulesBatchController(config:Config, runnableModuleNames: Array[String
       if(runnableModuleNames.contains(moduleName)) {
         result = true
       } else {
-        runnableModuleNames.foreach{moduleName =>
-          if(!result) {
-            val sms = mixTransactionManager.prevRunningSameTransactionGroupModules(moduleName)
-            result = sms.contains(moduleName)
-          }
-        }
+        val sms = mixTransactionManager.prevRunningSameTransactionGroupModules(moduleName)
+        result = sms.contains(moduleName)
       }
       result
   }
@@ -73,22 +69,24 @@ class MixModulesBatchController(config:Config, runnableModuleNames: Array[String
 
   def assertJustOnlyOneMasterModule () {
     var i = 0
-    moduleIsMasterOfSettingFilePlainVlaueMap.foreach{x=>
-      if(isMultipleModulesOperateSameDwrTable) {
-        if(x._2) {
+    if(moduleIsMasterOfSettingFilePlainVlaueMap.size() > 0) {
+      moduleIsMasterOfSettingFilePlainVlaueMap.foreach { x =>
+        if (isMultipleModulesOperateSameDwrTable) {
+          if (x._2) {
+            i = i + 1
+          }
+          //如果只有一个模块，那它属于master
+        } else {
           i = i + 1
         }
-        //如果只有一个模块，那它属于master
-      }else{
-        i = i +1
       }
-    }
 
-    if(i > 1) {
-      throw new AppException(s"Too many modules settings for dwr table '$dwrShareTable', Make sure that only one module is master, plain settings(is master):\n" +OM.toJOSN(moduleIsMasterOfSettingFilePlainVlaueMap))
-    }
-    else if(i == 0){
-      throw new AppException(s"No master module specified for dwr table '$dwrShareTable', plain settings(is master):\n" + OM.toJOSN(moduleIsMasterOfSettingFilePlainVlaueMap) )
+      if (i > 1) {
+        throw new AppException(s"Too many modules settings for dwr table '$dwrShareTable', Make sure that only one module is master, plain settings(is master):\n" + OM.toJOSN(moduleIsMasterOfSettingFilePlainVlaueMap))
+      }
+      else if (i == 0) {
+        throw new AppException(s"No master module specified for dwr table '$dwrShareTable', plain settings(is master):\n" + OM.toJOSN(moduleIsMasterOfSettingFilePlainVlaueMap))
+      }
     }
   }
   def isContainsModule (moduleName: String): Boolean = {
@@ -189,7 +187,7 @@ class MixModulesBatchController(config:Config, runnableModuleNames: Array[String
         .groupBy(col("l_time") :: col("b_date") :: col("b_time") :: dwrGroupByDimensionFieldsAlias: _*)
         .agg(dwrGroupByUnionAggExprsAndAlias.head, dwrGroupByUnionAggExprsAndAlias.tail: _*)
 
-      cacheGroupByDwr.persist(StorageLevel.MEMORY_ONLY_SER)
+      cacheGroupByDwr.cache()// persist(StorageLevel.MEMORY_ONLY_SER)
 
       cacheGroupByDwr.count()//触发persist
       currBatchUnionAllAndPersisted = true

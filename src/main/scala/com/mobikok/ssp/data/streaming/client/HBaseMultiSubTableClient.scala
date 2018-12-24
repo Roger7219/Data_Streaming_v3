@@ -2,6 +2,7 @@ package com.mobikok.ssp.data.streaming.client
 
 import java.util
 import java.util.Date
+import java.util.concurrent.{CopyOnWriteArrayList, CopyOnWriteArraySet}
 import java.util.regex.Pattern
 
 import com.mobikok.ssp.data.streaming.client.cookie._
@@ -11,6 +12,8 @@ import com.mobikok.ssp.data.streaming.util._
 import com.typesafe.config.Config
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.hbase.client._
+import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp
+import org.apache.hadoop.hbase.filter.{BinaryComparator, FilterList, RowFilter}
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable
 import org.apache.hadoop.hbase.io.compress.Compression
 import org.apache.hadoop.hbase.mapreduce.{TableInputFormat, TableOutputFormat}
@@ -115,10 +118,10 @@ class HBaseMultiSubTableClient (moduleName: String, sc: SparkContext, config: Co
     result
   }
 
-  private def getsMultiSubTable[T <: HBaseStorable] (table: String,
-                                                      rowkeys: Array[_ <: Object],
-                                                      hbaseStorableClass: Class[T]
-                                                     ): util.ArrayList[T] ={
+  def getsMultiSubTable[T <: HBaseStorable] (table: String,
+                                             rowkeys: Array[_ <: Object],
+                                             hbaseStorableClass: Class[T]
+                                            ): util.ArrayList[T] ={
     waitInit()
 
     val res: util.ArrayList[T] = new util.ArrayList[T]()
@@ -126,9 +129,51 @@ class HBaseMultiSubTableClient (moduleName: String, sc: SparkContext, config: Co
     val reg = table + ".*"
     val subTs = directHBaseAdmin.listTableNames(reg)
 
-    subTs.par.foreach{x=>
+//    subTs.par.foreach{x=>
+//      res.addAll(gets0(x.getNameAsString, rowkeys, hbaseStorableClass))
+//    }
+    subTs.par.foreach{ x =>
       res.addAll(gets0(x.getNameAsString, rowkeys, hbaseStorableClass))
     }
+
+    res
+  }
+
+  def getsMultiSubTableAsDF[T <: HBaseStorable] (table: String,
+                                             rowkeys: Array[_ <: Object],
+                                             hbaseStorableClass: Class[T]
+                                            ): DataFrame ={
+    waitInit()
+    LOG.warn("hbase table getsMultiSubTableAsDF start", "result count:", rowkeys.length,  "table", table, "clazz", hbaseStorableClass.getName)
+
+    val r: util.Set[T] = new CopyOnWriteArraySet[T]()
+
+    val reg = table + ".*"
+    val subTs = directHBaseAdmin.listTableNames(reg)
+
+//    subTs.par.foreach{x=>
+//      r.addAll(gets0(x.getNameAsString, rowkeys, hbaseStorableClass))
+//    }
+    subTs.par.foreach{ x =>
+      r.addAll(gets0(x.getNameAsString, rowkeys, hbaseStorableClass))
+    }
+
+    if (r.isEmpty) {
+      val e = hiveContext.sparkContext.emptyRDD[org.apache.spark.sql.Row]
+      return hiveContext.createDataFrame(e, hbaseStorableClass.newInstance().structType)
+    }
+
+    LOG.warn("hbase table getsMultiSubTableAsDF", "rowkey count: " , rowkeys.length, "result count:", r.size(), "take(1)", r.take(1))
+
+    val res = hiveContext.createDataFrame(
+      r.map { x =>
+        x.toSparkRow()
+      }.toList,
+      hbaseStorableClass.newInstance().structType
+    )
+
+    moduleTracer.trace("    hbase getsMultiSubTableAsDF done")
+    LOG.warn("hbase table getsMultiSubTableAsDF done")
 
     res
   }
@@ -139,7 +184,7 @@ class HBaseMultiSubTableClient (moduleName: String, sc: SparkContext, config: Co
                                         ): util.ArrayList[T] = {
 
     waitInit()
-    moduleTracer.trace("    hbase gets0 start")
+    //moduleTracer.trace("    hbase gets0 start")
     LOG.warn("hbase gets0 start", s"table: $table\nrowkeys count: ${rowkeys.length}")
 
     val t = directHBaseConnection.getTable(TableName.valueOf(table))
@@ -170,10 +215,45 @@ class HBaseMultiSubTableClient (moduleName: String, sc: SparkContext, config: Co
     t.close()
 
 
-    moduleTracer.trace("    hbase gets0 done")
+    //moduleTracer.trace("    hbase gets0 done")
     LOG.warn("hbase gets0 done, result count", r.size)
 
     r
+  }
+
+  private def scan0[T <: HBaseStorable] (tableName: String,
+                                         rowkeys: Array[_ <: Object],
+                                         hbaseStorableClass: Class[T]): util.ArrayList[T] = {
+    waitInit()
+    LOG.warn("hbase scan0 start", s"table: $tableName\nrowkeys count: ${rowkeys.length}")
+
+    val table = directHBaseConnection.getTable(TableName.valueOf(tableName))
+    val filterList = new FilterList()
+
+    rowkeys.foreach{ key =>
+      if (key.isInstanceOf[Array[Byte]]) {
+        filterList.addFilter(new RowFilter(CompareOp.EQUAL, new BinaryComparator(Bytes.toBytes(new String(key.asInstanceOf[Array[Byte]])))))
+      } else if (key.isInstanceOf[String]) {
+        filterList.addFilter(new RowFilter(CompareOp.EQUAL, new BinaryComparator(Bytes.toBytes(key.asInstanceOf[String]))))
+      } else if (key.isInstanceOf[Int]) {
+        filterList.addFilter(new RowFilter(CompareOp.EQUAL, new BinaryComparator(Bytes.toBytes(key.asInstanceOf[Int]))))
+      } else if (key.isInstanceOf[Long]) {
+        filterList.addFilter(new RowFilter(CompareOp.EQUAL, new BinaryComparator(Bytes.toBytes(key.asInstanceOf[Long]))))
+      } else {
+        throw new HBaseClientException(s"Rowkey type '${key.getClass.getName}' is not supported when batch get operating")
+      }
+    }
+    val scan = new Scan()
+    scan.setFilter(filterList)
+    val resultList = new util.ArrayList[T]()
+
+    table.getScanner(scan).foreach{ result =>
+      if (!result.isEmpty) {
+        resultList.add(HBaseMultiSubTableClient.assemble(result, hbaseStorableClass))
+      }
+    }
+
+    resultList
   }
 
   override def getsAsDF[T <: HBaseStorable] (table: String,
@@ -389,7 +469,52 @@ class HBaseMultiSubTableClient (moduleName: String, sc: SparkContext, config: Co
         .saveAsNewAPIHadoopDataset(conf)
     })
 
+    sinceLastTimeFlushBatchPutsCount += 1
+
+    new Thread(new Runnable {
+      override def run(): Unit = {
+//        flush(subTable)
+      }
+    }).start()
+
     LOG.warn("hbase putsNonTransaction done" )
+  }
+
+  @volatile private var sinceLastTimeFlushBatchPutsCount = 0
+  @volatile private var isFlushing = false
+
+//  private var executorService = ExecutorServiceUtil.createdExecutorService(1)
+
+  @volatile var flushLocks = new util.HashMap[String, Object]()
+  def flush(table: String): Unit ={
+    var lock: Object = null
+      this.synchronized{
+      lock = flushLocks.get(table)
+      if(lock == null) {
+        lock = new Object
+        flushLocks.put(table, lock)
+      }
+    }
+    var needFlush = false
+    lock.synchronized{
+      if(!isFlushing) {
+        var interval = 0
+        val inte = MC.pullUpdatable("hbase_flush_cer", Array("hbase_flush_interval"))
+        if(StringUtil.notEmpty(inte)) {
+          interval = inte.toInt
+        }
+        if(sinceLastTimeFlushBatchPutsCount >= interval) {
+          needFlush = true
+        }
+      }
+    }
+    if(needFlush) {
+      LOG.warn("HBase flush start", "table", table, "putsTimesCount", sinceLastTimeFlushBatchPutsCount)
+      sinceLastTimeFlushBatchPutsCount = 0
+      isFlushing = true
+      directHBaseAdmin.flush(TableName.valueOf(table))
+      LOG.warn("HBase flush done", "subTable", table)
+    }
   }
 
   override def putsNonTransaction (table: String, hbaseStorables: RDD[_ <: HBaseStorable]): Unit = {
@@ -450,18 +575,33 @@ class HBaseMultiSubTableClient (moduleName: String, sc: SparkContext, config: Co
   import org.apache.hadoop.hbase.util.Bytes
 
   private def getSplitKeys = {
+
 //    val keys = Array[String](
+//      "08", "18", "28", "38", "48", "58", "68", "78",
+//      "88", "98", "a8", "b8", "c8", "d8", "e8", "f8")
+
+
+    //    val keys = Array[String](
 //      "08", "11", "18", "21", "28", "31", "38", "41", "48", "51", "58" ,"61", "68" ,"71", "78",
 //      "81", "88", "91", "98", "a1", "a8", "b1", "b8", "c1", "c8", "d1", "d8", "e1", "e8" ,"f1", "f8")
 
     //0 1 2 3    4 (5) 6 7    8 9 (a) b   c d e f
+//    val keys = Array[String](
+//      "05", "0a",
+//      "10", "15", "1a",   "20", "25", "2a",   "30", "35" ,"3a",
+//      "40", "45", "4a",   "50", "55", "5a",   "60", "65" ,"6a",
+//      "70", "75", "7a",   "80", "85", "8a",   "90", "95" ,"9a",
+//      "a0", "a5", "aa",   "b0", "b5", "ba",   "c0", "c5" ,"ca",
+//      "d0", "d5", "da",   "e0", "e5", "ea",   "f0", "f5" ,"fa"
+//     )
+
     val keys = Array[String](
-      "05", "0a",
-      "10", "15", "1a",   "20", "25", "2a",   "30", "35" ,"3a",
-      "40", "45", "4a",   "50", "55", "5a",   "60", "65" ,"6a",
-      "70", "75", "7a",   "80", "85", "8a",   "90", "95" ,"9a",
-      "a0", "a5", "aa",   "b0", "b5", "ba",   "c0", "c5" ,"ca",
-      "d0", "d5", "da",   "e0", "e5", "ea",   "f0", "f5" ,"fa"
+      "05",
+      "10", "1a", "25", "30", "3a",
+      "45", "50", "5a", "65" ,
+      "70", "7a", "85", "90", "9a",
+      "a5", "b0", "ba", "c5" ,
+      "d0", "da", "e5", "f0","fa"
     )
 
     val splitKeys = new Array[Array[Byte]](keys.length)

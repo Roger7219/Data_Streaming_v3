@@ -40,6 +40,8 @@ object SspUserNewDWISchema{
       StructField("cellid",     IntegerType) ::
       StructField("ctype",      IntegerType) ::
       StructField("recommender",    IntegerType)  :: //推荐框架的算法标记
+        StructField("raterType",     IntegerType)  :: //
+        StructField("raterId",      StringType)    :: //
       Nil
   )
 }

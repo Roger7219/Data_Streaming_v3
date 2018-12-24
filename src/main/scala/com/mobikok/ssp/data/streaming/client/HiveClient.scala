@@ -77,6 +77,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 
   def into(transactionParentId: String, table: String, df: DataFrame, ps: Array[Array[HivePartitionPart]]): HiveTransactionCookie = {
 
+    val fs = hiveContext.read.table(table).schema.fieldNames
     var tid: String = null
     try {
 
@@ -88,7 +89,8 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 
       if(!transactionManager.needTransactionalAction()) {
 
-        df.repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
+        df.selectExpr(fs:_*)
+          .repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
           .write
           .format("orc")
           .mode(SaveMode.Append)
@@ -102,7 +104,8 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 
       createTableIfNotExists(tt, table)
 
-      df.repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
+      df.selectExpr(fs:_*)
+        .repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
         .write
         .format("orc")
         .mode(SaveMode.Append)
@@ -164,7 +167,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
       .map { x =>
         ts.map { y =>
           HivePartitionPart(y, x.getAs[String](y))
-        }.toArray
+        }
       }
     moduleTracer.trace("    get update partitions")
 
@@ -206,9 +209,9 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 //        tt_month = table_month + transactionalTmpTableSign + tid
 //      }
 
-      val ts = Array(partitionField)  ++ partitionFields
+      val ts = Array(partitionField)  ++ partitionFields // l_time, b_date and b_time
 
-      var w = partitionsWhereSQL(ps) // l_time, b_date and b_time
+      var w = partitionsWhereSQL(ps) // (l_time="2018-xx-xx xx:00:00" and b_date="2018-xx-xx" and b_time="2018-xx-xx xx:00:00")
 
       LOG.warn(s"HiveClient overwriteUnionSum overwrite partitions where", w)
 
@@ -509,7 +512,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
     try {
       val c = cookie.asInstanceOf[HiveRollbackableTransactionCookie]
 
-      LOG.warn(s"Hive before commit starting")
+      LOG.warn(s"Hive before commit starting, cookie: ${OM.toJOSN(cookie)}")
 
       if(c.isEmptyData) {
         LOG.warn(s"Hive commit skiped, Because no data is inserted (into or overwrite) !!")
@@ -839,7 +842,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
   override def rollback (cookies: TransactionCookie*): Cleanable = {
 
     try {
-      val cleanable = new Cleanable();
+      val cleanable = new Cleanable()
       if (cookies.isEmpty) {
         LOG.warn(s"HiveClient rollback started(cookies is empty)")
         //Revert to the legacy data!!

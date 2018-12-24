@@ -14,7 +14,9 @@ import org.apache.spark.sql.Row
   */
 class Logger (moduleName: String, className: String, startTime: Long) extends Serializable {
   val LOGGER = Logger.getLogger(className)
-  private var logLastTime = startTime
+  private var logLastTime = new ThreadLocal[Long](){
+    override def initialValue(): Long = startTime
+  }
 
   def this(clazz: Class[_]) {
     this("", clazz.getName, System.currentTimeMillis())
@@ -176,7 +178,7 @@ class Logger (moduleName: String, className: String, startTime: Long) extends Se
   }
 
   def logString(title: String, value: =>Any): String ={
-    val t = new Date().getTime
+    val t = System.currentTimeMillis()
 
     //    if(!needLog()){
     //
@@ -220,13 +222,13 @@ class Logger (moduleName: String, className: String, startTime: Long) extends Se
       .append(' ')
       .append(_s)
 
-    logLastTime = t
+    logLastTime.set(t)
 
     s"""
        |$s
        |${str}
        |
-       |Using time: ${(t - logLastTime) / 1000D}s
+       |Using time: ${(t - logLastTime.get()) / 1000D}s
        |
        | """.stripMargin
   }

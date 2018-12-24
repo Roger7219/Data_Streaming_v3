@@ -2,32 +2,36 @@ package com.mobikok.ssp.data.streaming.handler.dwi
 
 import java.util.Date
 
-import com.mobikok.message.client.MessageClient
 import com.mobikok.ssp.data.streaming.client.cookie.TransactionCookie
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.RDBConfig
 import com.mobikok.ssp.data.streaming.util.Logger
 import com.typesafe.config.Config
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.hive.HiveContext;
+import org.apache.spark.sql.hive.HiveContext
 
 /**
   * Created by Administrator on 2017/7/13.
   */
-trait Handler extends Transactional{
+trait Handler extends Transactional with com.mobikok.ssp.data.streaming.handler.Handler {
 
-  var LOG: Logger = null
-  var moduleName: String = null
-  var hbaseClient:HBaseClient = null
-  var hiveClient: HiveClient = null
-  var kafkaClient: KafkaClient = null
-  var hiveContext: HiveContext = null
-  var handlerConfig: Config = null
-  var rDBConfig: RDBConfig = null
+  var LOG: Logger = _
+  var moduleName: String = _
+  var hbaseClient:HBaseClient = _
+  var hiveClient: HiveClient = _
+  var kafkaClient: KafkaClient = _
+  var hiveContext: HiveContext = _
+  var handlerConfig: Config = _
+  var globalConfig: Config = _
+  var rDBConfig: RDBConfig = _
 
-  var transactionManager: TransactionManager = null
-  var exprStr: String = null
-  var as: Array[String] = null
+  var transactionManager: TransactionManager = _
+  var exprStr: String = _
+  var as: Array[String] = _
+
+//  var isAsynchronous = false // 表示该handler是否异步执行
+
+  override def init(): Unit = {}
 
   def init (moduleName: String,
             transactionManager:TransactionManager,
@@ -36,6 +40,7 @@ trait Handler extends Transactional{
             hiveClient: HiveClient,
             kafkaClient: KafkaClient,
             handlerConfig: Config,
+            globalConfig: Config,
             expr: String,
             as: Array[String]): Unit = {
 
@@ -49,8 +54,15 @@ trait Handler extends Transactional{
     this.kafkaClient = kafkaClient
     this.hiveContext = hiveClient.hiveContext
     this.handlerConfig = handlerConfig
+    this.globalConfig = globalConfig
     this.exprStr = expr
     this.as = as
+
+    try {
+      isAsynchronous = handlerConfig.getBoolean("isAsynchronous")
+    } catch {
+      case e: Exception =>
+    }
   }
 
   def handle (newDwi: DataFrame): (DataFrame, Array[TransactionCookie])

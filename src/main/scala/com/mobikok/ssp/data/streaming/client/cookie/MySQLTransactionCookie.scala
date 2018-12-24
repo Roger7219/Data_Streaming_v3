@@ -2,6 +2,7 @@ package com.mobikok.ssp.data.streaming.client.cookie
 
 import scala.beans.BeanProperty
 
+@Deprecated
 class MySQLTransactionCookie(_parentId: String,
                              _id: String,
                              _targetTable: String) extends TransactionCookie(_parentId, _id) {

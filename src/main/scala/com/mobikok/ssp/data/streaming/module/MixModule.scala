@@ -121,6 +121,11 @@ class MixModule (config: Config,
     bigQueryClient = new BigQueryClient(moduleName, config, ssc, messageClient, hiveContext)
   }catch {case e:Throwable => LOG.warn("BigQueryClient init fail, Skiped it", e.getMessage)}
 
+  var clickHouseClient = null.asInstanceOf[ClickHouseClient]
+  try {
+    clickHouseClient = new ClickHouseClient(moduleName, config, ssc, messageClient, mixTransactionManager, hiveContext, moduleTracer)
+  } catch {case e: Exception => LOG.warn(s"Init clickhouse client failed, skip it, ${e.getMessage}")}
+
   val rDBConfig = new RDBConfig(mySqlJDBCClientV2)
 
   var dwiPhoenixEnable = false
@@ -275,7 +280,7 @@ class MixModule (config: Config,
     dwrGroupbyExtendedFields = config.getConfigList(s"modules.$moduleName.dwr.groupby.extended.fields").map{ x=>
       val hc = x.getConfig("handler")
       var h = Class.forName(hc.getString("class")).newInstance().asInstanceOf[com.mobikok.ssp.data.streaming.handler.dwr.Handler]
-      h.init(moduleName, hbaseClient, hiveContext, hc, x.getString("expr"), x.getString("as"))
+      h.init(moduleName, mixTransactionManager, hbaseClient, hiveClient, clickHouseClient, hc, config, x.getString("expr"), x.getString("as"))
       h
     }.toList
   }catch {case e:Exception =>}
@@ -292,7 +297,7 @@ class MixModule (config: Config,
     dwrGroupbyExtendedAggs = config.getConfigList(s"modules.$moduleName.dwr.groupby.extended.aggs").map{ x=>
       val hc = x.getConfig("handler")
       var h = Class.forName(hc.getString("class")).newInstance().asInstanceOf[com.mobikok.ssp.data.streaming.handler.dwr.Handler]
-      h.init(moduleName, hbaseClient, hiveContext, hc, x.getString("expr"), x.getString("as"))
+      h.init(moduleName, mixTransactionManager, hbaseClient, hiveClient, clickHouseClient, hc, config, x.getString("expr"), x.getString("as"))
       h
     }.toList
   }catch {case e:Exception =>}
@@ -539,7 +544,7 @@ class MixModule (config: Config,
           as =  x.getStringList("as")
         }catch {case ex:Throwable=>}
 
-        h.init(moduleName, mixTransactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, hc, col/*x.getString("expr")*/, as.toArray( Array[String]() ))
+        h.init(moduleName, mixTransactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, hc, config, col/*x.getString("expr")*/, as.toArray( Array[String]() ))
         (as, expr(col), h)
       }.toList
     }
@@ -1188,7 +1193,7 @@ class MixModule (config: Config,
                 throw new ModuleException("Module of include 'dwr.groupby.extended.fields' must config: master=true")
               }
               dwrGroupbyExtendedFields.foreach{ x=>
-                mixModulesBatchController.set({x.handle(mixModulesBatchController.get)})
+                mixModulesBatchController.set({x.handle(mixModulesBatchController.get())._2})
                 //              cacheGroupByDwr = x.handle(cacheGroupByDwr)
                 //              cacheGroupByDwr = hiveContext.createDataFrame(cacheGroupByDwr.collectAsList(), cacheGroupByDwr.schema).repartition(shufflePartitions)
               }

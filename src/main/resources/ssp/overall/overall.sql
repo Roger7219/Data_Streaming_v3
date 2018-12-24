@@ -226,6 +226,15 @@ ALTER TABLE ssp_overall_fee_dwi ADD COLUMNS (pbResp STRING);
 ALTER TABLE ssp_overall_events_dwi ADD COLUMNS (pbResp STRING);
 ALTER TABLE ssp_overall_postback_dwi ADD COLUMNS (pbResp STRING);
 
+
+
+--添加推荐系统字段(2018-11-29)
+ALTER TABLE ssp_overall_fill_dwi ADD COLUMNS (raterType INT);
+ALTER TABLE ssp_overall_fill_dwi ADD COLUMNS (raterId STRING);
+ALTER TABLE ssp_overall_send_dwi ADD COLUMNS (raterType INT);
+ALTER TABLE ssp_overall_send_dwi ADD COLUMNS (raterId STRING);
+
+
 --
 --insert overwrite table ssp_report_overall_dwr
 --select

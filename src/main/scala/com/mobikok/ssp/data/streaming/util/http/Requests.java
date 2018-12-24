@@ -6,12 +6,14 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
 import com.mobikok.ssp.data.streaming.util.ExecutorServiceUtil;
+import okio.Okio;
 import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,8 +45,7 @@ public class Requests {
 					public void failed(String responseStatus, String responseError, Exception ex) {
 						LOG.warn("HTTP GET failed, responseStatus: " + responseStatus + " responseError: " + responseError + " exception: ", ex );
 					}
-				}
-				, 10000, 10000, true);
+				}, 10000, 10000, true);
 	}
 
 	public void get(String baseUrl, UrlParam urlParam, Callback callback){
@@ -71,7 +72,7 @@ public class Requests {
 	}
 
     public void post(String baseUrl, Entity bodyParams, Callback callback, boolean isAsync) {
-        request("POST", baseUrl, null, bodyParams, callback, 10000, 10000, isAsync);
+        request("POST", baseUrl, null, bodyParams, callback, Integer.MAX_VALUE, Integer.MAX_VALUE, isAsync);
     }
 
     public void post(String baseUrl, Entity bodyParams, int timeout, Callback callback, boolean isAsync) {
@@ -126,14 +127,15 @@ public class Requests {
 
 					in = conn.getInputStream();
 
-					List<String> lines = IOUtils.readLines(in);
-					StringBuffer buff = new StringBuffer();
-					for(int i = 0; i <lines.size(); i++) {
-						buff.append(lines.get(i));
-					}
+//					List<String> lines = IOUtils.readLines(in);
+//					StringBuffer buff = new StringBuffer();
+//					for(int i = 0; i <lines.size(); i++) {
+//						buff.append(lines.get(i));
+//					}
+					String result = Okio.buffer(Okio.source(in)).readString(Charset.forName("UTF-8"));
 
 					try{
-						callback.completed(responseStatus(conn), buff.toString());
+						callback.completed(responseStatus(conn), result);
 					}catch(Exception ex){
 						LOG.error("调用Callback.completed方法报错: ", ex);
 					}

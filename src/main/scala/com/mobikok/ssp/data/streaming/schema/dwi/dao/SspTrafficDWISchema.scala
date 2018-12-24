@@ -69,8 +69,24 @@ object SspTrafficDWISchema{
       StructField("salePercent",    IntegerType) :: //按条比例
       StructField("appSalePercent", IntegerType) ::
 
+      StructField("eventName",      StringType)  ::
+      StructField("eventValue",     IntegerType) ::
+      StructField("refer",          StringType)  ::
+      StructField("status",         IntegerType) ::
+      StructField("region",         StringType)  ::
+      StructField("city",           StringType)  ::
+      StructField("uid",            StringType)  ::
+      StructField("times",          IntegerType) ::
+      StructField("time",           IntegerType) ::
+      StructField("isNew",          IntegerType) ::
+      StructField("pbResp",         StringType)  :: //postback response信息
+      StructField("recommender",    IntegerType)  :: //推荐框架的算法标记
+      StructField("raterId",      StringType)  :: //推荐框架的算法标记
+      StructField("raterType",    IntegerType)  :: //推荐框架的算法标记
+
       StructField("repeated",    StringType) ::
       StructField("l_time",      StringType) ::
       StructField("b_date",      StringType) ::
+      StructField("b_time",      StringType) ::
       Nil)
 }

@@ -4,6 +4,7 @@ import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
 
 import scala.beans.BeanProperty
 
+@Deprecated
 class MySQLRollbackableTransactionCookie(_parentId: String,
                                          _id: String,
                                          _transactionalTmpTable: String,
