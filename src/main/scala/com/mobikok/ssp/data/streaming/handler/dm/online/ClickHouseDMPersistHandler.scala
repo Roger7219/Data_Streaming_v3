@@ -1,5 +1,7 @@
 package com.mobikok.ssp.data.streaming.handler.dm.online
 
+import java.util
+
 import com.mobikok.message.client.MessageClient
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.client.cookie.TransactionCookie
@@ -14,11 +16,10 @@ import scala.collection.JavaConverters._
 class ClickHouseDMPersistHandler extends Handler with Transactional {
 
 //  val COOKIE_KIND_DWR_CLICKHOUSE_T = "dwrClickHouseT"
-  val cookieKindMark = "dwrClickHouseT"
 
   var hiveTable: String = _
   var cookie: TransactionCookie = _
-
+  val batchTransactionCookiesCache = new util.ArrayList[TransactionCookie]()
 //  val LOG: Logger = new Logger(moduleName, getClass.getName, System.currentTimeMillis())
 
   override def init(): Unit = {}
@@ -46,6 +47,8 @@ class ClickHouseDMPersistHandler extends Handler with Transactional {
       partitionFields.head,
       partitionFields.tail:_*
     )
+
+    batchTransactionCookiesCache.add(cookie)
   }
 
   override def commit(cookie: TransactionCookie): Unit = {
@@ -54,8 +57,15 @@ class ClickHouseDMPersistHandler extends Handler with Transactional {
 
 
   override def clean(cookies: TransactionCookie*): Unit = {
-    clickHouseClient.clean(cookies:_*)
-    this.cookie = null
+    var result = Array[TransactionCookie]()
+
+    val mixTransactionManager = transactionManager.asInstanceOf[MixTransactionManager]
+    if (mixTransactionManager.needTransactionalAction()) {
+      val needCleans = batchTransactionCookiesCache.filter(!_.parentId.equals(mixTransactionManager.getCurrentTransactionParentId()))
+      batchTransactionCookiesCache.removeAll(needCleans)
+      result = needCleans.toArray
+    }
+    clickHouseClient.clean(result:_*)
   }
 
 }

@@ -47,7 +47,7 @@ trait Handler extends com.mobikok.ssp.data.streaming.handler.Handler {
     }
   }
 
-  def handle(persistenceDwr: DataFrame): (String, DataFrame, TransactionCookie) // 返回新的groupby字段集
+  def handle(persistenceDwr: DataFrame): DataFrame // 返回新的groupby字段集
 
   def prepare(dwi: DataFrame): DataFrame = dwi
 

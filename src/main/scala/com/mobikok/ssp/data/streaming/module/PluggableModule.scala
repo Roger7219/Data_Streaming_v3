@@ -13,7 +13,6 @@ import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.client.cookie._
 import com.mobikok.ssp.data.streaming.concurrent.GlobalAppRunningStatusV2
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
-import com.mobikok.ssp.data.streaming.entity.feature.HBaseStorable
 import com.mobikok.ssp.data.streaming.entity.{LatestOffsetRecord, OffsetRange}
 import com.mobikok.ssp.data.streaming.exception.ModuleException
 import com.mobikok.ssp.data.streaming.handler.dm.offline.{ClickHouseQueryByBDateHandler, ClickHouseQueryByBTimeHandler, ClickHouseQueryMonthHandler}
@@ -144,47 +143,43 @@ class PluggableModule(config: Config,
   var needDwrAccDay = false
   try {
     needDwrAccDay = config.getBoolean(s"modules.$moduleName.dwr.acc.day.enable")
-  } catch {
-    case _: Exception =>
-  }
+  } catch {case _: Exception =>}
 
   var needDwrAccMonth = false
   try {
     needDwrAccMonth = config.getBoolean(s"modules.$moduleName.dwr.acc.month.enable")
-  } catch {
-    case _: Exception =>
-  }
+  } catch {case _: Exception =>}
 
-  var needH2Persistence = false
-  try {
-    needH2Persistence = config.getBoolean(s"modules.$moduleName.h2.dwr.enable")
-  } catch {
-    case _: Exception =>
-  }
+//  var needH2Persistence = false
+//  try {
+//    needH2Persistence = config.getBoolean(s"modules.$moduleName.h2.dwr.enable")
+//  } catch {
+//    case _: Exception =>
+//  }
 
-  var isMaster = mixModulesBatchController.isMaster(moduleName)
+  val isMaster = mixModulesBatchController.isMaster(moduleName)
 
   // h2 数据库参数
-  val h2Driver = "org.h2.Driver"
-  var h2JDBCConnectionUrl = "jdbc:h2:tcp://node14:10010/mem:campaign;DB_CLOSE_DELAY=-1"
-  runInTry{h2JDBCConnectionUrl = config.getString(s"modules.$moduleName.h2.url")}
+//  val h2Driver = "org.h2.Driver"
+//  var h2JDBCConnectionUrl = "jdbc:h2:tcp://node14:10010/mem:campaign;DB_CLOSE_DELAY=-1"
+//  runInTry{h2JDBCConnectionUrl = config.getString(s"modules.$moduleName.h2.url")}
 
-  var h2PersistFields: Array[(String, String)] = _
-  runInTry{
-    h2PersistFields = config.getConfigList(s"modules.$moduleName.h2.fields").map{ x =>
-      (x.getString("expr"), x.getString("as"))
-    }.toArray
-  }
+//  var h2PersistFields: Array[(String, String)] = _
+//  runInTry{
+//    h2PersistFields = config.getConfigList(s"modules.$moduleName.h2.fields").map{ x =>
+//      (x.getString("expr"), x.getString("as"))
+//    }.toArray
+//  }
 
-  var h2PersistAggFields: Array[(String, String)] = _
-  runInTry{
-    h2PersistAggFields = config.getConfigList(s"modules.$moduleName.h2.agg").map{ x =>
-      (x.getString("expr"), x.getString("as"))
-    }.toArray
-  }
+//  var h2PersistAggFields: Array[(String, String)] = _
+//  runInTry{
+//    h2PersistAggFields = config.getConfigList(s"modules.$moduleName.h2.agg").map{ x =>
+//      (x.getString("expr"), x.getString("as"))
+//    }.toArray
+//  }
 
-  var h2TableName = "CampaignSearch"
-  runInTry{h2TableName = config.getString(s"modules.$moduleName.h2.table.name")}
+//  var h2TableName = "CampaignSearch"
+//  runInTry{h2TableName = config.getString(s"modules.$moduleName.h2.table.name")}
 
   // clickhouse缓存批次数据
   // 小时
@@ -258,14 +253,14 @@ class PluggableModule(config: Config,
   //  val greenplumClient = new GreenplumClient(moduleName, config, ssc, messageClient, mixTransactionManager, moduleTracer)
   val greenplumClient = null.asInstanceOf[GreenplumClient]
 
-  var h2JDBCClient = null.asInstanceOf[H2JDBCClient]
-  try {
-    h2JDBCClient = new H2JDBCClient(h2JDBCConnectionUrl, "", "")
-  } catch {
-    case e: Throwable => LOG.warn("H2JDBCClient init fail, Skiped it", s"${e.getClass.getName}: ${e.getMessage}")
-  }
+//  var h2JDBCClient = null.asInstanceOf[H2JDBCClient]
+//  try {
+//    h2JDBCClient = new H2JDBCClient(h2JDBCConnectionUrl, "", "")
+//  } catch {
+//    case e: Throwable => LOG.warn("H2JDBCClient init fail, Skiped it", s"${e.getClass.getName}: ${e.getMessage}")
+//  }
 
-  val mysqlClient = new MySQLClient(moduleName, ssc.sparkContext, config, messageClient, mixTransactionManager, moduleTracer)
+//  val mysqlClient = new MySQLClient(moduleName, ssc.sparkContext, config, messageClient, mixTransactionManager, moduleTracer)
   val clickHouseClient = new ClickHouseClient(moduleName, config, ssc, messageClient, mixTransactionManager, hiveContext, moduleTracer)
   //-------------------------  Clients End  -------------------------
 
@@ -348,6 +343,16 @@ class PluggableModule(config: Config,
 
 
   //-------------------------  Dwr about  -------------------------
+
+  var isEnableDwr = false
+  var dwrTable: String = _
+  try {
+    isEnableDwr = config.getBoolean(s"modules.$moduleName.dwr.enable")
+  } catch {case e: Exception =>}
+  if (isEnableDwr) {
+    dwrTable = config.getString(s"modules.$moduleName.dwr.table")
+  }
+
   var dwrGroupByExprs: List[Column] = _
   try {
     dwrGroupByExprs = config.getConfigList(s"modules.$moduleName.dwr.groupby.fields").map {
@@ -408,21 +413,8 @@ class PluggableModule(config: Config,
     } catch {
       case e: Exception => LOG.warn(s"Dwr init error, exception: ${e.getMessage}")
     }
-
-
   }
 
-  var isEnableDwr = false
-
-  var dwrTable: String = _
-  try {
-    isEnableDwr = config.getBoolean(s"modules.$moduleName.dwr.enable")
-  } catch {
-    case e: Exception =>
-  }
-  if (isEnableDwr) {
-    dwrTable = config.getString(s"modules.$moduleName.dwr.table")
-  }
   //-------------------------  Dwr End  -------------------------
 
   //-------------------------  Dm about  -------------------------
@@ -433,29 +425,29 @@ class PluggableModule(config: Config,
     case _: Exception =>
   }
 
-  var isEnableKafkaDm = false
-  var dmKafkaTopic: String = _
-  try {
-    isEnableKafkaDm = config.getBoolean(s"modules.$moduleName.dm.kafka.enable")
-  } catch {
-    case _: Exception =>
-  }
-  if (isEnableKafkaDm) {
-    dmKafkaTopic = config.getString(s"modules.$moduleName.dm.kafka.topic")
-  }
+//  var isEnableKafkaDm = false
+//  var dmKafkaTopic: String = _
+//  try {
+//    isEnableKafkaDm = config.getBoolean(s"modules.$moduleName.dm.kafka.enable")
+//  } catch {
+//    case _: Exception =>
+//  }
+//  if (isEnableKafkaDm) {
+//    dmKafkaTopic = config.getString(s"modules.$moduleName.dm.kafka.topic")
+//  }
 
-  var isEnablePhoenixDm = false
-  var dmPhoenixTable: String = _
-  var dmHBaseStorableClass: Class[_ <: HBaseStorable] = _
-  try {
-    isEnablePhoenixDm = config.getBoolean(s"modules.$moduleName.dm.phoenix.enable")
-  } catch {
-    case _: Exception =>
-  }
-  if (isEnablePhoenixDm) {
-    dmPhoenixTable = config.getString(s"modules.$moduleName.dm.phoenix.table")
-    dmHBaseStorableClass = Class.forName(config.getString(s"modules.$moduleName.dm.phoenix.hbase.storable.class")).asInstanceOf[Class[_ <: HBaseStorable]]
-  }
+//  var isEnablePhoenixDm = false
+//  var dmPhoenixTable: String = _
+//  var dmHBaseStorableClass: Class[_ <: HBaseStorable] = _
+//  try {
+//    isEnablePhoenixDm = config.getBoolean(s"modules.$moduleName.dm.phoenix.enable")
+//  } catch {
+//    case _: Exception =>
+//  }
+//  if (isEnablePhoenixDm) {
+//    dmPhoenixTable = config.getString(s"modules.$moduleName.dm.phoenix.table")
+//    dmHBaseStorableClass = Class.forName(config.getString(s"modules.$moduleName.dm.phoenix.hbase.storable.class")).asInstanceOf[Class[_ <: HBaseStorable]]
+//  }
 
   var isEnableOfflineDm = false
   var dmOfflineHandlers: List[com.mobikok.ssp.data.streaming.handler.dm.offline.Handler] = _
@@ -543,7 +535,7 @@ class PluggableModule(config: Config,
     }
   }
 
-  @volatile var hiveCleanable, mysqlCleanable, clickHouseCleanable, hbaseCleanable, kafkaCleanable, phoenixCleanable: Cleanable = _
+  @volatile var hiveCleanable, clickHouseCleanable, hbaseCleanable, kafkaCleanable, phoenixCleanable: Cleanable = _
 
   override def init(): Unit = {
     try {
@@ -555,13 +547,13 @@ class PluggableModule(config: Config,
       if (hbaseClient != null) hbaseClient.init()
       kafkaClient.init()
       phoenixClient.init()
-      mysqlClient.init()
+//      mysqlClient.init()
       clickHouseClient.init()
 
       initDwiHandlers()
 
       hiveCleanable = hiveClient.rollback()
-      mysqlCleanable = mysqlClient.rollback()
+//      mysqlCleanable = mysqlClient.rollback()
       if (hbaseClient != null) hbaseCleanable = hbaseClient.rollback()
       kafkaCleanable = kafkaClient.rollback()
       phoenixCleanable = phoenixClient.rollback()
@@ -801,10 +793,10 @@ class PluggableModule(config: Config,
                 //-----------------------------------------------------------------------------------------------------------------
                 //  Begin Transaction !!
                 //-----------------------------------------------------------------------------------------------------------------
-                var parentTid = mixTransactionManager.beginTransaction(moduleName, groupName)
+                val parentTid = mixTransactionManager.beginTransaction(moduleName, groupName)
 
-                var dwiLTimeExpr = s"'${mixTransactionManager.dwiLoadTime()}'"
-                var dwrLTimeExpr = s"'${mixTransactionManager.dwrLoadTime()}'"
+                val dwiLTimeExpr = s"'${mixTransactionManager.dwiLoadTime()}'"
+                val dwrLTimeExpr = s"'${mixTransactionManager.dwrLoadTime()}'"
                 //-----------------------------------------------------------------------------------------------------------------
                 //  DWI Handler
                 //-----------------------------------------------------------------------------------------------------------------
@@ -818,7 +810,7 @@ class PluggableModule(config: Config,
                 }
                 if (handledDwi != dwi) {
                   // 不触发action操作
-                  handledDwi.persist(StorageLevel.MEMORY_ONLY)
+                  handledDwi.persist(StorageLevel.MEMORY_ONLY_SER)
                   dwi.unpersist()
                 }
 
@@ -830,7 +822,7 @@ class PluggableModule(config: Config,
                   if (!isMaster) {
                     throw new ModuleException("Module of include 'dwr.handler' must config: master=true")
                   }
-                  dwrHandlers.foreach{ h =>
+                  dwrHandlers.filter( h => !h.isAsynchronous).foreach { h =>
                     dwrDwi = h.prepare(dwrDwi)
                     moduleTracer.trace(s"dwr ${h.getClass.getSimpleName} filter")
                   }
@@ -865,7 +857,7 @@ class PluggableModule(config: Config,
                   }
                   dwrHandlers.filter{ h => !h.isAsynchronous }.foreach{ h =>
                     mixModulesBatchController.set({
-                      h.handle(mixModulesBatchController.get())._2
+                      h.handle(mixModulesBatchController.get())
                     })
                   }
                 }
@@ -921,8 +913,6 @@ class PluggableModule(config: Config,
                   }
                 }
 
-                handledDwi.unpersist()
-
                 //-----------------------------------------------------------------------------------------------------------------
                 // Kafka set offset
                 //-----------------------------------------------------------------------------------------------------------------
@@ -956,7 +946,6 @@ class PluggableModule(config: Config,
                   false
                 })
 
-                // TODO 缓存cookies
                 cacheTransactionCookies(COOKIE_KIND_KAFKA_T, kafkaT)
 
                 //------------------------------------------------------------------------------------
@@ -964,14 +953,13 @@ class PluggableModule(config: Config,
                 //------------------------------------------------------------------------------------
                 dwiHandlers.filter{ x => !x.isAsynchronous }.foreach{ h => h.commit(null) }
 
-                dwrHandlers
-                  .filter{ x => x.isInstanceOf[Transactional] && !x.isAsynchronous }
+                dwrHandlers.filter{ x => x.isInstanceOf[Transactional] && !x.isAsynchronous }
                   .foreach{ h => h.asInstanceOf[Transactional].commit(null) }
 
                 dmOnlineHandlers.filter{ x => x.isInstanceOf[Transactional] && !x.isAsynchronous}
                   .foreach{ h => h.asInstanceOf[Transactional].commit(null)}
 
-                dmOnlineHandlers.filter{ x => x.isInstanceOf[Transactional] && !x.isAsynchronous}
+                dmOfflineHandlers.filter{ x => x.isInstanceOf[Transactional] && !x.isAsynchronous}
                   .foreach{ h => h.asInstanceOf[Transactional].commit(null)}
 
                 asyncHandlers.filter{ h => h.isInstanceOf[Transactional] }.par
@@ -999,10 +987,42 @@ class PluggableModule(config: Config,
                 //------------------------------------------------------------------------------------
                 // Clean
                 //------------------------------------------------------------------------------------
+                if (dwi != null) dwi.unpersist()
+                if (handledDwi != null) handledDwi.unpersist()
+                // 清理上一次启动的产生的事务数据
+                if (!mixTransactionManager.needTransactionalAction()) {
+                  if (hiveCleanable != null) {
+                    hiveCleanable.doActions()
+                    hiveCleanable = null
+                  }
+//                  if (mysqlCleanable != null) {
+//                    mysqlCleanable.doActions()
+//                    mysqlCleanable = null
+//                  }
+                  if (clickHouseCleanable != null) {
+                    clickHouseCleanable.doActions()
+                    clickHouseCleanable = null
+                  }
+                  if (hbaseCleanable != null) {
+                    hbaseCleanable.doActions()
+                    hbaseCleanable = null
+                  }
+                  if (kafkaCleanable != null) {
+                    kafkaCleanable.doActions()
+                    kafkaCleanable = null
+                  }
+                  if (phoenixCleanable != null) {
+                    phoenixCleanable.doActions()
+                    phoenixCleanable = null
+                  }
+                }
+
                 dwiHandlers.par.foreach{ h => h.clean() }
                 dwrHandlers.filter{h => h.isInstanceOf[Transactional]}.par.foreach{h => h.asInstanceOf[Transactional].clean()}
                 dmOnlineHandlers.filter{ h => h.isInstanceOf[Transactional]}.par.foreach{h => h.asInstanceOf[Transactional].clean()}
                 dmOfflineHandlers.filter{ h => h.isInstanceOf[Transactional]}.par.foreach{h => h.asInstanceOf[Transactional].clean()}
+
+                kafkaClient.clean(popNeedCleanTransactions(COOKIE_KIND_KAFKA_T, parentTid): _*)
 
 //                var dwiLTimeExpr = s"'${mixTransactionManager.dwiLoadTime()}'"
 //                var dwrLTimeExpr = s"'${mixTransactionManager.dwrLoadTime()}'"

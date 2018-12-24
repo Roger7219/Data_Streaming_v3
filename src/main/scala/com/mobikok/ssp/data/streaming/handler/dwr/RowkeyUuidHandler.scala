@@ -41,7 +41,7 @@ class RowkeyUuidHandler extends Handler {
   }
 
   //persistenceDwr take(0): [2017-07-20,355364982160757,7486,1]
-  override def handle (persistenceDwr: DataFrame): (String, DataFrame, TransactionCookie) = {
+  override def handle (persistenceDwr: DataFrame): DataFrame = {
 
     val rk = "rowkey"
 
@@ -101,6 +101,6 @@ class RowkeyUuidHandler extends Handler {
 
     LOG.warn("RowkeyUuidHandler persistenceDwr joined uuid take(5)", res.take(5))
 
-    ("", res, null)
+    res
   }
 }

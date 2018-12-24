@@ -826,7 +826,7 @@ class FasterModule(config: Config,
                     }
                     dwrHandlers.foreach { x =>
                       mixModulesBatchController.set({
-                        x.handle(mixModulesBatchController.get())._2
+                        x.handle(mixModulesBatchController.get())
                       })
                       LOG.warn(s"Dwr ${x.getClass.getSimpleName} handle completed")
                       moduleTracer.trace(s"dwr ${x.getClass.getSimpleName} handle")

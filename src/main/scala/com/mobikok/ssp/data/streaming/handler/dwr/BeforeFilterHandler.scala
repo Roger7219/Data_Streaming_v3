@@ -25,8 +25,8 @@ class BeforeFilterHandler extends Handler {
     this.dwiWhere = handlerConfig.getString("where")
   }
 
-  override def handle(persistenceDwr: DataFrame): (String, DataFrame, TransactionCookie) = {
-    ("", persistenceDwr, null)
+  override def handle(persistenceDwr: DataFrame): DataFrame = {
+    persistenceDwr
   }
 
   override def prepare(dwi: DataFrame): DataFrame = {

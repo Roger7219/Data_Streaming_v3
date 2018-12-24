@@ -21,20 +21,20 @@ class HiveDWRPersistMonthHandler extends Handler with Persistence{
   var cookie: TransactionCookie = _
 
   val LOG: Logger = new Logger(moduleName, getClass.getName, System.currentTimeMillis())
+  val batchTransactionCookiesCache = new util.ArrayList[TransactionCookie]()
 
   override def init(moduleName: String, transactionManager: TransactionManager, hbaseClient: HBaseClient, hiveClient: HiveClient, clickHouseClient: ClickHouseClient, handlerConfig: Config, globalConfig: Config, expr: String, as: String): Unit = {
     // 默认为true 遵从配置设置
     isAsynchronous = true
     super.init(moduleName, transactionManager, hbaseClient, hiveClient, clickHouseClient, handlerConfig, globalConfig, expr, as)
     table = handlerConfig.getString("table")
-    cookieKindMark = handlerConfig.getString("cookie.kind.mark")
   }
 
   override def rollback(cookies: TransactionCookie*): Cleanable = {
     hiveClient.rollback(cookies:_*)
   }
 
-  override def handle(persistenceDwr: DataFrame): (String, DataFrame, TransactionCookie) = {
+  override def handle(persistenceDwr: DataFrame): DataFrame = {
     val aggExprsAlias = globalConfig.getConfigList(s"modules.$moduleName.dwr.groupby.aggs").map {
       x => x.getString("as")
     }.toList
@@ -82,7 +82,8 @@ class HiveDWRPersistMonthHandler extends Handler with Persistence{
       partitionFields.head,
       partitionFields.tail:_*
     )
-    (cookieKindMark, persistenceDwr, cookie)
+    batchTransactionCookiesCache.add(cookie)
+    persistenceDwr
   }
 
   override def commit(cookie: TransactionCookie): Unit = {
@@ -91,8 +92,15 @@ class HiveDWRPersistMonthHandler extends Handler with Persistence{
 
 
   override def clean(cookies: TransactionCookie*): Unit = {
-    hiveClient.clean(this.cookie)
-    this.cookie = null
+    var result = Array[TransactionCookie]()
+
+    val mixTransactionManager = transactionManager.asInstanceOf[MixTransactionManager]
+    if (mixTransactionManager.needTransactionalAction()) {
+      val needCleans = batchTransactionCookiesCache.filter(!_.parentId.equals(mixTransactionManager.getCurrentTransactionParentId()))
+      batchTransactionCookiesCache.removeAll(needCleans)
+      result = needCleans.toArray
+    }
+    hiveClient.clean(result:_*)
   }
 
 }

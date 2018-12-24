@@ -21,8 +21,8 @@ class AfterFilterHandler extends Handler {
     this.dwrWhere = handlerConfig.getString("where")
   }
 
-  override def handle(persistenceDwr: DataFrame): (String, DataFrame, TransactionCookie) = {
-    ("", persistenceDwr.where(dwrWhere), null)
+  override def handle(persistenceDwr: DataFrame): DataFrame = {
+    persistenceDwr.where(dwrWhere)
   }
 
 }
