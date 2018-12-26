@@ -102,6 +102,9 @@ class ModuleTracer(moduleName: String, config: Config, mixModulesBatchController
   def trace (title: String) = {
     val ms = new Date().getTime - lastTraceTime.get()
     val m = traceBatchUsingTimeFormat.format((100.0*ms/1000/60).asInstanceOf[Int]/100.0)
+    if (traceBatchUsingTimeLog.get() == null) {
+      startBatch
+    }
     traceBatchUsingTimeLog.get().append(s"${CSTTime.now.time}  $m  $title")
     lastTraceTime.set(new Date().getTime)
   }

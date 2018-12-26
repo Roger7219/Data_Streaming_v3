@@ -16,7 +16,7 @@ import com.mobikok.ssp.data.streaming.entity.feature.HBaseStorable
 import com.mobikok.ssp.data.streaming.entity.{HivePartitionPart, LatestOffsetRecord, OffsetRange}
 import com.mobikok.ssp.data.streaming.exception.ModuleException
 import com.mobikok.ssp.data.streaming.handler.dm.offline.{ClickHouseQueryByBDateHandler, ClickHouseQueryByBTimeHandler, ClickHouseQueryMonthHandler, Handler}
-import com.mobikok.ssp.data.streaming.handler.dwi.UUIDFilterDwiHandler
+import com.mobikok.ssp.data.streaming.handler.dwi.core.UUIDFilterDwiHandler
 import com.mobikok.ssp.data.streaming.handler.dwr.UUIDFilterDwrHandler
 import com.mobikok.ssp.data.streaming.module.support._
 import com.mobikok.ssp.data.streaming.module.support.uuid.{DefaultUuidFilter, UuidFilter}

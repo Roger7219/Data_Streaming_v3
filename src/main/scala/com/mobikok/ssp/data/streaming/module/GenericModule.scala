@@ -15,7 +15,6 @@ import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.feature.HBaseStorable
 import com.mobikok.ssp.data.streaming.entity.{HivePartitionPart, OffsetRange, UuidStat}
 import com.mobikok.ssp.data.streaming.exception.ModuleException
-import com.mobikok.ssp.data.streaming.handler.dm.Handler
 import com.mobikok.ssp.data.streaming.module.support.AlwaysTransactionalStrategy
 import com.mobikok.ssp.data.streaming.util._
 import com.typesafe.config.Config
@@ -368,16 +367,16 @@ class GenericModule (config: Config,
   }
 
   var isEnableHandlerDm = false
-  var dmHandlers: util.List[Handler] = null
+  var dmHandlers: util.List[com.mobikok.ssp.data.streaming.handler.dm.offline.Handler] = null
   try {
     isEnableHandlerDm = config.getBoolean(s"modules.$moduleName.dm.handler.enable")
   } catch {
     case _: Exception =>
   }
   if (isEnableHandlerDm) {
-    dmHandlers = new util.ArrayList[Handler]()
+    dmHandlers = new util.ArrayList[com.mobikok.ssp.data.streaming.handler.dm.offline.Handler]()
     config.getConfigList(s"modules.$moduleName.dm.handler.setting").foreach { x =>
-      var h: Handler = Class.forName(x.getString("class")).newInstance().asInstanceOf[Handler]
+      var h = Class.forName(x.getString("class")).newInstance().asInstanceOf[com.mobikok.ssp.data.streaming.handler.dm.offline.Handler]
       h.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient,kylinClient, hbaseClient, hiveContext, x)
       dmHandlers.add(h)
     }
@@ -975,7 +974,7 @@ class GenericModule (config: Config,
         if (isEnableDwr) {
           if(dwrGroupbyExtendedFields != null) {
             dwrGroupbyExtendedFields.foreach{ x=>
-              cacheGroupByDwr = x.handle(cacheGroupByDwr)._2
+              cacheGroupByDwr = x.handle(cacheGroupByDwr)
               cacheGroupByDwr = hiveContext.createDataFrame(cacheGroupByDwr.collectAsList(), cacheGroupByDwr.schema).repartition(shufflePartitions)
             }
             LOG.warn("hiveClient dwrExtendedFields all handlers completed, take(2)", cacheGroupByDwr.take(2))

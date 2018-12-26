@@ -1,6 +1,5 @@
 package com.mobikok.ssp.data.streaming.handler.dwi.core
 
-import com.mobikok.message.MessagePushReq
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.client.cookie.{HiveTransactionCookie, TransactionCookie}
 import com.mobikok.ssp.data.streaming.config.RDBConfig
@@ -54,46 +53,32 @@ class HiveDWIPersistHandler extends Handler {
       ps
     )
 
-    val dwiT = cookie.asInstanceOf[HiveTransactionCookie]
-    var topic = dwiT.targetTable
-    if (dwiT != null && dwiT.partitions != null && dwiT.partitions.nonEmpty) {
-      val key = OM.toJOSN(dwiT.partitions.map { x => x.sortBy { y => y.name + y.value } }.sortBy { x => OM.toJOSN(x) })
-      MC.push(PushReq(topic, key))
-//      messageClient.pushMessage(new MessagePushReq())
-      LOG.warn(s"MessageClient push done", s"topic: $topic, \nkey: $key")
-
-      topic = moduleName
-      MC.push(PushReq(topic, key))
-//      messageClient.pushMessage(new MessagePushReq(topic, key))
-      LOG.warn(s"MessageClient push done", s"topic: $topic, \nkey: $key")
-
-    } else {
-      LOG.warn(s"MessageClient dwi no hive partitions to push", s"topic: $topic")
-    }
-
     LOG.warn("hiveClient.into dwiTable completed", cookie)
     (newDwi, Array(cookie))
   }
 
   override def commit(cookie: TransactionCookie): Unit = {
     hiveClient.commit(this.cookie)
-    if (cookie != null) {
-      hiveClient.commit(cookie)
+
+    // push message
+    val dwiT = this.cookie.asInstanceOf[HiveTransactionCookie]
+    var topic = dwiT.targetTable
+    if (dwiT != null && dwiT.partitions != null && dwiT.partitions.nonEmpty) {
+      val key = OM.toJOSN(dwiT.partitions.map { x => x.sortBy { y => y.name + y.value } }.sortBy { x => OM.toJOSN(x) })
+      MC.push(PushReq(topic, key))
+      LOG.warn(s"MessageClient push done", s"topic: $topic, \nkey: $key")
+
+      topic = moduleName
+      MC.push(PushReq(topic, key))
+      LOG.warn(s"MessageClient push done", s"topic: $topic, \nkey: $key")
+
+    } else {
+      LOG.warn(s"MessageClient dwi no hive partitions to push", s"topic: $topic")
     }
   }
 
   override def clean(cookies: TransactionCookie*): Unit = {
     hiveClient.clean(cookies: _*)
-  }
-
-  private def pushChangedHivePartition(dwrT: HiveTransactionCookie, dwiT: HiveTransactionCookie): Unit = {
-
-    var topic: String = null
-
-
-
-
-
   }
 
 }

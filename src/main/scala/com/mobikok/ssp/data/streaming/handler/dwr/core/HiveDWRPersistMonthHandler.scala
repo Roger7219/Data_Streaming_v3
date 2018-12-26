@@ -27,7 +27,8 @@ class HiveDWRPersistMonthHandler extends Handler with Persistence{
     // 默认为true 遵从配置设置
     isAsynchronous = true
     super.init(moduleName, transactionManager, hbaseClient, hiveClient, clickHouseClient, handlerConfig, globalConfig, expr, as)
-    table = handlerConfig.getString("table")
+//    table = handlerConfig.getString("table")
+    table = globalConfig.getString(s"modules.$moduleName.dwr.table")
   }
 
   override def rollback(cookies: TransactionCookie*): Cleanable = {
@@ -48,11 +49,18 @@ class HiveDWRPersistMonthHandler extends Handler with Persistence{
     }.toArray
 
     val dwrFields = persistenceDwr.schema.fieldNames
-    var overwriteFields: java.util.Map[String, String] = new util.HashMap[String, String]()
+    val overwriteFields: java.util.Map[String, String] = new util.HashMap[String, String]()
+    // default overwrite fields
+    overwriteFields.put("operatingSystem", "null")
+    overwriteFields.put("systemLanguage", "null")
+    overwriteFields.put("deviceBrand", "null")
+    overwriteFields.put("deviceType", "null")
+    overwriteFields.put("browserKernel", "null")
     try {
-      overwriteFields = globalConfig.getConfigList(s"modules.$moduleName.dwr.acc.day.overwrite").map { x =>
-        x.getString("as") -> x.getString("expr")
-      }.toMap.asJava
+      // selectable params
+      globalConfig.getConfigList(s"modules.$moduleName.dwr.acc.day.overwrite").foreach { x =>
+        overwriteFields.put(x.getString("as"), x.getString("expr"))
+      }
     } catch {
       case e: Exception =>
     }

@@ -37,7 +37,7 @@ class ClickHouseDMPersistHandler extends Handler with Transactional {
   // handle 替代之前的overwriteUnionSum
   override def doHandle(persistenceDwr: DataFrame): Unit = {
 
-    val partitionFields = globalConfig.getStringList(s"modules.$moduleName.dwr.partition.fields")
+    val partitionFields = globalConfig.getStringList(s"modules.$moduleName.dwr.partition.fields") // l_time, b_date, b_time
 
     cookie = clickHouseClient.overwriteUnionSum(
       transactionManager.asInstanceOf[MixTransactionManager].getCurrentTransactionParentId(),

@@ -1193,7 +1193,7 @@ class MixModuleForBTime (config: Config,
               }
               dwrGroupbyExtendedFields.foreach { x =>
                 mixModulesBatchController.set({
-                  x.handle(mixModulesBatchController.get)._2
+                  x.handle(mixModulesBatchController.get)
                 })
                 //              cacheGroupByDwr = x.handle(cacheGroupByDwr)
                 //              cacheGroupByDwr = hiveContext.createDataFrame(cacheGroupByDwr.collectAsList(), cacheGroupByDwr.schema).repartition(shufflePartitions)

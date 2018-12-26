@@ -1,18 +1,13 @@
 package com.mobikok.ssp.data.streaming.handler.dwr
 
-import java.text.SimpleDateFormat
 import java.util.Date
 
-import com.mobikok.ssp.data.streaming.client.cookie.TransactionCookie
 import com.mobikok.ssp.data.streaming.client.{ClickHouseClient, HBaseClient, HiveClient, TransactionManager}
 import com.mobikok.ssp.data.streaming.entity.RowkeyUuid
-import com.mobikok.ssp.data.streaming.exception.HandlerException
-import com.mobikok.ssp.data.streaming.util.{Logger, MySqlJDBCClient}
+import com.mobikok.ssp.data.streaming.util.Logger
 import com.typesafe.config.Config
-import org.apache.hadoop.hbase.util.Bytes
-import org.apache.spark.sql.{DataFrame, functions}
+import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.{expr, _}
-import org.apache.spark.sql.hive.HiveContext
 
 /**
   *

@@ -2,7 +2,6 @@ package com.mobikok.ssp.data.streaming.handler.dwr.core
 
 import java.util
 
-import com.mobikok.message.MessagePushReq
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.client.cookie.{HiveTransactionCookie, TransactionCookie}
 import com.mobikok.ssp.data.streaming.handler.dwr.Handler
@@ -27,7 +26,8 @@ class HiveDWRPersistHandler extends Handler with Persistence {
     // 默认为true 遵从配置设置
     isAsynchronous = true
     super.init(moduleName, transactionManager, hbaseClient, hiveClient, clickHouseClient, handlerConfig, globalConfig, expr, as)
-    table = handlerConfig.getString("table")
+//    table = handlerConfig.getString("table")
+    table = globalConfig.getString(s"modules.$moduleName.dwr.table")
   }
 
   override def rollback(cookies: TransactionCookie*): Cleanable = {
@@ -61,21 +61,24 @@ class HiveDWRPersistHandler extends Handler with Persistence {
     )
     batchTransactionCookiesCache.add(cookie)
 
-    val dwrT = cookie.asInstanceOf[HiveTransactionCookie]
-    val topic = dwrT.targetTable
-    if (dwrT != null && dwrT.partitions != null && dwrT.partitions.nonEmpty) {
-      val key = OM.toJOSN(dwrT.partitions.map { x => x.sortBy { y => y.name + y.value } }.sortBy { x => OM.toJOSN(x) })
-      MC.push(PushReq(topic, key))
-//      messageClient.pushMessage(new MessagePushReq(topic, key))
-      LOG.warn(s"MessageClient push done", s"topic: $topic, \nkey: $key")
-    } else {
-      LOG.warn(s"MessageClient dwr no hive partitions to push", s"topic: $topic")
-    }
+
     persistenceDwr
   }
 
   override def commit(cookie: TransactionCookie): Unit = {
     hiveClient.commit(this.cookie)
+
+    // push message
+    val dwrT = this.cookie.asInstanceOf[HiveTransactionCookie]
+    val topic = dwrT.targetTable
+    if (dwrT != null && dwrT.partitions != null && dwrT.partitions.nonEmpty) {
+      val key = OM.toJOSN(dwrT.partitions.map { x => x.sortBy { y => y.name + y.value } }.sortBy { x => OM.toJOSN(x) })
+      MC.push(PushReq(topic, key))
+      //      messageClient.pushMessage(new MessagePushReq(topic, key))
+      LOG.warn(s"MessageClient push done", s"topic: $topic, \nkey: $key")
+    } else {
+      LOG.warn(s"MessageClient dwr no hive partitions to push", s"topic: $topic")
+    }
   }
 
 

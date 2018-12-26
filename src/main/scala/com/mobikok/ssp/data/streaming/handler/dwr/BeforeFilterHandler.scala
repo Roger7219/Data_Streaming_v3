@@ -1,12 +1,9 @@
 package com.mobikok.ssp.data.streaming.handler.dwr
-import com.mobikok.ssp.data.streaming.client.cookie.TransactionCookie
+
 import com.mobikok.ssp.data.streaming.client.{ClickHouseClient, HBaseClient, HiveClient, TransactionManager}
-import com.mobikok.ssp.data.streaming.exception.ModuleException
-import com.mobikok.ssp.data.streaming.module.support.uuid.UuidFilter
 import com.mobikok.ssp.data.streaming.util.Logger
 import com.typesafe.config.Config
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.hive.HiveContext
 
 class BeforeFilterHandler extends Handler {
 

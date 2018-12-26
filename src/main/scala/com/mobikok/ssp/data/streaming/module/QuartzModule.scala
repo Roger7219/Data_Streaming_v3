@@ -3,6 +3,7 @@ package com.mobikok.ssp.data.streaming.module
 import java.text.DecimalFormat
 import java.util
 import java.util.Date
+
 import com.mobikok.message.client.MessageClient
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.client.cookie._
@@ -11,7 +12,7 @@ import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.feature.HBaseStorable
 import com.mobikok.ssp.data.streaming.entity.UuidStat
 import com.mobikok.ssp.data.streaming.exception.ModuleException
-import com.mobikok.ssp.data.streaming.handler.dm.{ClickHouseQueryByBDateHandler, ClickHouseQueryByBTimeHandler, Handler}
+import com.mobikok.ssp.data.streaming.handler.dm.offline.{ClickHouseQueryByBDateHandler, ClickHouseQueryByBTimeHandler}
 import com.mobikok.ssp.data.streaming.module.support._
 import com.mobikok.ssp.data.streaming.module.support.uuid.{DefaultUuidFilter, UuidFilter}
 import com.mobikok.ssp.data.streaming.util.{MC, YarnAPPManagerUtil, _}
@@ -24,6 +25,7 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.{Column, DataFrame}
 import org.apache.spark.streaming.StreamingContext
 import org.quartz.Scheduler
+
 import scala.collection.JavaConversions._
 import scala.collection.mutable
 
@@ -341,7 +343,7 @@ class QuartzModule(config: Config,
   }
 
   var isEnableHandlerDm = false
-  var dmHandlers: util.List[Handler] = null
+  var dmHandlers: util.List[com.mobikok.ssp.data.streaming.handler.dm.offline.Handler] = null
   try {
     isEnableHandlerDm = config.getBoolean(s"modules.$moduleName.dm.handler.enable")
   } catch {
@@ -356,9 +358,9 @@ class QuartzModule(config: Config,
   }
 
   if (isEnableHandlerDm) {
-    dmHandlers = new util.ArrayList[Handler]()
+    dmHandlers = new util.ArrayList[com.mobikok.ssp.data.streaming.handler.dm.offline.Handler]()
     config.getConfigList(s"modules.$moduleName.dm.handler.setting").foreach { x =>
-      var h: Handler = Class.forName(x.getString("class")).newInstance().asInstanceOf[Handler]
+      var h = Class.forName(x.getString("class")).newInstance().asInstanceOf[com.mobikok.ssp.data.streaming.handler.dm.offline.Handler]
       h.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient,kylinClient, hbaseClient, hiveContext, x)
       if (h.isInstanceOf[ClickHouseQueryByBTimeHandler] || h.isInstanceOf[ClickHouseQueryByBDateHandler]) {
         h.setClickHouseClient(new ClickHouseClient(moduleName, config, ssc, messageClient, mixTransactionManager, hiveContext, moduleTracer))

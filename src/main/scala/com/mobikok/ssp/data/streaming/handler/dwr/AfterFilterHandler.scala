@@ -1,6 +1,5 @@
 package com.mobikok.ssp.data.streaming.handler.dwr
 
-import com.mobikok.ssp.data.streaming.client.cookie.TransactionCookie
 import com.mobikok.ssp.data.streaming.client.{ClickHouseClient, HBaseClient, HiveClient, TransactionManager}
 import com.mobikok.ssp.data.streaming.util.Logger
 import com.typesafe.config.Config

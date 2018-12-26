@@ -10,6 +10,8 @@ import com.typesafe.config.Config
 import org.apache.spark.sql.SaveMode
 import org.apache.spark.sql.hive.HiveContext
 
+import scala.collection.JavaConversions._
+
 /**
   * Created by admin on 2017/9/18.
   */

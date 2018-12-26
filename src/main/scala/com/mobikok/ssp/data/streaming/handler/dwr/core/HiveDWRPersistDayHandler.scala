@@ -13,6 +13,10 @@ import org.apache.spark.sql.functions.expr
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
 
+
+/**
+  * Core service, configure key is `@code dwr.acc.day.enable`
+  */
 class HiveDWRPersistDayHandler extends Handler with Persistence {
 
 //  val COOKIE_KIND_DWR_ACC_DAY_T = "dwrAccDayT"
@@ -28,7 +32,8 @@ class HiveDWRPersistDayHandler extends Handler with Persistence {
     // 默认为true 遵从配置设置
     isAsynchronous = true
     super.init(moduleName, transactionManager, hbaseClient, hiveClient, clickHouseClient, handlerConfig, globalConfig, expr, as)
-    table = handlerConfig.getString("table")
+//    table = handlerConfig.getString("table")
+    table = globalConfig.getString(s"modules.$moduleName.dwr.table")
   }
 
   override def rollback(cookies: TransactionCookie*): Cleanable = {
@@ -51,11 +56,18 @@ class HiveDWRPersistDayHandler extends Handler with Persistence {
     val partitionFields = globalConfig.getStringList(s"modules.$moduleName.dwr.partition.fields")
 
     val dwrFields = persistenceDwr.schema.fieldNames
-    var overwriteFields: java.util.Map[String, String] = new util.HashMap[String, String]()
+    val overwriteFields: java.util.Map[String, String] = new util.HashMap[String, String]()
+    // default overwrite values to null
+    overwriteFields.put("operatingSystem", "null")
+    overwriteFields.put("systemLanguage", "null")
+    overwriteFields.put("deviceBrand", "null")
+    overwriteFields.put("deviceType", "null")
+    overwriteFields.put("browserKernel", "null")
     try {
-      overwriteFields = handlerConfig.getConfigList(s"overwrite").map { x =>
-        x.getString("as") -> x.getString("expr")
-      }.toMap.asJava
+      // 可选配置
+      globalConfig.getConfigList(s"modules.$moduleName.dwr.acc.day.overwrite").foreach { x =>
+        overwriteFields.put(x.getString("as"), x.getString("expr"))
+      }
     } catch {
       case e: Exception =>
     }

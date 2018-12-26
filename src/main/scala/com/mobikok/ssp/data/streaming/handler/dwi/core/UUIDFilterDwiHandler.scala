@@ -1,13 +1,16 @@
-package com.mobikok.ssp.data.streaming.handler.dwi
+package com.mobikok.ssp.data.streaming.handler.dwi.core
 
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.client.cookie.TransactionCookie
 import com.mobikok.ssp.data.streaming.config.RDBConfig
+import com.mobikok.ssp.data.streaming.handler.dwi.Handler
 import com.mobikok.ssp.data.streaming.module.support.uuid.UuidFilter
 import com.typesafe.config.Config
 import org.apache.spark.sql.DataFrame
 
-//内置
+/**
+  * Core handler, default configure is {modules.$moduleName.dwi.uuid.enable= true}
+  */
 class UUIDFilterDwiHandler extends Handler {
 
   // 持久化，用于clean

@@ -15,12 +15,11 @@ import com.mobikok.ssp.data.streaming.concurrent.GlobalAppRunningStatusV2
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.{LatestOffsetRecord, OffsetRange}
 import com.mobikok.ssp.data.streaming.exception.ModuleException
+import com.mobikok.ssp.data.streaming.handler.Handler
 import com.mobikok.ssp.data.streaming.handler.dm.offline.{ClickHouseQueryByBDateHandler, ClickHouseQueryByBTimeHandler, ClickHouseQueryMonthHandler}
-import com.mobikok.ssp.data.streaming.handler.dm.{offline, online}
-import com.mobikok.ssp.data.streaming.handler.dwi.UUIDFilterDwiHandler
-import com.mobikok.ssp.data.streaming.handler.dwi.core.{HBaseDWIPersistHandler, HiveDWIPersistHandler}
+import com.mobikok.ssp.data.streaming.handler.dwi.core.{HBaseDWIPersistHandler, HiveDWIPersistHandler, UUIDFilterDwiHandler}
 import com.mobikok.ssp.data.streaming.handler.dwr.UUIDFilterDwrHandler
-import com.mobikok.ssp.data.streaming.handler.{Handler, dwi, dwr}
+import com.mobikok.ssp.data.streaming.handler.dwr.core.{HiveDWRPersistDayHandler, HiveDWRPersistHandler, HiveDWRPersistMonthHandler}
 import com.mobikok.ssp.data.streaming.module.support.uuid.{DefaultUuidFilter, UuidFilter}
 import com.mobikok.ssp.data.streaming.module.support.{HiveContextGenerater, MixModulesBatchController, SQLContextGenerater}
 import com.mobikok.ssp.data.streaming.util._
@@ -88,7 +87,7 @@ class PluggableModule(config: Config,
       x => expr(x.getString("expr")).as(x.getString("as"))
     }.toList
   } catch {
-    case e: Exception =>
+    case _: Exception =>
   }
 
   var aggExprsAlias: List[String] = _
@@ -97,7 +96,7 @@ class PluggableModule(config: Config,
       x => x.getString("as")
     }.toList
   } catch {
-    case e: Exception =>
+    case _: Exception =>
   }
 
   var unionAggExprsAndAlias: List[Column] = _
@@ -106,14 +105,14 @@ class PluggableModule(config: Config,
       x => expr(x.getString("union")).as(x.getString("as"))
     }.toList
   } catch {
-    case e: Exception =>
+    case _: Exception =>
   }
 
   var businessTimeExtractBy: String = _
   try {
     businessTimeExtractBy = config.getString(s"modules.$moduleName.business.time.extract.by")
   } catch {
-    case e: Throwable =>
+    case _: Throwable =>
       //兼容历史代码
       businessTimeExtractBy = config.getString(s"modules.$moduleName.business.date.extract.by")
   }
@@ -140,15 +139,15 @@ class PluggableModule(config: Config,
     case _: Exception =>
   }
 
-  var needDwrAccDay = false
-  try {
-    needDwrAccDay = config.getBoolean(s"modules.$moduleName.dwr.acc.day.enable")
-  } catch {case _: Exception =>}
-
-  var needDwrAccMonth = false
-  try {
-    needDwrAccMonth = config.getBoolean(s"modules.$moduleName.dwr.acc.month.enable")
-  } catch {case _: Exception =>}
+//  var needDwrAccDay = false
+//  try {
+//    needDwrAccDay = config.getBoolean(s"modules.$moduleName.dwr.acc.day.enable")
+//  } catch {case _: Exception =>}
+//
+//  var needDwrAccMonth = false
+//  try {
+//    needDwrAccMonth = config.getBoolean(s"modules.$moduleName.dwr.acc.month.enable")
+//  } catch {case _: Exception =>}
 
 //  var needH2Persistence = false
 //  try {
@@ -273,7 +272,7 @@ class PluggableModule(config: Config,
   try {
     dwiPhoenixEnable = config.getBoolean(s"modules.$moduleName.dwi.phoenix.enable")
   } catch {
-    case e: Exception =>
+    case _: Exception =>
   }
   if (dwiPhoenixEnable) {
     dwiPhoenixTable = config.getString(s"modules.$moduleName.dwi.phoenix.table")
@@ -288,7 +287,7 @@ class PluggableModule(config: Config,
   try {
     isEnableDwi = config.getBoolean(s"modules.$moduleName.dwi.enable")
   } catch {
-    case e: Exception =>
+    case _: Exception =>
   }
   try {
     dwiTable = config.getString(s"modules.$moduleName.dwi.table")
@@ -303,7 +302,7 @@ class PluggableModule(config: Config,
   try {
     dwiBTimeFormat = config.getString(s"modules.$moduleName.dwi.business.time.format.by")
   } catch {
-    case e: Throwable =>
+    case _: Throwable =>
   }
 
   var isEnableDwiUuid = false
@@ -313,27 +312,27 @@ class PluggableModule(config: Config,
   try {
     isEnableDwiUuid = config.getBoolean(s"modules.$moduleName.dwi.uuid.enable")
   } catch {
-    case e: Exception =>
+    case _: Exception =>
   }
   if (isEnableDwiUuid) {
     dwiUuidFields = config.getStringList(s"modules.$moduleName.dwi.uuid.fields").toArray[String](new Array[String](0))
     try {
       dwiUuidFieldsAlias = config.getString(s"modules.$moduleName.dwi.uuid.alias")
     } catch {
-      case e: Exception =>
+      case _: Exception =>
     }
 
     dwiUuidStatHbaseTable = dwiTable + "_uuid"
     try {
       dwiUuidStatHbaseTable = config.getString(s"modules.$moduleName.dwi.uuid.stat.hbase.table")
     } catch {
-      case e: Exception =>
+      case _: Exception =>
     }
   }
 
   var uuidFilter: UuidFilter = _
   if (config.hasPath(s"modules.$moduleName.dwr.uuid.filter")) {
-    var f = config.getString(s"modules.$moduleName.dwr.uuid.filter")
+    val f = config.getString(s"modules.$moduleName.dwr.uuid.filter")
     uuidFilter = Class.forName(f).newInstance().asInstanceOf[UuidFilter]
   } else {
     uuidFilter = new DefaultUuidFilter()
@@ -348,7 +347,7 @@ class PluggableModule(config: Config,
   var dwrTable: String = _
   try {
     isEnableDwr = config.getBoolean(s"modules.$moduleName.dwr.enable")
-  } catch {case e: Exception =>}
+  } catch {case _: Exception =>}
   if (isEnableDwr) {
     dwrTable = config.getString(s"modules.$moduleName.dwr.table")
   }
@@ -359,7 +358,7 @@ class PluggableModule(config: Config,
       x => expr(x.getString("expr")).as(x.getString("as"))
     }.toList
   } catch {
-    case e: Exception =>
+    case _: Exception =>
   }
 
   var dwrGroupByExprsAlias: Array[String] = _
@@ -368,7 +367,7 @@ class PluggableModule(config: Config,
       x => x.getString("as")
     }.toArray[String]
   } catch {
-    case e: Exception =>
+    case _: Exception =>
   }
 
   var dwrGroupByExprsAliasCol: List[Column] = _
@@ -377,14 +376,14 @@ class PluggableModule(config: Config,
       x => col(x.getString("as"))
     }.toList
   } catch {
-    case e: Exception =>
+    case _: Exception =>
   }
 
   var dwrBTimeFormat = "yyyy-MM-dd HH:00:00"
   try {
     dwrBTimeFormat = config.getString(s"modules.$moduleName.dwr.business.time.format.by")
   } catch {
-    case e: Throwable =>
+    case _: Throwable =>
   }
 
   var dwrIncludeRepeated = true
@@ -400,6 +399,28 @@ class PluggableModule(config: Config,
     dwrHandlers = new util.ArrayList[com.mobikok.ssp.data.streaming.handler.dwr.Handler]()
     if (!dwrIncludeRepeated) {
       dwrHandlers.add(new UUIDFilterDwrHandler(uuidFilter))
+    }
+    // 核心handler的手动配置
+    if (isEnableDwr) {
+      val dwrPersistHandler = new HiveDWRPersistHandler()
+      dwrPersistHandler.init(moduleName, mixTransactionManager, hbaseClient, hiveClient, clickHouseClient, config, config, "", "")
+      dwrHandlers.add(dwrPersistHandler)
+    }
+
+    var enableDwrAccDay = false
+    runInTry{enableDwrAccDay = config.getBoolean(s"module.$moduleName.dwr.acc.day.enable")}
+    if (enableDwrAccDay) {
+      val dwrPersistDayHandler = new HiveDWRPersistDayHandler()
+      dwrPersistDayHandler.init(moduleName, mixTransactionManager, hbaseClient, hiveClient, clickHouseClient, config, config, "", "")
+      dwrHandlers.add(dwrPersistDayHandler)
+    }
+
+    var enableDwrAccMonth = false
+    runInTry{enableDwrAccMonth = config.getBoolean(s"module.$moduleName.dwr.acc.month.enable")}
+    if (enableDwrAccMonth) {
+      val dwrPersistMonthHandler = new HiveDWRPersistMonthHandler()
+      dwrPersistMonthHandler.init(moduleName, mixTransactionManager, hbaseClient, hiveClient, clickHouseClient, config, config, "", "")
+      dwrHandlers.add(dwrPersistMonthHandler)
     }
     try {
       config.getConfigList(s"modules.$moduleName.dwr.handler").foreach { x =>
@@ -525,14 +546,15 @@ class PluggableModule(config: Config,
       hiveDWIPersistHandler.init(moduleName, mixTransactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, config, config, null, null)
       dwiHandlers = dwiHandlers :+ hiveDWIPersistHandler
     }
-    if (isEnableDwiUuid) {
-      dwiHandlers = uuidFilterHandler :: dwiHandlers
-    }
     if (dwiPhoenixEnable) {
       val hbaseDWIPersistHandler = new HBaseDWIPersistHandler()
       hbaseDWIPersistHandler.init(moduleName, mixTransactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, config, config, null, null)
       dwiHandlers = dwiHandlers :+ hbaseDWIPersistHandler
     }
+    if (isEnableDwiUuid) {
+      dwiHandlers = uuidFilterHandler :: dwiHandlers
+    }
+
   }
 
   @volatile var hiveCleanable, clickHouseCleanable, hbaseCleanable, kafkaCleanable, phoenixCleanable: Cleanable = _
@@ -818,7 +840,7 @@ class PluggableModule(config: Config,
                 //  DWR prepare handle
                 //-----------------------------------------------------------------------------------------------------------------
                 var dwrDwi = handledDwi
-                if (isEnableDwr && dwrHandlers.nonEmpty) {
+                if (isEnableDwr && dwrHandlers != null && dwrHandlers.nonEmpty) {
                   if (!isMaster) {
                     throw new ModuleException("Module of include 'dwr.handler' must config: master=true")
                   }
@@ -850,7 +872,7 @@ class PluggableModule(config: Config,
                 //-----------------------------------------------------------------------------------------------------------------
                 //  DWR handle
                 //-----------------------------------------------------------------------------------------------------------------
-                if (isEnableDwr && dwrHandlers.nonEmpty) {
+                if (isEnableDwr && dwrHandlers != null && dwrHandlers.nonEmpty) {
                   if (!isMaster) {
                     LOG.warn(dwrHandlers.head.getClass.getName)
                     throw new ModuleException("Module of include 'dwr.handler' must config: master=true")
@@ -865,7 +887,7 @@ class PluggableModule(config: Config,
                 //-----------------------------------------------------------------------------------------------------------------
                 //  DM online handle
                 //-----------------------------------------------------------------------------------------------------------------
-                if (isEnableOnlineDm && dmOnlineHandlers.nonEmpty) {
+                if (isEnableOnlineDm && dmOnlineHandlers != null && dmOnlineHandlers.nonEmpty) {
                   if (!isMaster) {
                     LOG.warn(s"Error handler: ${dmOnlineHandlers.head.getClass.getName}")
                     throw new ModuleException("Module of include 'dwr.handler' must config: master=true")
@@ -876,7 +898,7 @@ class PluggableModule(config: Config,
                 //-----------------------------------------------------------------------------------------------------------------
                 //  DM offline handle
                 //-----------------------------------------------------------------------------------------------------------------
-                if (isEnableOfflineDm && dmOfflineHandlers.nonEmpty) {
+                if (isEnableOfflineDm && dmOfflineHandlers != null && dmOfflineHandlers.nonEmpty) {
                   if (!isMaster) {
                     LOG.warn(s"Error handler: ${dmOfflineHandlers.head.getClass.getName}")
                     throw new ModuleException("Module of include 'dwr.handler' must config: master=true")
@@ -889,23 +911,28 @@ class PluggableModule(config: Config,
                 //-----------------------------------------------------------------------------------------------------------------
                 if (asyncHandlers.nonEmpty) {
                   asyncHandlers.foreach {
-                    case dwiHandler: dwi.Handler =>
+
+                    case dwiHandler: com.mobikok.ssp.data.streaming.handler.dwi.Handler =>
                       ThreadPool.execute {
+                        LOG.warn(s"dwi handle, className=${dwiHandler.getClass.getName}")
                         dwiHandler.handle(handledDwi)
                         countDownLatch.countDown()
                       }
-                    case dwrHandler: dwr.Handler =>
+                    case dwrHandler: com.mobikok.ssp.data.streaming.handler.dwr.Handler =>
                       ThreadPool.execute {
+                        LOG.warn(s"dwr handle, className=${dwrHandler.getClass.getName}")
                         dwrHandler.handle(mixModulesBatchController.get())
                         countDownLatch.countDown()
                       }
-                    case dmOnlineHandler: online.Handler =>
+                    case dmOnlineHandler: com.mobikok.ssp.data.streaming.handler.dm.online.Handler =>
                       ThreadPool.execute {
+                        LOG.warn(s"dmOnline handle, className=${dmOnlineHandler.getClass.getName}")
                         dmOnlineHandler.handle(mixModulesBatchController.get())
                         countDownLatch.countDown()
                       }
-                    case dmOfflineHandler: offline.Handler =>
+                    case dmOfflineHandler: com.mobikok.ssp.data.streaming.handler.dm.offline.Handler =>
                       ThreadPool.execute {
+                        LOG.warn(s"dmOffline handle, className=${dmOfflineHandler.getClass.getName}")
                         dmOfflineHandler.handle()
                         countDownLatch.countDown()
                       }
@@ -953,23 +980,26 @@ class PluggableModule(config: Config,
                 //------------------------------------------------------------------------------------
                 dwiHandlers.filter{ x => !x.isAsynchronous }.foreach{ h => h.commit(null) }
 
-                dwrHandlers.filter{ x => x.isInstanceOf[Transactional] && !x.isAsynchronous }
-                  .foreach{ h => h.asInstanceOf[Transactional].commit(null) }
+                if (dwrHandlerCookies != null) {
+                  dwrHandlers.filter{ x => x.isInstanceOf[Transactional] && !x.isAsynchronous }
+                    .foreach{ h => h.asInstanceOf[Transactional].commit(null) }
+                }
 
-                dmOnlineHandlers.filter{ x => x.isInstanceOf[Transactional] && !x.isAsynchronous}
-                  .foreach{ h => h.asInstanceOf[Transactional].commit(null)}
+                if (dmOnlineHandlers != null) {
+                  dmOnlineHandlers.filter{ x => x.isInstanceOf[Transactional] && !x.isAsynchronous}
+                    .foreach{ h => h.asInstanceOf[Transactional].commit(null)}
+                }
 
-                dmOfflineHandlers.filter{ x => x.isInstanceOf[Transactional] && !x.isAsynchronous}
-                  .foreach{ h => h.asInstanceOf[Transactional].commit(null)}
+                if (dmOfflineHandlers != null) {
+                  dmOfflineHandlers.filter{ x => x.isInstanceOf[Transactional] && !x.isAsynchronous}
+                    .foreach{ h => h.asInstanceOf[Transactional].commit(null)}
+                }
 
-                asyncHandlers.filter{ h => h.isInstanceOf[Transactional] }.par
-                  .foreach{ h => h.asInstanceOf[Transactional].commit(null) }
+                // asynchronous handler await before commit
+                countDownLatch.await()
 
-                //------------------------------------------------------------------------------------
-                // Push partitions message
-                //------------------------------------------------------------------------------------
-                // 改成handler推送消息
-//                pushChangedHivePartition()
+                asyncHandlers.filter{ h => h.isInstanceOf[Transactional] }
+                  .par.foreach{ h => h.asInstanceOf[Transactional].commit(null) }
 
                 //------------------------------------------------------------------------------------
                 // Wait all module transaction commit
@@ -1525,10 +1555,10 @@ class PluggableModule(config: Config,
   //找到并移除
   private def popNeedCleanTransactions(cookieKind: String, excludeCurrTransactionParentId: String): Array[TransactionCookie] = {
     var result = EMPTY_TRANSACTION_COOKIES
-    var pr = batchsTransactionCookiesCache.get(cookieKind)
-    var isTran = mixTransactionManager.needTransactionalAction()
+    val pr = batchsTransactionCookiesCache.get(cookieKind)
+    val isTran = mixTransactionManager.needTransactionalAction()
     if (pr != null && isTran) {
-      var needCleans = pr.filter(!_.parentId.equals(excludeCurrTransactionParentId))
+      val needCleans = pr.filter(!_.parentId.equals(excludeCurrTransactionParentId))
       pr.removeAll(needCleans)
       result = needCleans.toArray
     }
@@ -1556,7 +1586,7 @@ class PluggableModule(config: Config,
 
     if (dwrT != null && dwrT.partitions != null && dwrT.partitions.nonEmpty) {
       val topic = dwrT.targetTable
-      var key = OM.toJOSN(dwrT.partitions.map { x => x.sortBy { y => y.name + y.value } }.sortBy { x => OM.toJOSN(x) })
+      val key = OM.toJOSN(dwrT.partitions.map { x => x.sortBy { y => y.name + y.value } }.sortBy { x => OM.toJOSN(x) })
       messageClient.pushMessage(new MessagePushReq(topic, key))
       LOG.warn(s"MessageClient push done", s"topic: $topic, \nkey: $key")
     } else {
@@ -1595,7 +1625,7 @@ class PluggableModule(config: Config,
     try {
       func
     } catch {
-      case e: Exception =>
+      case _: Exception =>
     }
   }
 
@@ -1603,7 +1633,7 @@ class PluggableModule(config: Config,
     try {
       func
     } catch {
-      case e: Exception =>
+      case _: Exception =>
         catchFunc
     }
   }
