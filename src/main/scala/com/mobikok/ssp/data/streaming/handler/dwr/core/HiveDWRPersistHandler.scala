@@ -50,7 +50,7 @@ class HiveDWRPersistHandler extends Handler with Persistence {
     val partitionFields = globalConfig.getStringList(s"modules.$moduleName.dwr.partition.fields")
 
     cookie = hiveClient.overwriteUnionSum(
-      transactionParentId,
+      transactionManager.asInstanceOf[MixTransactionManager].getCurrentTransactionParentId(),
       table,
       persistenceDwr,
       aggExprsAlias,
@@ -65,11 +65,11 @@ class HiveDWRPersistHandler extends Handler with Persistence {
     persistenceDwr
   }
 
-  override def commit(cookie: TransactionCookie): Unit = {
-    hiveClient.commit(this.cookie)
+  override def commit(c: TransactionCookie): Unit = {
+    hiveClient.commit(cookie)
 
     // push message
-    val dwrT = this.cookie.asInstanceOf[HiveTransactionCookie]
+    val dwrT = cookie.asInstanceOf[HiveTransactionCookie]
     val topic = dwrT.targetTable
     if (dwrT != null && dwrT.partitions != null && dwrT.partitions.nonEmpty) {
       val key = OM.toJOSN(dwrT.partitions.map { x => x.sortBy { y => y.name + y.value } }.sortBy { x => OM.toJOSN(x) })

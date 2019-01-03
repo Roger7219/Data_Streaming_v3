@@ -57,11 +57,11 @@ class HiveDWIPersistHandler extends Handler {
     (newDwi, Array(cookie))
   }
 
-  override def commit(cookie: TransactionCookie): Unit = {
-    hiveClient.commit(this.cookie)
+  override def commit(c: TransactionCookie): Unit = {
+    hiveClient.commit(cookie)
 
     // push message
-    val dwiT = this.cookie.asInstanceOf[HiveTransactionCookie]
+    val dwiT = cookie.asInstanceOf[HiveTransactionCookie]
     var topic = dwiT.targetTable
     if (dwiT != null && dwiT.partitions != null && dwiT.partitions.nonEmpty) {
       val key = OM.toJOSN(dwiT.partitions.map { x => x.sortBy { y => y.name + y.value } }.sortBy { x => OM.toJOSN(x) })

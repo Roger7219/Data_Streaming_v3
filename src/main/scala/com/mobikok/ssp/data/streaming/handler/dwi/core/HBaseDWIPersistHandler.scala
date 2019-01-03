@@ -51,11 +51,8 @@ class HBaseDWIPersistHandler extends Handler {
     (newDwi, Array())
   }
 
-  override def commit(cookie: TransactionCookie): Unit = {
-    hiveClient.commit(this.cookie)
-    if (cookie != null) {
-      hiveClient.commit(cookie)
-    }
+  override def commit(c: TransactionCookie): Unit = {
+    hbaseClient.commit(cookie)
   }
 
   override def clean(cookies: TransactionCookie*): Unit = {

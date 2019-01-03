@@ -28,7 +28,8 @@ class HiveDWRPersistMonthHandler extends Handler with Persistence{
     isAsynchronous = true
     super.init(moduleName, transactionManager, hbaseClient, hiveClient, clickHouseClient, handlerConfig, globalConfig, expr, as)
 //    table = handlerConfig.getString("table")
-    table = globalConfig.getString(s"modules.$moduleName.dwr.table")
+    // 默认加速天表名为原表明加_accmonth后缀
+    table = s"${globalConfig.getString(s"modules.$moduleName.dwr.table")}_accmonth"
   }
 
   override def rollback(cookies: TransactionCookie*): Cleanable = {
@@ -81,7 +82,7 @@ class HiveDWRPersistMonthHandler extends Handler with Persistence{
     val partitionFields = globalConfig.getStringList(s"modules.$moduleName.dwr.partition.fields")
 
     cookie = hiveClient.overwriteUnionSum(
-      transactionParentId,
+      transactionManager.asInstanceOf[MixTransactionManager].getCurrentTransactionParentId(),
       table,
       persistenceDwr.selectExpr(fields:_*),
       aggExprsAlias,

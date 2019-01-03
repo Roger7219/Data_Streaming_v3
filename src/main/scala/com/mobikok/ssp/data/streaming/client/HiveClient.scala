@@ -574,7 +574,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
   //      hiveContext.sql(s"alter table ${c.transactionalProgressingBackupTable} rename to ${c.transactionalCompletedBackupTable}")
 
         //Commit critical code
-        val df2 =hiveContext
+        val df2 = hiveContext
           .read
           .table(c.transactionalTmpTable)
 

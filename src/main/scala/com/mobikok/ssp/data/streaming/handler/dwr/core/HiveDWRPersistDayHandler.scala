@@ -33,7 +33,8 @@ class HiveDWRPersistDayHandler extends Handler with Persistence {
     isAsynchronous = true
     super.init(moduleName, transactionManager, hbaseClient, hiveClient, clickHouseClient, handlerConfig, globalConfig, expr, as)
 //    table = handlerConfig.getString("table")
-    table = globalConfig.getString(s"modules.$moduleName.dwr.table")
+    // 默认加速天表名为原表明加_accday后缀
+    table = s"${globalConfig.getString(s"modules.$moduleName.dwr.table")}_accday"
   }
 
   override def rollback(cookies: TransactionCookie*): Cleanable = {
