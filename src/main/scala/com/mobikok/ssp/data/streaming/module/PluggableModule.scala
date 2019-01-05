@@ -180,34 +180,6 @@ class PluggableModule(config: Config,
 //  var h2TableName = "CampaignSearch"
 //  runInTry{h2TableName = config.getString(s"modules.$moduleName.h2.table.name")}
 
-  // clickhouse缓存批次数据
-  // 小时
-  var clickHousePersis = false
-  runInTry{clickHousePersis = config.getBoolean(s"modules.$moduleName.dwr.clickhouse.hour.enable")}
-  var clickHousePeresisTable: String =_
-  var clickHousePeresisFields: Array[String] = _
-  if (clickHousePersis) {
-    clickHousePeresisTable = config.getString(s"modules.$moduleName.dwr.clickhouse.hour.table.name")
-    clickHousePeresisFields = config.getStringList(s"modules.$moduleName.dwr.clickhouse.hour.fields").asScala.toArray
-  }
-  // 天
-  var clickHousePersisDay = false
-  runInTry{clickHousePersisDay = config.getBoolean(s"modules.$moduleName.dwr.clickhouse.day.enable")}
-  var clickHousePeresisTableDay: String =_
-  var clickHousePeresisFieldsDay: Array[String] = _
-  if (clickHousePersisDay) {
-    clickHousePeresisTableDay = config.getString(s"modules.$moduleName.dwr.clickhouse.day.table.name")
-    clickHousePeresisFieldsDay = config.getStringList(s"modules.$moduleName.dwr.clickhouse.day.fields").asScala.toArray
-  }
-  // 月
-  var clickHousePersisMonth = false
-  runInTry{clickHousePersisMonth = config.getBoolean(s"modules.$moduleName.dwr.clickhouse.month.enable")}
-  var clickHousePeresisTableMonth: String =_
-  var clickHousePeresisFieldsMonth: Array[String] = _
-  if (clickHousePersisMonth) {
-    clickHousePeresisTableMonth = config.getString(s"modules.$moduleName.dwr.clickhouse.month.table.name")
-    clickHousePeresisFieldsMonth = config.getStringList(s"modules.$moduleName.dwr.clickhouse.month.fields").asScala.toArray
-  }
   //-------------------------  Constants And Fields End  -------------------------
 
 
@@ -479,7 +451,7 @@ class PluggableModule(config: Config,
   }
   if (isEnableOfflineDm) {
     try {
-      dmOfflineHandlers = config.getConfigList(s"modules.$moduleName.dm.offline.handler.setting").map { setting =>
+      dmOfflineHandlers = config.getConfigList(s"modules.$moduleName.dm.offline.handlers").map { setting =>
         val h = Class.forName(setting.getString("class")).newInstance().asInstanceOf[com.mobikok.ssp.data.streaming.handler.dm.offline.Handler]
         h.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient, kylinClient, hbaseClient, hiveContext, setting)
         if (h.isInstanceOf[ClickHouseQueryByBTimeHandler] || h.isInstanceOf[ClickHouseQueryByBDateHandler] || h.isInstanceOf[ClickHouseQueryMonthHandler]) {
@@ -501,9 +473,9 @@ class PluggableModule(config: Config,
   }
   if (isEnableOnlineDm) {
     try {
-      dmOnlineHandlers = config.getConfigList(s"modules.$moduleName.dm.online.handler.setting").map{ setting =>
-        val h = Class.forName(setting.getString("class")).newInstance().asInstanceOf[com.mobikok.ssp.data.streaming.handler.dm.online.Handler]
-        h.init(moduleName, mixTransactionManager, clickHouseClient, rDBConfig, kafkaClient, messageClient, kylinClient, hbaseClient, hiveContext, setting, config)
+      dmOnlineHandlers = config.getConfigList(s"modules.$moduleName.dm.online.handlers").map{ handlerConfig =>
+        val h = Class.forName(handlerConfig.getString("class")).newInstance().asInstanceOf[com.mobikok.ssp.data.streaming.handler.dm.online.Handler]
+        h.init(moduleName, mixTransactionManager, clickHouseClient, rDBConfig, kafkaClient, messageClient, kylinClient, hbaseClient, hiveContext, handlerConfig, config)
         h
       }.toList
     } catch {
@@ -777,27 +749,31 @@ class PluggableModule(config: Config,
                 // 记录所有异步handler的数量
                 val asyncHandlers = new util.ArrayList[Handler]()
                 if (dwiHandlers != null) {
-//                  asyncTaskCount += dwiHandlers.count { x => x.isAsynchronous }
+//                  LOG.warn(s"""dwi handlers:\n${dwiHandlers.map{ h => h.getClass.getName}.mkString(", ")}""")
                   asyncHandlers.addAll(dwiHandlers.filter{ h => h.isAsynchronous })
                 }
                 if (dwrHandlers != null && dwrHandlers.nonEmpty) {
                   if (!isMaster) {
                     throw new ModuleException("Module of include 'dwr.handler' must config: master=true")
                   }
+//                  LOG.warn(s"""dwr handlers:\n${dwrHandlers.map{ h => h.getClass.getName}.mkString(", ")}""")
                   asyncHandlers.addAll(dwrHandlers.filter{ h => h.isAsynchronous })
                 }
                 if (dmOnlineHandlers != null && dmOnlineHandlers.nonEmpty) {
                   if (!isMaster) {
                     throw new ModuleException("Module of include 'dm.online.handler' must config: master=true")
                   }
+//                  LOG.warn(s"""dm online handlers:\n${dmOnlineHandlers.map{ h => h.getClass.getName}.mkString(", ")}""")
                   asyncHandlers.addAll(dmOnlineHandlers.filter{ h => h.isAsynchronous })
                 }
                 if (dmOfflineHandlers != null && dmOfflineHandlers.nonEmpty) {
                   if (!isMaster) {
                     throw new ModuleException("Module of include 'dm.online.handler' must config: master=true")
                   }
+//                  LOG.warn(s"""dm offline handlers:\n${dmOfflineHandlers.map{ h => h.getClass.getName}.mkString(", ")}""")
                   asyncHandlers.addAll(dmOfflineHandlers.filter{ h => h.isAsynchronous })
                 }
+//                LOG.warn(s"""asyncHandlers:\n ${asyncHandlers.map{ h => h.getClass.getName }.mkString(", ")}""")
                 // 全局计数，记录异步执行的handler数量，异步执行完后再执行commit操作
                 val countDownLatch = new CountDownLatch(asyncHandlers.size())
 
@@ -882,7 +858,11 @@ class PluggableModule(config: Config,
                     LOG.warn(s"Error handler: ${dmOnlineHandlers.head.getClass.getName}")
                     throw new ModuleException("Module of include 'dwr.handler' must config: master=true")
                   }
-                  dmOnlineHandlers.filter{ h => !h.isAsynchronous}.foreach{ h => h.handle(mixModulesBatchController.get()) }
+                  dmOnlineHandlers.filter{ h => !h.isAsynchronous}.foreach{ h =>
+                    moduleTracer.trace(s"dm online handler ${h.getClass.getSimpleName} start handling")
+                    h.handle(mixModulesBatchController.get())
+                    moduleTracer.trace(s"dm online handler ${h.getClass.getSimpleName} start handling")
+                  }
                 }
 
                 //-----------------------------------------------------------------------------------------------------------------
@@ -893,7 +873,11 @@ class PluggableModule(config: Config,
                     LOG.warn(s"Error handler: ${dmOfflineHandlers.head.getClass.getName}")
                     throw new ModuleException("Module of include 'dwr.handler' must config: master=true")
                   }
-                  dmOfflineHandlers.filter{ h => !h.isAsynchronous }.foreach{ h => h.handle() }
+                  dmOfflineHandlers.filter{ h => !h.isAsynchronous }.foreach{ h =>
+                    moduleTracer.trace(s"dm offline handler ${h.getClass.getSimpleName} start handling")
+                    h.handle()
+                    moduleTracer.trace(s"dm offline handler ${h.getClass.getSimpleName} finish handling")
+                  }
                 }
 
                 //-----------------------------------------------------------------------------------------------------------------
@@ -905,26 +889,42 @@ class PluggableModule(config: Config,
                     case dwiHandler: com.mobikok.ssp.data.streaming.handler.dwi.Handler =>
                       ThreadPool.execute {
                         LOG.warn(s"dwi handle, className=${dwiHandler.getClass.getName}")
-                        dwiHandler.handle(handledDwi)
-                        countDownLatch.countDown()
+                        try {
+                          dwiHandler.handle(handledDwi)
+                          countDownLatch.countDown()
+                        } catch {
+                          case e: Exception => LOG.warn(s"${StringUtil.getStackTraceMessage(e)}")
+                        }
                       }
                     case dwrHandler: com.mobikok.ssp.data.streaming.handler.dwr.Handler =>
                       ThreadPool.execute {
                         LOG.warn(s"dwr handle, className=${dwrHandler.getClass.getName}")
-                        dwrHandler.handle(mixModulesBatchController.get())
-                        countDownLatch.countDown()
+                        try {
+                          dwrHandler.handle(mixModulesBatchController.get())
+                          countDownLatch.countDown()
+                        } catch {
+                          case e: Exception => LOG.warn(s"${StringUtil.getStackTraceMessage(e)}")
+                        }
                       }
                     case dmOnlineHandler: com.mobikok.ssp.data.streaming.handler.dm.online.Handler =>
                       ThreadPool.execute {
                         LOG.warn(s"dmOnline handle, className=${dmOnlineHandler.getClass.getName}")
-                        dmOnlineHandler.handle(mixModulesBatchController.get())
-                        countDownLatch.countDown()
+                        try {
+                          dmOnlineHandler.handle(mixModulesBatchController.get())
+                          countDownLatch.countDown()
+                        } catch {
+                          case e: Exception => LOG.warn(s"${StringUtil.getStackTraceMessage(e)}")
+                        }
                       }
                     case dmOfflineHandler: com.mobikok.ssp.data.streaming.handler.dm.offline.Handler =>
                       ThreadPool.execute {
                         LOG.warn(s"dmOffline handle, className=${dmOfflineHandler.getClass.getName}")
-                        dmOfflineHandler.handle()
-                        countDownLatch.countDown()
+                        try {
+                          dmOfflineHandler.handle()
+                          countDownLatch.countDown()
+                        } catch {
+                          case e: Exception => LOG.warn(s"${StringUtil.getStackTraceMessage(e)}")
+                        }
                       }
                     case _ =>
                   }

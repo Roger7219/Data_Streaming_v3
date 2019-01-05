@@ -28,6 +28,7 @@ class ClickHouseDMPersistHandler extends Handler with Transactional {
     super.init(moduleName, transactionManager, clickHouseClient, rDBConfig, kafkaClient, messageClient, kylinClientV2, hbaseClient, hiveContext, handlerConfig, globalConfig)
 
     hiveTable = handlerConfig.getString("hive.table")
+    isAsynchronous = true
   }
 
   override def rollback(cookies: TransactionCookie*): Cleanable = {

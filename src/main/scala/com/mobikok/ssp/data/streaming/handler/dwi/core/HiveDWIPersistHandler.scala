@@ -5,7 +5,7 @@ import com.mobikok.ssp.data.streaming.client.cookie.{HiveTransactionCookie, Tran
 import com.mobikok.ssp.data.streaming.config.RDBConfig
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
 import com.mobikok.ssp.data.streaming.handler.dwi.Handler
-import com.mobikok.ssp.data.streaming.util.{MC, OM, PushReq}
+import com.mobikok.ssp.data.streaming.util.{MC, OM, PushReq, ThreadPool}
 import com.typesafe.config.Config
 import org.apache.spark.sql.DataFrame
 
@@ -69,7 +69,9 @@ class HiveDWIPersistHandler extends Handler {
       LOG.warn(s"MessageClient push done", s"topic: $topic, \nkey: $key")
 
       topic = moduleName
-      MC.push(PushReq(topic, key))
+      ThreadPool.LOCK.synchronized {
+        MC.push(PushReq(topic, key))
+      }
       LOG.warn(s"MessageClient push done", s"topic: $topic, \nkey: $key")
 
     } else {

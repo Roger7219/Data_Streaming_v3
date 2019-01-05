@@ -889,6 +889,17 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
     }
   }
 
+
+  /**
+    *
+    * @param transactionParentId  事务的父ID
+    * @param dwrTable             hive table
+    * @param clickHouseTable      clickHouse table
+    * @param newDF                已经聚合的DataFrame
+    * @param partitionField
+    * @param partitionFields
+    * @return
+    */
   def overwriteUnionSum(transactionParentId: String,
                         dwrTable: String,
                         clickHouseTable: String,
@@ -919,60 +930,50 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
       tid = transactionManager.generateTransactionId(transactionParentId)
 
 //      val dmTable = dwrTable.replace("dwr", "dm")
+      if (clickHouseTable == null || clickHouseTable.length == 0) {
+        throw new NullPointerException("ClickHouse Table can not be null!")
+      }
       val dmTable = clickHouseTable
       val tempTable = dmTable + transactionalTmpTableSign + tid
       val processingTable = dmTable + transactionalLegacyDataBackupProgressingTableSign + tid
       val completeTable = dmTable + transactionalLegacyDataBackupCompletedTableSign + tid
 
-      val ts = Array(partitionField) ++ partitionFields // l_time, b_date and b_time
+//      val ts = Array(partitionField) ++ partitionFields // l_time, b_date and b_time
 
       val whereCondition = partitionsWhereSQL(ps) // (l_time="2018-xx-xx xx:00:00" and b_date="2018-xx-xx" and b_time="2018-xx-xx xx:00:00")
 
       LOG.warn(s"ClickHouseClient overwriteUnionSum overwrite partitions where", whereCondition)
 
-      // Group by fields with partition fields
+      // after agg fields schema
+//      val fs = newDF.schema.fieldNames
+//      val fs = sql(s"desc $dmTable", tryAgainWhenError = true).split("[\r]?\n").map{ schema => schema.split("[\t ]")(0) }
 
-      val fs = hiveContext.read.table(hiveTable).schema.fieldNames
-
-      val aggList = config.getConfigList(s"modules.$moduleName.dwr.groupby.aggs").map{ x => x.getString("as").toLowerCase }
+//      val aggList = config.getConfigList(s"modules.$moduleName.dwr.groupby.aggs").map{ x => x.getString("as").toLowerCase }
 //      val gs = (groupByFields :+ partitionField) ++ partitionFields
-      val gs = fs.filter{ field => !aggList.contains(field) }
-//      val unionAggExprsAndAlias = autoRecognizeAggFields(fs).map{ f => sum(f).as(f) }
-      val unionAggExprsAndAlias = aggList.map{ field => sum(field).as(field) }
+//      val gs = fs.filter{ field => !aggList.contains(field) }
+//      val unionAggExprsAndAlias = aggList.map{ field => sum(field).as(field) }
 
-
-      val _newDF = newDF.select(fs.head, fs.tail: _*)
-      moduleTracer.trace("    clickhouse client start overwrite union")
+//      val _newDF = newDF.select(fs.head, fs.tail: _*)
+      moduleTracer.trace("    clickhouse client start overwrite sum")
       // Sum
-      val updated = //original
-//        .union(_newDF)
-        _newDF
-        .groupBy(gs.head, gs.tail:_*)
-        .agg(
-          unionAggExprsAndAlias.head,
-          unionAggExprsAndAlias.tail:_*
-        )
-        .as("dwr")
-        .select(fs.head, fs.tail:_*)
-      // 直接通过sql join
-      var templateSQL: String = null
-      try {
-        templateSQL = config.getString(s"modules.$moduleName.dm.persist.sql")
-      } catch {case e: Exception =>}
-      var updatedData: Dataset[String] = null
-      if (templateSQL == null) {
-        updatedData = updated.selectExpr(fs.map{ f => f.toLowerCase() }:_*).toJSON
-      } else {
-        updated.toDF().createOrReplaceTempView("dwr") // 注册成为临时表
-        updatedData = hiveContext.sql(templateSQL).toJSON
-      }
+//      val updated = _newDF
+//        .groupBy(gs.head, gs.tail:_*)
+//        .agg(
+//          unionAggExprsAndAlias.head,
+//          unionAggExprsAndAlias.tail:_*
+//        )
+//        .as("dwr")
+//        .select(fs.head, fs.tail:_*)
+
+      val updatedData: Dataset[String] = newDF.toJSON
 
       moduleTracer.trace("    clickhouse client join finished")
 
 //      LOG.warn(s"update content array length: ${updated.length}, updated take(1):\n${updated.take(1)}")
 
       // 纯内存可能会OOM
-      updatedData.persist(StorageLevel.MEMORY_AND_DISK)
+      updatedData.cache()
+//      updatedData.persist(StorageLevel.MEMORY_AND_DISK)
       LOG.warn(s"update content array length: ${updatedData.count()}, updated take(1):\n${updatedData.take(1)}")
 
       if (transactionManager.needTransactionalAction()) {
@@ -988,9 +989,8 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
           val dataCount = sql(s"select count(1) from $tempTable$uploadTmpTableSign").trim.toInt
 
           if (uploadResult && dataCount == updatedData.count()) {
-            // TODO 这里做聚合操作，在commit直接到查询表的时候就直接插入，减少数据波动延时
 //            sql(s"INSERT INTO $tempTable SELECT * FROM $tempTable$uploadTmpTableSign UNION ALL SELECT * FROM ${dmTable}_for_select_all WHERE $whereCondition")
-            // 每天0点的时候会对一天的数据做聚合，可能会产生clickHouse的内存不够的问题，通过user.xml配置增加内存
+            // 每天0点的时候会对一天的数据做聚合，可能会产生clickHouse的内存不够的问题，通过/etc/clickhouse-server/user.xml配置增加内存
             sql(
               s"""INSERT INTO $tempTable
                  |  SELECT ${dmFieldsSchema.map{ f => if (dmAggFields.contains(f)) s"sum($f) as $f" else f}.mkString(", ")}
@@ -1165,13 +1165,8 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
         val w = partitionsWhereSQL(bw) // l_time = '201x-xx-xx 00:00:00'
         var isFirstRun = true
 
-        // toSet会改变原先的顺序
-//        val dmFieldsSchema = sql(s"desc ${c.targetTable}_for_select").split("[\r]?\n").map{ field => field.split("[\t ]")(0) }
-//        val dmAggFields = config.getConfigList(s"modules.$moduleName.dwr.groupby.aggs").map{ x => x.getString("as").toLowerCase() }
         RunAgainIfError.run {
           if (!isFirstRun) {
-            // 也可以drop table再create(temp表，processing表，complete表只在host(0)中)
-//            clearRedundantData(c.partitions, c.transactionalProgressingBackupTable, hosts(0))
             sql(s"DROP TABLE ${c.transactionalProgressingBackupTable}", tryAgainWhenError = true)
             sql(s"CREATE TABLE IF NOT EXISTS ${c.transactionalProgressingBackupTable} AS ${c.targetTable}_for_select")
           }
@@ -1192,12 +1187,8 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
           clickHousePartitionAlterSQL(c.partitions).foreach { partition =>
             dropPartition(s"${c.targetTable}_for_select", partition, hosts: _*)
           }
-          //            sql(s"""alter table ${c.targetTable} drop partition($partition)""")
-          //            dropPartition(s"${c.targetTable}_for_select", partition, hosts:_*)
-          //            sql(s"""INSERT INTO ${c.targetTable}_for_select_all SELECT ${dmFieldsSchema.map{ f => if (dmAggFields.contains(f)) s"sum($f) as $f" else f}.mkString(", ")} FROM ${c.transactionalTmpTable} GROUP BY ${dmFieldsSchema.toSet.diff(dmAggFields.toSet).mkString(", ")}""")
           sql(s"""INSERT INTO ${c.targetTable}_for_select_all SELECT * FROM ${c.transactionalTmpTable}""")
         }
-//        }
 
         LOG.warn("ClickHouse insert into target table")
       }

@@ -5,7 +5,7 @@ import java.util
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.client.cookie.{HiveTransactionCookie, TransactionCookie}
 import com.mobikok.ssp.data.streaming.handler.dwr.Handler
-import com.mobikok.ssp.data.streaming.util.{Logger, MC, OM, PushReq}
+import com.mobikok.ssp.data.streaming.util._
 import com.typesafe.config.Config
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.expr
@@ -49,6 +49,7 @@ class HiveDWRPersistHandler extends Handler with Persistence {
 
     val partitionFields = globalConfig.getStringList(s"modules.$moduleName.dwr.partition.fields")
 
+
     cookie = hiveClient.overwriteUnionSum(
       transactionManager.asInstanceOf[MixTransactionManager].getCurrentTransactionParentId(),
       table,
@@ -73,7 +74,9 @@ class HiveDWRPersistHandler extends Handler with Persistence {
     val topic = dwrT.targetTable
     if (dwrT != null && dwrT.partitions != null && dwrT.partitions.nonEmpty) {
       val key = OM.toJOSN(dwrT.partitions.map { x => x.sortBy { y => y.name + y.value } }.sortBy { x => OM.toJOSN(x) })
-      MC.push(PushReq(topic, key))
+      ThreadPool.LOCK.synchronized {
+        MC.push(PushReq(topic, key))
+      }
       //      messageClient.pushMessage(new MessagePushReq(topic, key))
       LOG.warn(s"MessageClient push done", s"topic: $topic, \nkey: $key")
     } else {

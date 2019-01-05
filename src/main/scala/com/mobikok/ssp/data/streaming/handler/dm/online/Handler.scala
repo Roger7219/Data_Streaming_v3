@@ -52,8 +52,10 @@ trait Handler extends com.mobikok.ssp.data.streaming.handler.Handler {
   }
 
   def handle(dataFrame: DataFrame): Unit = {
+    dataFrame.createOrReplaceTempView("dwr")
     var templateSql: String = null
     try {
+      // handler配置下的sql
       templateSql = handlerConfig.getString(s"sql")
     }
     doHandle(if (templateSql == null) dataFrame else sql(templateSql))

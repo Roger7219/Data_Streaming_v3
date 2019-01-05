@@ -4,6 +4,8 @@ import java.util.concurrent.CountDownLatch
 
 object ThreadPool {
 
+  val LOCK = new Object()
+
   def concurrentExecute(runnables: Runnable*): Unit = {
     val threadPool = ExecutorServiceUtil.createdExecutorService(runnables.length)
     val countDownLatch = new CountDownLatch(runnables.length)
@@ -388,7 +390,13 @@ object ThreadPool {
 
   def execute(fun: => Unit) {
     threadPool.execute(new Runnable {
-      override def run(): Unit = fun
+      override def run(): Unit = {
+        try {
+          fun
+        } catch {
+          case e: Exception =>
+        }
+      }
     })
   }
 

@@ -100,8 +100,8 @@ class ModuleTracer(moduleName: String, config: Config, mixModulesBatchController
   }
 
   def trace (title: String) = {
-    val ms = new Date().getTime - lastTraceTime.get()
-    val m = traceBatchUsingTimeFormat.format((100.0*ms/1000/60).asInstanceOf[Long]/100.0)
+    val ms = System.currentTimeMillis() - lastTraceTime.get()
+    val m = traceBatchUsingTimeFormat.format((100.0*ms/1000/60).asInstanceOf[Int]/100.0)
     if (traceBatchUsingTimeLog.get() == null) {
       startBatch
     }
