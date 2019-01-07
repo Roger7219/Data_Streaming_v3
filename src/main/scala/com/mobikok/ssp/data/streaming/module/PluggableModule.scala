@@ -820,20 +820,23 @@ class PluggableModule(config: Config,
 //                  dwrDwi.persist(StorageLevel.MEMORY_ONLY)
 //                }
 
-                val preparedDwr = dwrDwi
-                  .withColumn("l_time", expr(dwrLTimeExpr))
-                  .withColumn("b_date", to_date(expr(businessTimeExtractBy)).cast("string"))
-                  .withColumn("b_time", expr(s"from_unixtime(unix_timestamp($businessTimeExtractBy), '$dwrBTimeFormat')").as("b_time"))
-                  .groupBy(col("l_time") :: col("b_date") :: col("b_time") :: dwrGroupByExprs: _*)
-                  .agg(aggExprs.head, aggExprs.tail: _*)
+                if (isEnableDwr) {
+                  val preparedDwr = dwrDwi
+                    .withColumn("l_time", expr(dwrLTimeExpr))
+                    .withColumn("b_date", to_date(expr(businessTimeExtractBy)).cast("string"))
+                    .withColumn("b_time", expr(s"from_unixtime(unix_timestamp($businessTimeExtractBy), '$dwrBTimeFormat')").as("b_time"))
+                    .groupBy(col("l_time") :: col("b_date") :: col("b_time") :: dwrGroupByExprs: _*)
+                    .agg(aggExprs.head, aggExprs.tail: _*)
 
 
-                //-----------------------------------------------------------------------------------------------------------------
-                // Wait union all module dwr data
-                //-----------------------------------------------------------------------------------------------------------------
-                moduleTracer.trace("wait dwr union all", {
-                  mixModulesBatchController.waitUnionAll(preparedDwr, isMaster, moduleName)
-                })
+                  //-----------------------------------------------------------------------------------------------------------------
+                  // Wait union all module dwr data
+                  //-----------------------------------------------------------------------------------------------------------------
+                  moduleTracer.trace("wait dwr union all", {
+                    mixModulesBatchController.waitUnionAll(preparedDwr, isMaster, moduleName)
+                  })
+                }
+
 
                 //-----------------------------------------------------------------------------------------------------------------
                 //  DWR handle

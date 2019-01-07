@@ -175,7 +175,7 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
                   .where(s""" b_date = "$b_date" and b_time = "$b_time" """)
                   .selectExpr(fields: _*)
 
-//                rows.cache()
+                rows.cache()
                 dataCount = rows.count()
                 dataCountMap.put(Thread.currentThread().getName, dataCount)
 
@@ -209,6 +209,8 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
                   }
                   lastLengthMap.put(s"$hiveTable^$b_time", current)
                 }
+
+                rows.unpersist()
               }
 
               LOG.warn("ClickHouseClient generate gz file completed", gzDir)
@@ -569,7 +571,7 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
     hosts.foreach { host =>
       RunAgainIfError.run {
         val request = new Requests(1)
-        request.post(s"http://$host:8123/", new Entity {
+        request.post(s"http://$host:8123/?password=9036011d8fa79028f99488c2de6fdfb09d66beb5e4b8ca5178ee9ff9179ed6a8", new Entity {
           {
             this.setStr(s"ALTER TABLE $clickHouseTable DROP PARTITION ('$b_date', '$b_time')", Entity.CONTENT_TYPE_TEXT)
           }
@@ -593,7 +595,7 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
     hosts.foreach { host =>
       RunAgainIfError.run {
         val request = new Requests(1)
-        request.post(s"http://$host:8123/", new Entity {
+        request.post(s"http://$host:8123/?password=9036011d8fa79028f99488c2de6fdfb09d66beb5e4b8ca5178ee9ff9179ed6a8", new Entity {
           {
             this.setStr(s"ALTER TABLE $clickHouseTable DROP PARTITION ($partition)", Entity.CONTENT_TYPE_TEXT)
           }
@@ -617,7 +619,7 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
     */
   def uploadToClickHouse(clickHouseTable: String, host: String, is: InputStream): Boolean = {
     val query = URLEncoder.encode(s"INSERT INTO ${clickHouseTable}_all FORMAT JSONEachRow", "utf-8")
-    val conn = new URL(s"http://$host:8123/?enable_http_compression=1&query=$query")
+    val conn = new URL(s"http://$host:8123/?password=9036011d8fa79028f99488c2de6fdfb09d66beb5e4b8ca5178ee9ff9179ed6a8&enable_http_compression=1&query=$query")
       .openConnection()
       .asInstanceOf[HttpURLConnection]
     conn.setRequestMethod("POST")
@@ -663,7 +665,7 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
       // 上传出现异常时，重新drop partition后再上传
       dropPartition(s"$destTable", b_date, b_time)
 
-      request.post(s"http://${hosts.head}:8123/", new Entity {
+      request.post(s"http://${hosts.head}:8123/?password=9036011d8fa79028f99488c2de6fdfb09d66beb5e4b8ca5178ee9ff9179ed6a8", new Entity {
         {
           val sql = s"INSERT INTO ${destTable}_all SELECT * FROM ${sourceTable}_all WHERE b_date='$b_date' AND b_time='$b_time'"
           LOG.warn("sql=", sql)
@@ -691,7 +693,7 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
     val request = new Requests(1)
     var importCount = -1L
     RunAgainIfError.run {
-      request.post(s"http://${hosts.head}:8123/", new Entity {
+      request.post(s"http://${hosts.head}:8123/?password=9036011d8fa79028f99488c2de6fdfb09d66beb5e4b8ca5178ee9ff9179ed6a8", new Entity {
         {
           val sql = s"SELECT SUM(1) FROM ${checkTable}_all WHERE b_date='$b_date' AND b_time='$b_time'"
           LOG.warn("sql=", sql)
@@ -1046,7 +1048,7 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
 
   private def uploadToClickHouseSingleTable(clickHouseTable: String, host: String, data: Array[Byte]): Boolean = {
     val query = URLEncoder.encode(s"INSERT INTO $clickHouseTable FORMAT JSONEachRow", "utf-8")
-    val conn = new URL(s"http://$host:8123/?enable_http_compression=1&query=$query")
+    val conn = new URL(s"http://$host:8123/?password=9036011d8fa79028f99488c2de6fdfb09d66beb5e4b8ca5178ee9ff9179ed6a8&enable_http_compression=1&query=$query")
       .openConnection()
       .asInstanceOf[HttpURLConnection]
     conn.setRequestMethod("POST")
@@ -1290,7 +1292,7 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
   val request = new Requests(1)
   def sendSQLToClickHouse(sql: String): String ={
     var result = ""
-    request.post(s"http://${hosts.head}:8123/", new Entity().setStr(sql, Entity.CONTENT_TYPE_TEXT),
+    request.post(s"http://${hosts.head}:8123/?password=9036011d8fa79028f99488c2de6fdfb09d66beb5e4b8ca5178ee9ff9179ed6a8", new Entity().setStr(sql, Entity.CONTENT_TYPE_TEXT),
       new Callback {
         override def prepare(conn: HttpURLConnection): Unit = {}
 
