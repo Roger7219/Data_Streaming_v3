@@ -36,7 +36,6 @@ import org.apache.spark.streaming.dstream.InputDStream
 import org.apache.spark.streaming.kafka010.HasOffsetRanges
 
 import scala.collection.JavaConversions._
-import scala.collection.JavaConverters._
 import scala.collection.mutable
 
 class PluggableModule(config: Config,
@@ -1018,10 +1017,6 @@ class PluggableModule(config: Config,
                     hiveCleanable.doActions()
                     hiveCleanable = null
                   }
-//                  if (mysqlCleanable != null) {
-//                    mysqlCleanable.doActions()
-//                    mysqlCleanable = null
-//                  }
                   if (clickHouseCleanable != null) {
                     clickHouseCleanable.doActions()
                     clickHouseCleanable = null

@@ -40,7 +40,7 @@ class ClickHouseDMPersistHandler extends Handler with Transactional {
 
     val partitionFields = globalConfig.getStringList(s"modules.$moduleName.dwr.partition.fields") // l_time, b_date, b_time
 
-    cookie = clickHouseClient.overwriteUnionSum(
+    cookie = clickHouseClient.overwriteUnionSum (
       transactionManager.asInstanceOf[MixTransactionManager].getCurrentTransactionParentId(),
       hiveTable,
       handlerConfig.getString(s"clickhouse.table"),

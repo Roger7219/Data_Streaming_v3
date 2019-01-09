@@ -37,6 +37,44 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
 
 //  private val hosts = config.getStringList("clickhouse.hosts")
   private val hosts = List("node111", "node110", "node16" , "node15")
+  private var aggFields: List[String] = _
+  try {
+    aggFields = config.getConfigList(s"modules.$moduleName.dwr.groupby.aggs").map{ c =>
+      c.getString("as").toLowerCase()
+    }.toList
+  } catch {
+    case _: Exception =>
+      aggFields = List(
+        "requestcount",
+        "sendcount",
+        "showcount",
+        "clickcount",
+        "feereportcount",
+        "feesendcount",
+        "feereportprice",
+        "feesendprice",
+        "cpcbidprice",
+        "cpmbidprice",
+        "conversion",
+        "allconversion",
+        "revenue",
+        "realrevenue",
+        "feecpctimes",
+        "feecpmtimes",
+        "feecpatimes",
+        "feecpasendtimes",
+        "feecpcreportprice",
+        "feecpmreportprice",
+        "feecpareportprice",
+        "feecpcsendprice",
+        "feecpmsendprice",
+        "feecpasendprice",
+        "winprice",
+        "winnotices",
+        "newcount",
+        "activecount"
+      )
+  }
   private var THREAD_POOL = null.asInstanceOf[ExecutorService]
   val THREAD_COUNT = 2
   val dataCountMap = new FixedLinkedMap[String, Long](THREAD_COUNT)
@@ -169,10 +207,14 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
                     s"$name as ${name.toLowerCase}"
                   }
 
+                val groupByFields = (fields.map{ f => f.split(" as ")(1)}.toSet -- aggFields.toSet).toList
+
                 val rows = hiveContext
                   .read
                   .table(hiveTable)
                   .where(s""" b_date = "$b_date" and b_time = "$b_time" """)
+                  .groupBy(groupByFields.head, groupByFields.tail: _*)
+                  .agg(sum(aggFields.head).as(aggFields.head), aggFields.tail.map{ field => sum(field).as(field)}:_*)
                   .selectExpr(fields: _*)
 
                 rows.cache()
