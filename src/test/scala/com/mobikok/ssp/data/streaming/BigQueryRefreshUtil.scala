@@ -297,7 +297,7 @@ object BigQueryRefreshUtil {
     messageClient.pushMessage(new MessagePushReq(moduleName, ms))
   }
 
-  def killApp(appName:String): Unit ={
+  def killApp(appName:String): Unit = {
     messageClient.pushMessage(new MessagePushReq(appName,  "kill_self"))
   }
 
@@ -324,11 +324,11 @@ object BigQueryRefreshUtil {
 //    messageClient.pushMessage(s: _*);
   }
 
-  def daysBetween(startDay: String, endDay: String)  = {
+  def daysBetween(startDay: String, endDay: String) = {
     var diff = 0
-    if(startDay.equals(endDay)){
+    if (startDay.equals(endDay)) {
       diff = 1
-    }else{
+    } else {
       val difference = (DF.parse(endDay).getTime - DF.parse(startDay).getTime) / 86400000
       diff = difference.toInt
     }

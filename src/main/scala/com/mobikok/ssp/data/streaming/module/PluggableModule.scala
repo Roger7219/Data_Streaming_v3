@@ -798,7 +798,6 @@ class PluggableModule(config: Config,
                 if (handledDwi != dwi) {
                   // 不触发action操作
                   handledDwi.persist(StorageLevel.MEMORY_ONLY_SER)
-                  dwi.unpersist()
                 }
 
                 //-----------------------------------------------------------------------------------------------------------------

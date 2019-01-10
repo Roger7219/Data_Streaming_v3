@@ -247,7 +247,7 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
                   val current = file.getLen
                   val last = lastLengthMap.get(s"$hiveTable^$b_time")
                   if (last != null && current * 1.5 < last) {
-                    throw new RuntimeException(s"Hive table '$hiveTable' b_time = '$b_time' reading data are incomplete, less than before.")
+                    throw new RuntimeException(s"Hive table '$hiveTable' b_time = '$b_time' reading data are incomplete, less than before (before length: $last, current length: $current).")
                   }
                   lastLengthMap.put(s"$hiveTable^$b_time", current)
                 }

@@ -2,7 +2,7 @@ package com.mobikok.ssp.data.streaming.client
 
 import java.util
 import java.util.Date
-import java.util.concurrent.{CopyOnWriteArrayList, CopyOnWriteArraySet}
+import java.util.concurrent.{CopyOnWriteArrayList, CopyOnWriteArraySet, ExecutorService}
 import java.util.regex.Pattern
 
 import com.mobikok.ssp.data.streaming.client.cookie._
@@ -29,6 +29,8 @@ import org.apache.spark.sql.hive.HiveContext
 
 import scala.collection.JavaConversions._
 import scala.collection.mutable.Map
+import scala.collection.parallel.ForkJoinTaskSupport
+import scala.concurrent.forkjoin.ForkJoinPool
 
 /**
   * 暂时只支持单客户端，多可客户端有并发问题
@@ -45,6 +47,8 @@ class HBaseMultiSubTableClient (moduleName: String, sc: SparkContext, config: Co
   @volatile var directHBaseConf: Configuration = null
   @volatile var directHBaseConnection: Connection = null
   @volatile var directHBaseAdmin: Admin = null
+
+  var threadPool: ExecutorService = null
 
   private val transactionalTmpTableSign = s"_m_${moduleName}_trans_"
 
@@ -86,6 +90,7 @@ class HBaseMultiSubTableClient (moduleName: String, sc: SparkContext, config: Co
         //      }
         //    }
         LOG.warn(s"HBaseClient init completed")
+        threadPool = ExecutorServiceUtil.createdExecutorService(10000)
         inited = true
       }
     }).start()
@@ -121,7 +126,7 @@ class HBaseMultiSubTableClient (moduleName: String, sc: SparkContext, config: Co
   def getsMultiSubTable[T <: HBaseStorable] (table: String,
                                              rowkeys: Array[_ <: Object],
                                              hbaseStorableClass: Class[T]
-                                            ): util.ArrayList[T] ={
+                                            ): util.ArrayList[T] = {
     waitInit()
 
     val res: util.ArrayList[T] = new util.ArrayList[T]()
@@ -132,7 +137,10 @@ class HBaseMultiSubTableClient (moduleName: String, sc: SparkContext, config: Co
 //    subTs.par.foreach{x=>
 //      res.addAll(gets0(x.getNameAsString, rowkeys, hbaseStorableClass))
 //    }
-    subTs.par.foreach{ x =>
+
+    val tsArray = subTs.par
+    tsArray.tasksupport = new ForkJoinTaskSupport(new ForkJoinPool(10000))
+    tsArray.foreach{ x =>
       res.addAll(gets0(x.getNameAsString, rowkeys, hbaseStorableClass))
     }
 
@@ -142,7 +150,7 @@ class HBaseMultiSubTableClient (moduleName: String, sc: SparkContext, config: Co
   def getsMultiSubTableAsDF[T <: HBaseStorable] (table: String,
                                              rowkeys: Array[_ <: Object],
                                              hbaseStorableClass: Class[T]
-                                            ): DataFrame ={
+                                            ): DataFrame = {
     waitInit()
     LOG.warn("hbase table getsMultiSubTableAsDF start", "result count:", rowkeys.length,  "table", table, "clazz", hbaseStorableClass.getName)
 
