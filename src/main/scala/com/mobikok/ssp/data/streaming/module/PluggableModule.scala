@@ -138,46 +138,7 @@ class PluggableModule(config: Config,
     case _: Exception =>
   }
 
-//  var needDwrAccDay = false
-//  try {
-//    needDwrAccDay = config.getBoolean(s"modules.$moduleName.dwr.acc.day.enable")
-//  } catch {case _: Exception =>}
-//
-//  var needDwrAccMonth = false
-//  try {
-//    needDwrAccMonth = config.getBoolean(s"modules.$moduleName.dwr.acc.month.enable")
-//  } catch {case _: Exception =>}
-
-//  var needH2Persistence = false
-//  try {
-//    needH2Persistence = config.getBoolean(s"modules.$moduleName.h2.dwr.enable")
-//  } catch {
-//    case _: Exception =>
-//  }
-
   val isMaster = mixModulesBatchController.isMaster(moduleName)
-
-  // h2 数据库参数
-//  val h2Driver = "org.h2.Driver"
-//  var h2JDBCConnectionUrl = "jdbc:h2:tcp://node14:10010/mem:campaign;DB_CLOSE_DELAY=-1"
-//  runInTry{h2JDBCConnectionUrl = config.getString(s"modules.$moduleName.h2.url")}
-
-//  var h2PersistFields: Array[(String, String)] = _
-//  runInTry{
-//    h2PersistFields = config.getConfigList(s"modules.$moduleName.h2.fields").map{ x =>
-//      (x.getString("expr"), x.getString("as"))
-//    }.toArray
-//  }
-
-//  var h2PersistAggFields: Array[(String, String)] = _
-//  runInTry{
-//    h2PersistAggFields = config.getConfigList(s"modules.$moduleName.h2.agg").map{ x =>
-//      (x.getString("expr"), x.getString("as"))
-//    }.toArray
-//  }
-
-//  var h2TableName = "CampaignSearch"
-//  runInTry{h2TableName = config.getString(s"modules.$moduleName.h2.table.name")}
 
   //-------------------------  Constants And Fields End  -------------------------
 
@@ -302,8 +263,8 @@ class PluggableModule(config: Config,
   }
 
   var uuidFilter: UuidFilter = _
-  if (config.hasPath(s"modules.$moduleName.dwr.uuid.filter")) {
-    val f = config.getString(s"modules.$moduleName.dwr.uuid.filter")
+  if (config.hasPath(s"modules.$moduleName.uuid.filter.class")) {
+    val f = config.getString(s"modules.$moduleName.uuid.filter.class")
     uuidFilter = Class.forName(f).newInstance().asInstanceOf[UuidFilter]
   } else {
     uuidFilter = new DefaultUuidFilter()
@@ -379,7 +340,7 @@ class PluggableModule(config: Config,
     }
 
     var enableDwrAccDay = false
-    runInTry{enableDwrAccDay = config.getBoolean(s"module.$moduleName.dwr.acc.day.enable")}
+    enableDwrAccDay = config.getBoolean(s"modules.$moduleName.dwr.acc.day.enable")
     if (enableDwrAccDay) {
       val dwrPersistDayHandler = new HiveDWRPersistDayHandler()
       dwrPersistDayHandler.init(moduleName, mixTransactionManager, hbaseClient, hiveClient, clickHouseClient, config, config, "", "")
@@ -387,7 +348,7 @@ class PluggableModule(config: Config,
     }
 
     var enableDwrAccMonth = false
-    runInTry{enableDwrAccMonth = config.getBoolean(s"module.$moduleName.dwr.acc.month.enable")}
+    runInTry{enableDwrAccMonth = config.getBoolean(s"modules.$moduleName.dwr.acc.month.enable")}
     if (enableDwrAccMonth) {
       val dwrPersistMonthHandler = new HiveDWRPersistMonthHandler()
       dwrPersistMonthHandler.init(moduleName, mixTransactionManager, hbaseClient, hiveClient, clickHouseClient, config, config, "", "")
@@ -1034,7 +995,7 @@ class PluggableModule(config: Config,
                   }
                 }
 
-                dwiHandlers.par.foreach{ h => h.clean() }
+                dwiHandlers.foreach{ h => h.clean() }
                 if (isMaster) {
                   if (dwrHandlers != null) {
                     dwrHandlers.filter{h => h.isInstanceOf[Transactional]}.par.foreach{h => h.asInstanceOf[Transactional].clean()}

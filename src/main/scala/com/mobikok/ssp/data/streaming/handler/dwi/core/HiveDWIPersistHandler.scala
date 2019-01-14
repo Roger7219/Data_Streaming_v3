@@ -30,11 +30,6 @@ class HiveDWIPersistHandler extends Handler {
   }
 
 
-  //  override def into(transactionParentId: String, table: String, df: DataFrame, ps: Array[Array[HivePartitionPart]]): (String, TransactionCookie) = {
-  //    val cookie = hiveClient.into(transactionParentId, table, df, ps)
-  //    LOG.warn("hiveClient.into dwiTable completed", cookie)
-  //    ("", cookie)
-  //  }
   override def handle(newDwi: DataFrame): (DataFrame, Array[TransactionCookie]) = {
     val partitionFields = globalConfig.getStringList(s"modules.$moduleName.dwi.partition.fields")
 
