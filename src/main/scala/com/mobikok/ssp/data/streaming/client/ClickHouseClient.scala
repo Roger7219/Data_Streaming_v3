@@ -315,15 +315,9 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
           val gzDir = s"/root/kairenlo/data-streaming/test/${hiveTable}_${time}_gz.dir"
           var gzFiles = null.asInstanceOf[Array[FileStatus]]
 
+          LOG.warn(s"read data from hive at b_date: $b_date, b_time: $b_time")
+
           RunAgainIfError.run {
-//            val fields = hiveContext
-//              .read
-//              .table(hiveTable)
-//              .schema
-//              .fieldNames
-//              .map { name =>
-//                s"$name as ${name.toLowerCase}"
-//              }
 
             val rows = hiveContext.sql(
               s"""
@@ -412,8 +406,9 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
                 |    coalesce(p_amp.name, ap_amp.name) as publisherampaname,
                 |    ad.amaaId                         as advertiseramaaid,
                 |    a_ama.name                        as advertiseramaaname,
-                |    dwr.eventName                     as eventname
-                |from ${hiveTable}_copy dwr
+                |    dwr.eventName                     as eventname,
+                |    dwr.recommender                   as recommender
+                |from ${hiveTable} dwr
                 |    left join campaign cam      on cam.id = dwr.campaignId
                 |    left join advertiser ad     on ad.id = cam.adverId
                 |    left join employee a_am     on a_am.id = ad.amid
@@ -442,99 +437,10 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
                 |    left join employee p_amp    on p_amp.id = p.ampaId
                 |    left join employee ap_amp   on  ap_amp.id  = a_p.ampaId
                 |    left join employee a_ama    on a_ama.id = ad.amaaId
-                |where v.id is not null and b_date='$b_date' and b_time='$b_time'
-                |union all (select
-                |  null           as    publisherid,
-                |  appid        as    appid,
-                |  countryId    as    countryid,
-                |  -1             as    carrierid,
-                |  -1             as    adtype,
-                |  -1             as    campaignid,
-                |  -1             as    offerid,
-                |  -1             as    imageid,
-                |  'third-income' as    affsub,
-                |  0              as    requestcount,
-                |  0              as    sendcount,
-                |  0              as    showcount,
-                |  0              as    clickcount,
-                |  0              as    feereportcount,
-                |  0              as    feesendcount,
-                |  0              as    feereportprice,
-                |  0              as    feesendprice,
-                |  0              as    cpcbidprice,
-                |  0              as    cpmbidprice,
-                |  0              as    conversion,
-                |  0              as    allconversion,
-                |  0              as    revenue,
-                |  0              as    realrevenue,
-                |  concat(date_format(statdate,'yyyy-MM-01'),' 00:00:00')    as    b_time,
-                |  concat(date_format(statdate,'yyyy-MM-01'),' 00:00:00')    as    l_time,
-                |  date_format(statdate,'yyyy-MM-01')                       as    b_date,
-                |  -1              as    publisheramid,
-                |  null            as    publisheramname,
-                |  -1              as    advertiseramid,
-                |  null            as    advertiseramname,
-                |  -1              as    appmodeid,
-                |  null            as    appmodename,
-                |  -1              as    adcategory1id,
-                |  null            as    adcategory1name,
-                |  null            as    campaignname,
-                |  -1              as    adverid,
-                |  null            as    advername,
-                |  -1              as    offeroptstatus,
-                |  null            as    offername,
-                |  null            as    publishername,
-                |  null            as    appname,
-                |  null            as    iab1name,
-                |  null            as    iab2name,
-                |  c.name          as    countryname,
-                |  null            as    carriername,
-                |  -1              as    adtypeid,
-                |  null            as    adtypename,
-                |  -1              as    versionid,
-                |  'third-income'  as    versionname,
-                |  -1              as    publisherproxyid,
-                |  null            as    data_type,
-                |  0               as    feecpctimes,
-                |  0               as    feecpmtimes,
-                |  0               as    feecpatimes,
-                |  0               as    feecpasendtimes,
-                |  0               as    feecpcreportprice,
-                |  0               as    feecpmreportprice,
-                |  0               as    feecpareportprice,
-                |  0               as    feecpcsendprice,
-                |  0               as    feecpmsendprice,
-                |  0               as    feecpasendprice,
-                |  null            as    countrycode,
-                |  -1              as    respstatus,
-                |  0               as    winprice,
-                |  0               as    winnotices,
-                |  0               as    issecondhighpricewin,
-                |  -1              as    companyid,
-                |  null            as    companyname,
-                |  -1              as    test,
-                |  -1              as    ruleid,
-                |  -1              as    smartid,
-                |  -1              as    proxyid,
-                |  null            as    smartname,
-                |  null            as    rulename,
-                |  -1              as    appcompanyid,
-                |  -1              as    offercompanyid,
-                |  0               as    newcount,
-                |  0               as    activecount,
-                |  -1              as    adcategory2id,
-                |  null            as    adcategory2name,
-                |  -1              as    publisherampaid,
-                |  null            as    publisherampaname,
-                |  -1              as    advertiseramaaid,
-                |  null            as    advertiseramaaname,
-                |  null            as    eventname
-                |from ssp_report_publisher_third_income
-                |  left join country c         on c.id = countryId
-                |where year(statdate)=year('$b_time') and month(statdate)=month('$b_time')
-                |  )
+                |where v.id is not null and b_date > "2018-01-15" and b_date='$b_date' and b_time='$b_time'
               """.stripMargin)
 
+            rows.cache()
             dataCount = rows.count()
 
             dataCountMap.put(Thread.currentThread().getName, dataCount)
@@ -546,6 +452,7 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
               .option("compression", "gzip")
               .save(gzDir)
 
+            rows.unpersist()
             LOG.warn(s"dataCount at $b_time is $dataCount")
 
             LOG.warn(s"gz file saved completed at $gzDir")

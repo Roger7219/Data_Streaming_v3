@@ -15,7 +15,7 @@ import scala.collection.JavaConverters._
 
 
 /**
-  * Core service, configure key is `@code dwr.acc.day.enable`
+  * Core service, configure key is `dwr.acc.day.enable`
   */
 class HiveDWRPersistDayHandler extends Handler with Persistence {
 

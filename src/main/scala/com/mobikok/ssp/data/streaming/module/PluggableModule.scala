@@ -340,7 +340,7 @@ class PluggableModule(config: Config,
     }
 
     var enableDwrAccDay = false
-    enableDwrAccDay = config.getBoolean(s"modules.$moduleName.dwr.acc.day.enable")
+    runInTry{enableDwrAccDay = config.getBoolean(s"modules.$moduleName.dwr.acc.day.enable")}
     if (enableDwrAccDay) {
       val dwrPersistDayHandler = new HiveDWRPersistDayHandler()
       dwrPersistDayHandler.init(moduleName, mixTransactionManager, hbaseClient, hiveClient, clickHouseClient, config, config, "", "")
