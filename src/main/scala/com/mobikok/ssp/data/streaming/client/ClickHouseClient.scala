@@ -437,7 +437,7 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
                 |    left join employee p_amp    on p_amp.id = p.ampaId
                 |    left join employee ap_amp   on  ap_amp.id  = a_p.ampaId
                 |    left join employee a_ama    on a_ama.id = ad.amaaId
-                |where v.id is not null and b_date > "2018-01-15" and b_date='$b_date' and b_time='$b_time'
+                |where v.id is not null and b_date='$b_date' and b_time='$b_time'
               """.stripMargin)
 
             rows.cache()

@@ -101,8 +101,8 @@ class HiveDWRPersistDayHandler extends Handler with Persistence {
     persistenceDwr
   }
 
-  override def commit(cookie: TransactionCookie): Unit = {
-    hiveClient.commit(this.cookie)
+  override def commit(c: TransactionCookie): Unit = {
+    hiveClient.commit(cookie)
   }
 
   override def clean(cookies: TransactionCookie*): Unit = {
@@ -111,21 +111,9 @@ class HiveDWRPersistDayHandler extends Handler with Persistence {
     val mixTransactionManager = transactionManager.asInstanceOf[MixTransactionManager]
     if (mixTransactionManager.needTransactionalAction()) {
       val needCleans = batchTransactionCookiesCache.filter(!_.parentId.equals(mixTransactionManager.getCurrentTransactionParentId()))
-      batchTransactionCookiesCache.removeAll(needCleans)
       result = needCleans.toArray
+      batchTransactionCookiesCache.removeAll(needCleans)
     }
     hiveClient.clean(result:_*)
   }
-
-
-//  private def popNeedCleanTransactions(cookieKind: String, excludeCurrTransactionParentId: String): Array[TransactionCookie] = {
-//    var result = Array[TransactionCookie]()
-//    val isTran = transactionManager.asInstanceOf[MixTransactionManager].needTransactionalAction()
-//    if (isTran) {
-//      val needCleans = batchTransactionCookiesCache.filter(!_.parentId.equals(excludeCurrTransactionParentId))
-//      batchTransactionCookiesCache.removeAll(needCleans)
-//      result = needCleans.toArray
-//    }
-//    result
-//  }
 }

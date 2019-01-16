@@ -52,7 +52,7 @@ trait Handler extends com.mobikok.ssp.data.streaming.handler.Handler {
   }
 
   def handle(dataFrame: DataFrame): Unit = {
-    dataFrame.createOrReplaceTempView("dwr")
+    dataFrame.createOrReplaceTempView(s"${getClass.getSimpleName}_dwr")
     var templateSql: String = null
     try {
       // handler配置下的sql

@@ -52,8 +52,8 @@ class ClickHouseDMPersistHandler extends Handler with Transactional {
     batchTransactionCookiesCache.add(cookie)
   }
 
-  override def commit(cookie: TransactionCookie): Unit = {
-    clickHouseClient.commit(this.cookie)
+  override def commit(c: TransactionCookie): Unit = {
+    clickHouseClient.commit(cookie)
   }
 
 

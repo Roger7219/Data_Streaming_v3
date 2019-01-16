@@ -59,7 +59,7 @@ class HiveDWRPersistMonthHandler extends Handler with Persistence{
     overwriteFields.put("browserKernel", "null")
     try {
       // selectable params
-      globalConfig.getConfigList(s"modules.$moduleName.dwr.acc.day.overwrite").foreach { x =>
+      globalConfig.getConfigList(s"modules.$moduleName.dwr.acc.month.overwrite").foreach { x =>
         overwriteFields.put(x.getString("as"), x.getString("expr"))
       }
     } catch {
@@ -95,8 +95,8 @@ class HiveDWRPersistMonthHandler extends Handler with Persistence{
     persistenceDwr
   }
 
-  override def commit(cookie: TransactionCookie): Unit = {
-    hiveClient.commit(this.cookie)
+  override def commit(c: TransactionCookie): Unit = {
+    hiveClient.commit(cookie)
   }
 
 

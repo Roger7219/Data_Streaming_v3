@@ -1,5 +1,7 @@
 package com.mobikok.ssp.data.streaming.handler.dwi.core
 
+import java.util
+
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.client.cookie.{HiveTransactionCookie, TransactionCookie}
 import com.mobikok.ssp.data.streaming.config.RDBConfig
@@ -18,6 +20,8 @@ class HiveDWIPersistHandler extends Handler {
   // 有配置表示enable
   var table: String = _
   var cookie: TransactionCookie = _
+
+  val batchTransactionCookiesCache = new util.ArrayList[TransactionCookie]()
 
   override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, handlerConfig: Config, globalConfig: Config, expr: String, as: Array[String]): Unit = {
     isAsynchronous = true
@@ -48,6 +52,8 @@ class HiveDWIPersistHandler extends Handler {
       ps
     )
 
+    batchTransactionCookiesCache.add(cookie)
+
     LOG.warn("hiveClient.into dwiTable completed", cookie)
     (newDwi, Array(cookie))
   }
@@ -75,7 +81,16 @@ class HiveDWIPersistHandler extends Handler {
   }
 
   override def clean(cookies: TransactionCookie*): Unit = {
-    hiveClient.clean(cookies: _*)
+    var result = Array[TransactionCookie]()
+
+    val mixTransactionManager = transactionManager.asInstanceOf[MixTransactionManager]
+    if (mixTransactionManager.needTransactionalAction()) {
+//      val needCleans = batchTransactionCookiesCache.filter{ x => !x.parentId.equals(mixTransactionManager.getCurrentTransactionParentId())}
+      val needCleans = batchTransactionCookiesCache.filter(!_.parentId.equals(mixTransactionManager.getCurrentTransactionParentId()))
+      batchTransactionCookiesCache.removeAll(needCleans)
+      result = needCleans.toArray
+    }
+    hiveClient.clean(result:_*)
   }
 
 }

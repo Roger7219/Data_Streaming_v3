@@ -60,9 +60,8 @@ class HiveDWRPersistHandler extends Handler with Persistence {
       partitionFields.head,
       partitionFields.tail:_*
     )
+
     batchTransactionCookiesCache.add(cookie)
-
-
     persistenceDwr
   }
 
@@ -91,8 +90,8 @@ class HiveDWRPersistHandler extends Handler with Persistence {
     val mixTransactionManager = transactionManager.asInstanceOf[MixTransactionManager]
     if (mixTransactionManager.needTransactionalAction()) {
       val needCleans = batchTransactionCookiesCache.filter(!_.parentId.equals(mixTransactionManager.getCurrentTransactionParentId()))
-      batchTransactionCookiesCache.removeAll(needCleans)
       result = needCleans.toArray
+      batchTransactionCookiesCache.removeAll(needCleans)
     }
     hiveClient.clean(result:_*)
   }

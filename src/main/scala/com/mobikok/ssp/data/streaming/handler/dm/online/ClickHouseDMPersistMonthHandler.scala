@@ -13,7 +13,7 @@ import org.apache.spark.sql.hive.HiveContext
 
 import scala.collection.JavaConversions._
 
-class ClickHouseDMPersistDayHandler extends Handler with Transactional {
+class ClickHouseDMPersistMonthHandler extends Handler with Transactional {
 
 //  val COOKIE_KIND_DWR_CLICKHOUSE_T = "dwrClickHouseT"
 
@@ -42,11 +42,11 @@ class ClickHouseDMPersistDayHandler extends Handler with Transactional {
 
     val fields = persistenceData.schema.fieldNames.map{ field =>
       if ("l_time".eq(field)) {
-        "date_format(l_time, 'yyyy-MM-dd 00:00:00') as l_time"
+        "date_format(l_time, 'yyyy-MM-01 00:00:00') as l_time"
       } else if ("b_date".eq(field)) {
-        "date_format(b_date, 'yyyy-MM-dd') as b_date"
+        "date_format(b_date, 'yyyy-MM-01') as b_date"
       } else if ("b_time".eq(field)) {
-        "date_format(b_time, 'yyyy-MM-dd 00:00:00') as b_time"
+        "date_format(b_time, 'yyyy-MM-01 00:00:00') as b_time"
       } else {
         field.toLowerCase()
       }
