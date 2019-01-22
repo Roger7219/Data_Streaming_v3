@@ -237,6 +237,7 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
                     path.getName.startsWith("part-")
                   }
                 })
+                rows.unpersist()
                 // 最好一个文件
                 if (gzFiles.length > 1) {
                   throw new RuntimeException(s"ClickHouse must upload only one file, but now it finds ${gzFiles.length} in '$gzDir' !!")
@@ -252,7 +253,6 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
                   lastLengthMap.put(s"$hiveTable^$b_time", current)
                 }
 
-                rows.unpersist()
               }
 
               LOG.warn("ClickHouseClient generate gz file completed", gzDir)
@@ -932,54 +932,72 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
         // 事务上传到临时表
         val dmFieldsSchema = sql(s"desc ${dmTable}_for_select").split("[\r]?\n").map{ field => field.split("[\t ]")(0) }
         val dmAggFields = config.getConfigList(s"modules.$moduleName.dwr.groupby.aggs").map{ x => x.getString("as").toLowerCase() }
-        RunAgainIfError.run{
-          sql(s"""CREATE TABLE IF NOT EXISTS $tempTable$uploadTmpTableSign AS $tempTable""", tryAgainWhenError = true)
-//          clearRedundantData(ps, tempTable, hosts(0))
-//          val uploadResult = uploadToClickHouseSingleTable(s"$tempTable$uploadTmpTableSign", hosts(0), gzOutputStream.toByteArray)
-          val uploadResult = uploadToClickHouseSingleTable(s"$tempTable$uploadTmpTableSign", tempTable, hosts.head, updatedData)
-          val dataCount = sql(s"select count(1) from $tempTable$uploadTmpTableSign").trim.toInt
 
-          if (uploadResult && dataCount == updatedData.count()) {
-//            sql(s"INSERT INTO $tempTable SELECT * FROM $tempTable$uploadTmpTableSign UNION ALL SELECT * FROM ${dmTable}_for_select_all WHERE $whereCondition")
-            // 每天0点的时候会对一天的数据做聚合，可能会产生clickHouse的内存不够的问题，通过/etc/clickhouse-server/user.xml配置增加内存
-            sql(
-              s"""INSERT INTO $tempTable
-                 |  SELECT ${dmFieldsSchema.map{ f => if (dmAggFields.contains(f)) s"sum($f) as $f" else f}.mkString(", ")}
-                 |  FROM
-                 |    (SELECT *
-                 |    FROM $tempTable$uploadTmpTableSign
-                 |    UNION ALL
-                 |    SELECT *
-                 |    FROM ${dmTable}_for_select_all
-                 |    WHERE $whereCondition
-                 |    )
-                 |  GROUP BY ${dmFieldsSchema.toSet.diff(dmAggFields.toSet).mkString(", ")}"""
-                .stripMargin)
-            sql(s"DROP TABLE $tempTable$uploadTmpTableSign")
-            updatedData.unpersist()
+        // 重试次数
+        var times = 3
+        RunAgainIfError.run {
+
+          if (times > 0) {
+            sql(s"""CREATE TABLE IF NOT EXISTS $tempTable$uploadTmpTableSign AS $tempTable""", tryAgainWhenError = true)
+            val uploadResult = uploadToClickHouseSingleTable(s"$tempTable$uploadTmpTableSign", tempTable, hosts.head, updatedData)
+            val dataCount = sql(s"select count(1) from $tempTable$uploadTmpTableSign").trim.toInt
+
+            if (uploadResult && dataCount == updatedData.count()) {
+              //            sql(s"INSERT INTO $tempTable SELECT * FROM $tempTable$uploadTmpTableSign UNION ALL SELECT * FROM ${dmTable}_for_select_all WHERE $whereCondition")
+              // 每天0点的时候会对一天的数据做聚合，可能会产生clickHouse的内存不够的问题，通过/etc/clickhouse-server/user.xml配置增加内存
+              sql(
+                s"""INSERT INTO $tempTable
+                   |  SELECT ${dmFieldsSchema.map{ f => if (dmAggFields.contains(f)) s"sum($f) as $f" else f}.mkString(", ")}
+                   |  FROM
+                   |    (SELECT *
+                   |    FROM $tempTable$uploadTmpTableSign
+                   |    UNION ALL
+                   |    SELECT *
+                   |    FROM ${dmTable}_for_select_all
+                   |    WHERE $whereCondition
+                   |    )
+                   |  GROUP BY ${dmFieldsSchema.toSet.diff(dmAggFields.toSet).mkString(", ")}"""
+                  .stripMargin)
+              sql(s"DROP TABLE $tempTable$uploadTmpTableSign")
+              updatedData.unpersist()
+            } else {
+              times -= 1
+              sql(s"DROP TABLE $tempTable$uploadTmpTableSign")
+              throw new ClickHouseClientException(s"upload to $tempTable$uploadTmpTableSign failed")
+            }
           } else {
-            sql(s"DROP TABLE $tempTable$uploadTmpTableSign")
-            throw new ClickHouseClientException(s"upload to $tempTable$uploadTmpTableSign failed")
+            val errorMessage = ExceptionUtil.getStackTraceMessage(new RuntimeException("Retry times are more than 5"))
+            LOG.warn(s"retry times left 0 times, continue to run\n$errorMessage")
           }
+
         }
       } else {
+
+        // 重试次数
+        var times = 3
         // 非事务直接上传到目标表
         RunAgainIfError.run {
-          sql(s"""create table if not exists $dmTable$uploadTmpTableSign as ${dmTable}_for_select""", tryAgainWhenError = true)
-          // 先上传到临时表，再通过insert into select的方式复制
-//          clearRedundantData(ps, dmTable, hosts:_*)
-//          val uploadResult = uploadToClickHouseSingleTable(s"$dmTable$uploadTmpTableSign", hosts(0), gzOutputStream.toByteArray)
-          val uploadResult = uploadToClickHouseSingleTable(s"$dmTable$uploadTmpTableSign", s"${dmTable}_for_select", hosts.head, updatedData)
-          val dataCount = sql(s"select count(1) from $dmTable$uploadTmpTableSign").trim.toInt
+          if (times > 0) {
+            sql(s"""create table if not exists $dmTable$uploadTmpTableSign as ${dmTable}_for_select""", tryAgainWhenError = true)
+            // 先上传到临时表，再通过insert into select的方式复制
+            val uploadResult = uploadToClickHouseSingleTable(s"$dmTable$uploadTmpTableSign", s"${dmTable}_for_select", hosts.head, updatedData)
+            val dataCount = sql(s"select count(1) from $dmTable$uploadTmpTableSign").trim.toInt
 
-          if (uploadResult && dataCount == updatedData.count()) {
-            sql(s"insert into ${dmTable}_for_select_all select * from $dmTable$uploadTmpTableSign")
-            sql(s"drop table $dmTable$uploadTmpTableSign")
-            updatedData.unpersist()
+            if (uploadResult && dataCount == updatedData.count()) {
+              sql(s"insert into ${dmTable}_for_select_all select * from $dmTable$uploadTmpTableSign")
+              sql(s"drop table $dmTable$uploadTmpTableSign")
+              updatedData.unpersist()
+            } else {
+              sql(s"drop table $dmTable$uploadTmpTableSign")
+              times -= 1
+              throw new ClickHouseClientException(s"upload to $dmTable$uploadTmpTableSign failed")
+            }
           } else {
-            sql(s"drop table $dmTable$uploadTmpTableSign")
-            throw new ClickHouseClientException(s"upload to $dmTable$uploadTmpTableSign failed")
+            val errorMessage = ExceptionUtil.getStackTraceMessage(new RuntimeException("Retry times are more than 5"))
+            LOG.warn(s"retry times left 0 times, continue to run\n$errorMessage")
+
           }
+
         }
 
         moduleTracer.trace("    clickhouse client updated to source table finished")

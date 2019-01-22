@@ -589,7 +589,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
           .mode(c.saveMode)
           .insertInto(c.targetTable)
 
-        moduleTracer.trace("    insert into target table")
+          moduleTracer.trace("    insert into target table")
       }
 
       tryAsyncCompaction(c)

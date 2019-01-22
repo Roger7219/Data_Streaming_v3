@@ -697,9 +697,10 @@ class PluggableModule(config: Config,
 
           // 开始异步处理
           //          executorService.execute(new Runnable {
-          new Thread(new Runnable {
+          val executeThread = new Thread(new Runnable {
 
             override def run(): Unit = {
+
 
               try {
 
@@ -709,31 +710,31 @@ class PluggableModule(config: Config,
                 // 记录所有异步handler的数量
                 val asyncHandlers = new util.ArrayList[Handler]()
                 if (dwiHandlers != null) {
-//                  LOG.warn(s"""dwi handlers:\n${dwiHandlers.map{ h => h.getClass.getName}.mkString(", ")}""")
+                  LOG.warn(s"""dwi handlers:\n${dwiHandlers.map{ h => h.getClass.getName}.mkString(", ")}""")
                   asyncHandlers.addAll(dwiHandlers.filter{ h => h.isAsynchronous })
                 }
                 if (dwrHandlers != null && dwrHandlers.nonEmpty) {
                   if (!isMaster) {
                     throw new ModuleException("Module of include 'dwr.handler' must config: master=true")
                   }
-//                  LOG.warn(s"""dwr handlers:\n${dwrHandlers.map{ h => h.getClass.getName}.mkString(", ")}""")
+                  LOG.warn(s"""dwr handlers:\n${dwrHandlers.map{ h => h.getClass.getName}.mkString(", ")}""")
                   asyncHandlers.addAll(dwrHandlers.filter{ h => h.isAsynchronous })
                 }
                 if (dmOnlineHandlers != null && dmOnlineHandlers.nonEmpty) {
                   if (!isMaster) {
                     throw new ModuleException("Module of include 'dm.online.handler' must config: master=true")
                   }
-//                  LOG.warn(s"""dm online handlers:\n${dmOnlineHandlers.map{ h => h.getClass.getName}.mkString(", ")}""")
+                  LOG.warn(s"""dm online handlers:\n${dmOnlineHandlers.map{ h => h.getClass.getName}.mkString(", ")}""")
                   asyncHandlers.addAll(dmOnlineHandlers.filter{ h => h.isAsynchronous })
                 }
                 if (dmOfflineHandlers != null && dmOfflineHandlers.nonEmpty) {
                   if (!isMaster) {
                     throw new ModuleException("Module of include 'dm.online.handler' must config: master=true")
                   }
-//                  LOG.warn(s"""dm offline handlers:\n${dmOfflineHandlers.map{ h => h.getClass.getName}.mkString(", ")}""")
+                  LOG.warn(s"""dm offline handlers:\n${dmOfflineHandlers.map{ h => h.getClass.getName}.mkString(", ")}""")
                   asyncHandlers.addAll(dmOfflineHandlers.filter{ h => h.isAsynchronous })
                 }
-//                LOG.warn(s"""asyncHandlers:\n ${asyncHandlers.map{ h => h.getClass.getName }.mkString(", ")}""")
+                LOG.warn(s"""asyncHandlers:\n ${asyncHandlers.map{ h => h.getClass.getName }.mkString(", ")}""")
                 // 全局计数，记录异步执行的handler数量，异步执行完后再执行commit操作
                 val countDownLatch = new CountDownLatch(asyncHandlers.size())
 
@@ -846,6 +847,8 @@ class PluggableModule(config: Config,
                 // Asynchronous handle
                 //-----------------------------------------------------------------------------------------------------------------
                 if (asyncHandlers.nonEmpty) {
+                  mixModulesBatchController.get().cache()
+                  mixModulesBatchController.get().count()
                   asyncHandlers.foreach {
 
                     case dwiHandler: com.mobikok.ssp.data.streaming.handler.dwi.Handler =>
@@ -1060,9 +1063,10 @@ class PluggableModule(config: Config,
                   LOG.warn(s"Kill self yarn app via async thread error !!!", "important_notice", "Kill self yarn app at once !!!", "app_name", appName, "error", e)
                   YarnAPPManagerUtil.killApps(appName)
               }
-
             }
-          }).start()
+          })
+          executeThread.setName(s"${moduleName}_${executeThread.getName}")
+          executeThread.start()
         }
       } catch {
         case e: Exception => throw new ModuleException(s"${classOf[FasterModule].getSimpleName} '$moduleName' execution failed !! ", e)
