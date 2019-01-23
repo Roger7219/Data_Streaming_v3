@@ -47,7 +47,8 @@ class HiveDWRPersistHandler extends Handler with Persistence {
       x => x.getString("as")
     }.toArray
 
-    val partitionFields = globalConfig.getStringList(s"modules.$moduleName.dwr.partition.fields")
+//    val partitionFields = globalConfig.getStringList(s"modules.$moduleName.dwr.partition.fields")
+    val partitionFields = Array("l_time", "b_date", "b_time")
 
 
     cookie = hiveClient.overwriteUnionSum(

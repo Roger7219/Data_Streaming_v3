@@ -54,7 +54,8 @@ class HiveDWRPersistDayHandler extends Handler with Persistence {
       x => x.getString("as")
     }.toArray
 
-    val partitionFields = globalConfig.getStringList(s"modules.$moduleName.dwr.partition.fields")
+//    val partitionFields = globalConfig.getStringList(s"modules.$moduleName.dwr.partition.fields")
+    val partitionFields = Array("l_time", "b_date", "b_time")
 
     val dwrFields = persistenceDwr.schema.fieldNames
     val overwriteFields: java.util.Map[String, String] = new util.HashMap[String, String]()

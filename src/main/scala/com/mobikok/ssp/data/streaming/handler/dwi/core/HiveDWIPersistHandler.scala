@@ -35,7 +35,8 @@ class HiveDWIPersistHandler extends Handler {
 
 
   override def handle(newDwi: DataFrame): (DataFrame, Array[TransactionCookie]) = {
-    val partitionFields = globalConfig.getStringList(s"modules.$moduleName.dwi.partition.fields")
+//    val partitionFields = globalConfig.getStringList(s"modules.$moduleName.dwi.partition.fields")
+    val partitionFields = Array("repeated", "l_time", "b_date", "b_time")
 
     val ps = newDwi
       .dropDuplicates(partitionFields)

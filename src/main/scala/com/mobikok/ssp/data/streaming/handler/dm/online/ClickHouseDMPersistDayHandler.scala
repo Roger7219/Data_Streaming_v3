@@ -38,7 +38,8 @@ class ClickHouseDMPersistDayHandler extends Handler with Transactional {
   // handle 替代之前的overwriteUnionSum
   override def doHandle(persistenceData: DataFrame): Unit = {
 
-    val partitionFields = globalConfig.getStringList(s"modules.$moduleName.dwr.partition.fields") // l_time, b_date, b_time
+//    val partitionFields = globalConfig.getStringList(s"modules.$moduleName.dwr.partition.fields") // l_time, b_date, b_time
+    val partitionFields = Array("l_time", "b_date", "b_time")
 
     val fields = persistenceData.schema.fieldNames.map{ field =>
       if ("l_time".eq(field)) {
