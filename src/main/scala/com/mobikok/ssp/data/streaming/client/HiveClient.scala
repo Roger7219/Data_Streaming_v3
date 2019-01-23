@@ -126,9 +126,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
       )
     } catch {
       case e: Exception =>
-//        try {
-//          init()
-//        }
+        LOG.warn(ExceptionUtil.getStackTraceMessage(e))
         throw new HiveClientException(s"Hive Insert Into Fail, module: $moduleName, transactionId: $tid, new DF schema: ${df.schema.treeString}" , e)
     }
   }
@@ -195,74 +193,18 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
       val ct = table + transactionalLegacyDataBackupCompletedTableSign + tid
 
 
-//      var table_day = null.asInstanceOf[String]
-//      var tt_day = null.asInstanceOf[String]
-//      if (needDwrAccDay) {
-//        table_day = s"${table}_accday"
-//        tt_day = table_day + transactionalTmpTableSign + tid
-//      }
-//
-//      var table_month = null.asInstanceOf[String]
-//      var tt_month = null.asInstanceOf[String]
-//      if (needDwrAccMonth) {
-//        table_month = s"${table}_accmonth"
-//        tt_month = table_month + transactionalTmpTableSign + tid
-//      }
-
       val ts = Array(partitionField)  ++ partitionFields // l_time, b_date and b_time
 
       var w = partitionsWhereSQL(ps) // (l_time="2018-xx-xx xx:00:00" and b_date="2018-xx-xx" and b_time="2018-xx-xx xx:00:00")
 
       LOG.warn(s"HiveClient overwriteUnionSum overwrite partitions where", w)
 
-//      var tail: List[Column] = unionAggExprsAndAlias.tail
-//      var tail: List[Column] = null
-//      if(loadTimeField == null) {
-//        tail = unionAggExprsWithAlias.tail
-//      } else{
-//        tail = unionAggExprsWithAlias.tail :+ max(loadTimeField).as(loadTimeField)
-//      }
-
-//      LOG.warn(s"HiveClient overwriteUnionSum started, newDF take(2)", newDF.take(2))
-
       val original = hiveContext
         .read
         .table(table)
         .where(w)
 
-//      var originalDay = null.asInstanceOf[DataFrame]
-//      if (needDwrAccDay) {
-//        var schema = original.drop("l_time").drop("b_date").drop("b_time").schema.fieldNames.toList
-//        schema :+= "date_format(CAST(UNIX_TIMESTAMP(b_date, 'yyyy-MM-dd') AS TIMESTAMP), 'yyyy-MM-dd 00:00:00') AS l_time"
-//        schema :+= "b_date"
-//        schema :+= "date_format(CAST(UNIX_TIMESTAMP(b_date, 'yyyy-MM-dd') AS TIMESTAMP), 'yyyy-MM-dd 00:00:00') AS b_time"
-//        originalDay = original.selectExpr(schema:_*)
-//      }
-//
-//      var originalMonth = null.asInstanceOf[DataFrame]
-//      if (needDwrAccMonth) {
-//        var schema = original.drop("l_time").drop("b_date").drop("b_time").schema.fieldNames
-//        schema :+= "date_format(CAST(UNIX_TIMESTAMP(b_date, 'yyyy-MM-dd') AS TIMESTAMP), 'yyyy-MM-01 00:00:00') AS l_time"
-//        schema :+= "b_date"
-//        schema :+= "date_format(CAST(UNIX_TIMESTAMP(b_date, 'yyyy-MM-dd') AS TIMESTAMP), 'yyyy-MM-01 00:00:00') AS b_time"
-//        originalMonth = original.selectExpr(schema:_*)
-//      }
-
-//      LOG.warn(s"HiveClient read hive data take(2)", original.take(2))
       moduleTracer.trace("    read hive data for union")
-
-//      println("-----------------------------------")
-//      groupByFields.foreach{x=>
-//        println(x)
-//      }
-//      println("-----------------------------------")
-//      unionAggExprsAndAlias.foreach{x=>
-//        println(x)
-//      }
-//      println("-----------------------------------")
-//
-//      original.printSchema()
-//      newDF.printSchema()
 
       // Group by fields with partition fields
       val gs = (groupByFields :+ partitionField) ++ partitionFields
@@ -281,35 +223,6 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
         )
         .select(fs.head, fs.tail:_* /*groupByFields ++ aggExprsAlias ++ ts:_**/)
 
-//      val log = _newDF.selectExpr("appid", "realrevenue").groupBy("appid").agg(sum("realrevenue").as("realrevenue")).collect().map{ row =>
-//        s"""${row.getInt(0)}    ${row.getDecimal(1)}"""
-//      }.mkString("\n")
-//      LOG.warn(s"Test data at newDF, appid & sum(realrevenue) at $table", log)
-//        .repartition(shufflePartitions)
-//      var updated_day = null.asInstanceOf[DataFrame]
-//      if (originalDay != null) {
-//        updated_day = originalDay
-//          .union(_newDF /*newDF*/)
-//          .groupBy(gs.head, gs.tail:_*)
-//          .agg(
-//            unionAggExprsAndAlias.head,
-//            unionAggExprsAndAlias.tail:_*
-//          )
-//          .select(fs.head, fs.tail:_* /*groupByFields ++ aggExprsAlias ++ ts:_**/)
-//      }
-
-//      var updated_month = null.asInstanceOf[DataFrame]
-//      if (originalMonth != null) {
-//        updated_month = originalMonth
-//          .union(_newDF /*newDF*/)
-//          .groupBy(gs.head, gs.tail:_*)
-//          .agg(
-//            unionAggExprsAndAlias.head,
-//            unionAggExprsAndAlias.tail:_*
-//          )
-//          .select(fs.head, fs.tail:_* /*groupByFields ++ aggExprsAlias ++ ts:_**/)
-//      }
-
 
       val fileNumber = aHivePartitionRecommendedFileNumber("HiveClient unionSum repartition", shufflePartitions, updated.rdd.getNumPartitions, ps.length)
 //      val parts = sparkPartitionNum("HiveClient unionSum repartition", shufflePartitions, updated.rdd.getNumPartitions, ps.length)
@@ -319,62 +232,26 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
         //支持事务，先写入临时表，commit()时在写入目标表
         createTableIfNotExists(tt, table)
         updated
+//          .coalesce(1)
           .repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
           .write
           .format("orc")
           .mode(SaveMode.Overwrite)
           .insertInto(tt)
 
-//        if (originalDay != null) {
-//          createTableIfNotExists(tt_day, table_day)
-//          updated
-//            .repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
-//            .write
-//            .format("orc")
-//            .mode(SaveMode.Overwrite)
-//            .insertInto(tt_day)
-//        }
-//
-//        if (originalMonth != null) {
-//          createTableIfNotExists(tt_month, table_month)
-//          updated
-//            .repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
-//            .write
-//            .format("orc")
-//            .mode(SaveMode.Overwrite)
-//            .insertInto(tt_month)
-//        }
       }else {
         //非事务，直接写入目标表
         updated
-          .repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
+          .coalesce(1)
+//          .repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
           .write
           .format("orc")
           .mode(SaveMode.Overwrite)
           .insertInto(table)
 
-//        // 直接写入天表
-//        if (originalDay != null) {
-//          updated
-//            .repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
-//            .write
-//            .format("orc")
-//            .mode(SaveMode.Overwrite)
-//            .insertInto(table_day)
-//        }
-//        // 直接写入月表
-//        if (originalMonth != null) {
-//          updated
-//            .repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
-//            .write
-//            .format("orc")
-//            .mode(SaveMode.Overwrite)
-//            .insertInto(table_month)
-//        }
         return new HiveNonTransactionCookie(transactionParentId, tid, table, ps)
       }
 
-//      LOG.warn(s"HiveClient overwriteUnionSum completed, union sum and saved DF take(2)", updated.take(2))
 
       val isE = newDF.take(1).isEmpty
 
@@ -393,9 +270,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
       )
     } catch {
       case e: Exception =>
-//        try {
-//          init()
-//        }
+        LOG.warn(ExceptionUtil.getStackTraceMessage(e))
         throw new HiveClientException(s"Hive Insert Overwrite Fail, module: $moduleName, transactionId:  $tid", e)
     }
   }
@@ -619,7 +494,9 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
     }
     messageClient.pushMessage(ms:_*)
 
-    tryCompaction(c)
+    ThreadPool.execute{
+      tryCompaction(c)
+    }
 
     /*HiveClient.executorService.execute(new Runnable {
       override def run (): Unit = {
@@ -667,7 +544,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
         .read
         .table(c.targetTable)
         .where(s""" l_time = "${x.getKeyBody}" """)
-        .repartition(1)
+        .coalesce(1)
         .write
         .format("orc")
         .mode(SaveMode.Overwrite)

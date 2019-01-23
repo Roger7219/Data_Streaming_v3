@@ -71,8 +71,9 @@ class NativeUuidFilter extends UuidFilter {
       .repartition(shufflePartitions)
       .alias("ur")
 
-    LOG.warn("cacheUuidRepeats info", s"count: ${cacheUUIDRepeats.count()}\nschema fields: ${cacheUUIDRepeats.schema.fieldNames}," +
-      s"\ndata take(2): ${util.Arrays.deepToString(cacheUUIDRepeats.take(2).asInstanceOf[Array[Object]])}")
+    cacheUUIDRepeats.cache()
+//    LOG.warn("cacheUuidRepeats info", s"count: ${cacheUUIDRepeats.count()}\nschema fields: ${cacheUUIDRepeats.schema.fieldNames}," +
+//      s"\ndata take(2): ${util.Arrays.deepToString(cacheUUIDRepeats.take(2).asInstanceOf[Array[Object]])}")
 
 
     val newDwi = dwi

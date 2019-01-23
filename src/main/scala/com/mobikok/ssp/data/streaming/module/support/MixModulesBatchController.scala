@@ -161,24 +161,7 @@ class MixModulesBatchController(config:Config, runnableModuleNames: Array[String
       }
     }
 
-
-    //Persist
-//    synchronizedCall(new Callback {
-//      override def onCallback (): Unit = {
-//        if (isMasterModule && currBatchUnionPersistStatus == UNION_PERSIST_PREPARE) {
-//          currBatchUnionPersistStatus = UNION_PERSIST_DOING
-//        }
-//      }
-//    }, lock)
-//
-//    if(isMasterModule && currBatchUnionPersistStatus == UNION_PERSIST_DOING) {
-//      LOG.warn("MixModulesBatchController persist final df start")
-//      //   ???       cacheGroupByDwr = hiveContext.createDataFrame(cacheGroupByDwr.collectAsList(), cacheGroupByDwr.schema).repartition(shufflePartitions)
-//      cacheGroupByDwr.persist(StorageLevel.MEMORY_ONLY_SER)
-//      cacheGroupByDwr.count()//触发persist
-//      currBatchUnionPersistStatus = UNION_PERSIST_DONE
-//      LOG.warn("MixModulesBatchController persist final df done")
-//    }
+    LOG.warn("All modules union done")
 
     if(isMasterModule && !currBatchUnionAllAndPersisted) {
       LOG.warn("MixModulesBatchController persist final df start")

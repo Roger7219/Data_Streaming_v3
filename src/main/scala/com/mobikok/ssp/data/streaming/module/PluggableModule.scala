@@ -532,7 +532,8 @@ class PluggableModule(config: Config,
            |    batch_actual_time = -1
                  """.stripMargin)
 
-      initHeartbeat()
+      // TODO module心跳
+//      initHeartbeat()
       //更新状态
       mixTransactionManager.clean(moduleName)
 
@@ -697,7 +698,7 @@ class PluggableModule(config: Config,
 
           // 开始异步处理
           //          executorService.execute(new Runnable {
-          val executeThread = new Thread(new Runnable {
+          new Thread(new Runnable {
 
             override def run(): Unit = {
 
@@ -710,31 +711,31 @@ class PluggableModule(config: Config,
                 // 记录所有异步handler的数量
                 val asyncHandlers = new util.ArrayList[Handler]()
                 if (dwiHandlers != null) {
-                  LOG.warn(s"""dwi handlers:\n${dwiHandlers.map{ h => h.getClass.getName}.mkString(", ")}""")
+                  LOG.warn(s"""dwi handlers:\n${dwiHandlers.map{ h => h.getClass.getName}.mkString("\n")}""")
                   asyncHandlers.addAll(dwiHandlers.filter{ h => h.isAsynchronous })
                 }
                 if (dwrHandlers != null && dwrHandlers.nonEmpty) {
                   if (!isMaster) {
                     throw new ModuleException("Module of include 'dwr.handler' must config: master=true")
                   }
-                  LOG.warn(s"""dwr handlers:\n${dwrHandlers.map{ h => h.getClass.getName}.mkString(", ")}""")
+                  LOG.warn(s"""dwr handlers:\n${dwrHandlers.map{ h => h.getClass.getName}.mkString("\n")}""")
                   asyncHandlers.addAll(dwrHandlers.filter{ h => h.isAsynchronous })
                 }
                 if (dmOnlineHandlers != null && dmOnlineHandlers.nonEmpty) {
                   if (!isMaster) {
                     throw new ModuleException("Module of include 'dm.online.handler' must config: master=true")
                   }
-                  LOG.warn(s"""dm online handlers:\n${dmOnlineHandlers.map{ h => h.getClass.getName}.mkString(", ")}""")
+                  LOG.warn(s"""dm online handlers:\n${dmOnlineHandlers.map{ h => h.getClass.getName}.mkString("\n")}""")
                   asyncHandlers.addAll(dmOnlineHandlers.filter{ h => h.isAsynchronous })
                 }
                 if (dmOfflineHandlers != null && dmOfflineHandlers.nonEmpty) {
                   if (!isMaster) {
                     throw new ModuleException("Module of include 'dm.online.handler' must config: master=true")
                   }
-                  LOG.warn(s"""dm offline handlers:\n${dmOfflineHandlers.map{ h => h.getClass.getName}.mkString(", ")}""")
+                  LOG.warn(s"""dm offline handlers:\n${dmOfflineHandlers.map{ h => h.getClass.getName}.mkString("\n")}""")
                   asyncHandlers.addAll(dmOfflineHandlers.filter{ h => h.isAsynchronous })
                 }
-                LOG.warn(s"""asyncHandlers:\n ${asyncHandlers.map{ h => h.getClass.getName }.mkString(", ")}""")
+                LOG.warn(s"""asyncHandlers:\n ${asyncHandlers.map{ h => h.getClass.getName }.mkString("\n")}""")
                 // 全局计数，记录异步执行的handler数量，异步执行完后再执行commit操作
                 val countDownLatch = new CountDownLatch(asyncHandlers.size())
 
@@ -758,8 +759,8 @@ class PluggableModule(config: Config,
                   }
                 }
                 if (handledDwi != dwi) {
-                  // 不触发action操作
                   handledDwi.persist(StorageLevel.MEMORY_ONLY_SER)
+//                  handledDwi.count()
                 }
 
                 //-----------------------------------------------------------------------------------------------------------------
@@ -775,27 +776,24 @@ class PluggableModule(config: Config,
                     moduleTracer.trace(s"dwr ${h.getClass.getSimpleName} filter")
                   }
                 }
-//                if (dwrDwi != handledDwi) {
-//                  // 不触发action操作
-//                  dwrDwi.persist(StorageLevel.MEMORY_ONLY)
-//                }
+
+                var preparedDwr = dwrDwi
 
                 if (isEnableDwr) {
-                  val preparedDwr = dwrDwi
+                  preparedDwr = dwrDwi
                     .withColumn("l_time", expr(dwrLTimeExpr))
                     .withColumn("b_date", to_date(expr(businessTimeExtractBy)).cast("string"))
                     .withColumn("b_time", expr(s"from_unixtime(unix_timestamp($businessTimeExtractBy), '$dwrBTimeFormat')").as("b_time"))
                     .groupBy(col("l_time") :: col("b_date") :: col("b_time") :: dwrGroupByExprs: _*)
                     .agg(aggExprs.head, aggExprs.tail: _*)
-
-
-                  //-----------------------------------------------------------------------------------------------------------------
-                  // Wait union all module dwr data
-                  //-----------------------------------------------------------------------------------------------------------------
-                  moduleTracer.trace("wait dwr union all", {
-                    mixModulesBatchController.waitUnionAll(preparedDwr, isMaster, moduleName)
-                  })
                 }
+
+                //-----------------------------------------------------------------------------------------------------------------
+                // Wait union all module dwr data
+                //-----------------------------------------------------------------------------------------------------------------
+                moduleTracer.trace("wait dwr union all", {
+                  mixModulesBatchController.waitUnionAll(preparedDwr, isMaster, moduleName)
+                })
 
 
                 //-----------------------------------------------------------------------------------------------------------------
@@ -847,8 +845,10 @@ class PluggableModule(config: Config,
                 // Asynchronous handle
                 //-----------------------------------------------------------------------------------------------------------------
                 if (asyncHandlers.nonEmpty) {
-                  mixModulesBatchController.get().cache()
-                  mixModulesBatchController.get().count()
+                  if (isMaster) {
+                    mixModulesBatchController.get().cache()
+                    mixModulesBatchController.get().count()
+                  }
                   asyncHandlers.foreach {
 
                     case dwiHandler: com.mobikok.ssp.data.streaming.handler.dwi.Handler =>
@@ -856,9 +856,11 @@ class PluggableModule(config: Config,
                         LOG.warn(s"dwi handle, className=${dwiHandler.getClass.getName}")
                         try {
                           dwiHandler.handle(handledDwi)
-                          countDownLatch.countDown()
+                          countDownLatch.synchronized {
+                            countDownLatch.countDown()
+                          }
                         } catch {
-                          case e: Exception => LOG.warn(s"${StringUtil.getStackTraceMessage(e)}")
+                          case e: Exception => LOG.warn(ExceptionUtil.getStackTraceMessage(e))
                         }
                       }
                     case dwrHandler: com.mobikok.ssp.data.streaming.handler.dwr.Handler =>
@@ -866,9 +868,11 @@ class PluggableModule(config: Config,
                         LOG.warn(s"dwr handle, className=${dwrHandler.getClass.getName}")
                         try {
                           dwrHandler.handle(mixModulesBatchController.get())
-                          countDownLatch.countDown()
+                          countDownLatch.synchronized {
+                            countDownLatch.countDown()
+                          }
                         } catch {
-                          case e: Exception => LOG.warn(s"${StringUtil.getStackTraceMessage(e)}")
+                          case e: Exception => LOG.warn(ExceptionUtil.getStackTraceMessage(e))
                         }
                       }
                     case dmOnlineHandler: com.mobikok.ssp.data.streaming.handler.dm.online.Handler =>
@@ -876,9 +880,11 @@ class PluggableModule(config: Config,
                         LOG.warn(s"dmOnline handle, className=${dmOnlineHandler.getClass.getName}")
                         try {
                           dmOnlineHandler.handle(mixModulesBatchController.get())
-                          countDownLatch.countDown()
+                          countDownLatch.synchronized {
+                            countDownLatch.countDown()
+                          }
                         } catch {
-                          case e: Exception => LOG.warn(s"${StringUtil.getStackTraceMessage(e)}")
+                          case e: Exception => LOG.warn(ExceptionUtil.getStackTraceMessage(e))
                         }
                       }
                     case dmOfflineHandler: com.mobikok.ssp.data.streaming.handler.dm.offline.Handler =>
@@ -886,9 +892,11 @@ class PluggableModule(config: Config,
                         LOG.warn(s"dmOffline handle, className=${dmOfflineHandler.getClass.getName}")
                         try {
                           dmOfflineHandler.handle()
-                          countDownLatch.countDown()
+                          countDownLatch.synchronized {
+                            countDownLatch.countDown()
+                          }
                         } catch {
-                          case e: Exception => LOG.warn(s"${StringUtil.getStackTraceMessage(e)}")
+                          case e: Exception => LOG.warn(ExceptionUtil.getStackTraceMessage(e))
                         }
                       }
                     case _ =>
@@ -933,6 +941,8 @@ class PluggableModule(config: Config,
                 //------------------------------------------------------------------------------------
                 // Commit Transaction
                 //------------------------------------------------------------------------------------
+
+
                 dwiHandlers.filter{ x => !x.isAsynchronous }.foreach{ h => h.commit(null) }
 
                 if (dwrHandlerCookies != null) {
@@ -951,7 +961,11 @@ class PluggableModule(config: Config,
                 }
 
                 // asynchronous handler await before commit
+                LOG.warn("wait all handlers commit")
+
+                startCountDownHeartbeats(countDownLatch)
                 countDownLatch.await()
+                LOG.warn("handlers commit finished!")
 
                 asyncHandlers.filter{ h => h.isInstanceOf[Transactional] }
                   .par.foreach{ h => h.asInstanceOf[Transactional].commit(null) }
@@ -1064,9 +1078,7 @@ class PluggableModule(config: Config,
                   YarnAPPManagerUtil.killApps(appName)
               }
             }
-          })
-          executeThread.setName(s"${moduleName}_${executeThread.getName}")
-          executeThread.start()
+          }).start()
         }
       } catch {
         case e: Exception => throw new ModuleException(s"${classOf[FasterModule].getSimpleName} '$moduleName' execution failed !! ", e)
@@ -1137,6 +1149,23 @@ class PluggableModule(config: Config,
       LOG.warn(s"MessageClient dwr no hive partitions to push", s"topic: $topic")
     }
 
+  }
+
+  def startCountDownHeartbeats(countDownLatch: CountDownLatch): Unit = {
+
+    ThreadPool.execute {
+      var b = true
+      while (b) {
+        if (countDownLatch.getCount > 0) {
+          countDownLatch.synchronized {
+            LOG.warn(s"$moduleName left task count are: ${countDownLatch.getCount}")
+          }
+        } else {
+          b = false
+        }
+        Thread.sleep(1000 * 60)
+      }
+    }
   }
 
   def tryKillSelfApp(): Unit = {
