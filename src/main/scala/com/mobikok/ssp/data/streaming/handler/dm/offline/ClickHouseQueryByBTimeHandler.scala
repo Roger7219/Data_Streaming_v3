@@ -8,7 +8,7 @@ import com.mobikok.message.client.MessageClient
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.RDBConfig
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
-import com.mobikok.ssp.data.streaming.util.{OM, RunAgainIfError, StringUtil}
+import com.mobikok.ssp.data.streaming.util.{CSTTime, OM, RunAgainIfError, StringUtil}
 import com.typesafe.config.Config
 import org.apache.spark.sql.hive.HiveContext
 
@@ -16,7 +16,6 @@ import scala.collection.JavaConversions._
 
 class ClickHouseQueryByBTimeHandler extends Handler {
 
-  val ckHosts = new util.ArrayList[String]()
   //view, consumer, topics
   private var viewConsumerTopics = null.asInstanceOf[Array[(String, String, Array[String])]]
 
@@ -42,7 +41,7 @@ class ClickHouseQueryByBTimeHandler extends Handler {
           .pullMessage(new MessagePullReq(topic._2, topic._3))
           .getPageData
 
-        val ms = pageData.map { data =>
+        var ms = pageData.map { data =>
           OM.toBean(data.getKeyBody, new TypeReference[Array[Array[HivePartitionPart]]] {})
         } .flatMap { data => data }
           .flatMap { data => data }
@@ -51,12 +50,12 @@ class ClickHouseQueryByBTimeHandler extends Handler {
           .sortBy(_.value)(Ordering.String.reverse)
           .toArray
 
+        // 目前只支持小时过滤
+        ms = filterHistoricalBTime(ms)
+
+
         LOG.warn(s"ClickHouseBTimeHandler update b_time(s), count: ${ms.length}", ms)
 
-//        var ckTable = topic._1
-//        if ("ssp_report_overall_dm_day_v2".equals(topic._1)) {
-//          ckTable = "ssp_report_overall_dm_day"
-//        }
         clickHouseClient.overwriteByBTime(topic._1.replace("_v2", ""), topic._1, ms.map{_.value})
         messageClient.commitMessageConsumer(
           pageData.map{data =>
@@ -69,5 +68,27 @@ class ClickHouseQueryByBTimeHandler extends Handler {
       LOG.warn("ClickHouseQueryBTimeHandler handler done")
     }
 
+  }
+
+  def filterHistoricalBTime(partitions: Array[HivePartitionPart]): Array[HivePartitionPart] = {
+    val consumerAndTopic = viewConsumerTopics.map{ each =>
+      val topic = each._3.filter{ topic => topic.contains("ck_report_overall")}.head
+      (each._2, Array(s"${topic}_finished"))
+    }.head
+
+    // 距离当前一个小时的任务不会被过滤
+    val neighborBTime = CSTTime.neighborTimes(CSTTime.now.time(), 1.0, 1)
+
+    val finishedBTime = messageClient
+      .pullMessage(new MessagePullReq(consumerAndTopic._1, consumerAndTopic._2))
+      .getPageData
+      .map{ data => OM.toBean(data.getKeyBody, new TypeReference[Array[Array[HivePartitionPart]]] {})}
+      .flatMap{ data => data }
+      .flatMap{ data => data }
+      .filter{ partition => "b_time".equals(partition.name) && !neighborBTime.contains(partition.value) }
+      .map{ partition => partition.value }
+      .distinct
+
+    partitions.filter{ partition => !finishedBTime.contains(partition.value)}
   }
 }

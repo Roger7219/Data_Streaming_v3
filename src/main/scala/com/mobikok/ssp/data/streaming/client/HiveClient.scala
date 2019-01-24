@@ -242,8 +242,8 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
       }else {
         //非事务，直接写入目标表
         updated
-          .coalesce(1)
-//          .repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
+//          .coalesce(1)
+          .repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
           .write
           .format("orc")
           .mode(SaveMode.Overwrite)

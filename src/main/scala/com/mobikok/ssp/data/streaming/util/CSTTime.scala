@@ -165,8 +165,9 @@ object CSTTime {
   }
 
   /**
-    * @param time
+    * @param time     当前时间，格式为：yyyy-MM-dd HH:mm:ss
     * @param spanHour 分组时间跨度，eg: 值为3，表示每3小时一个组, 从0点开始
+    * @param parts    
     * @return
     */
   def neighborTimes(time:String, spanHour: java.lang.Double, parts: Integer): Array[String] ={
