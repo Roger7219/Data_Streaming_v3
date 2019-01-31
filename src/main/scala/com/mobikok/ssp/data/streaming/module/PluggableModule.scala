@@ -532,8 +532,7 @@ class PluggableModule(config: Config,
            |    batch_actual_time = -1
                  """.stripMargin)
 
-      // TODO module心跳
-//      initHeartbeat()
+      initHeartbeat()
       //更新状态
       mixTransactionManager.clean(moduleName)
 
