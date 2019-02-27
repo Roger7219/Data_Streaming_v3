@@ -51,7 +51,7 @@ class ClickHouseQueryByBTimeHandler extends Handler {
           .toArray
 
         // 目前只支持小时过滤
-        ms = filterHistoricalBTime(ms)
+        //ms = filterHistoricalBTime(ms)
 
 
         LOG.warn(s"ClickHouseBTimeHandler update b_time(s), count: ${ms.length}", ms)

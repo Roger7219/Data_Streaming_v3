@@ -213,8 +213,8 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
                   .read
                   .table(hiveTable)
                   .where(s""" b_date = "$b_date" and b_time = "$b_time" """)
-                  .groupBy(groupByFields.head, groupByFields.tail: _*)
-                  .agg(sum(aggFields.head).as(aggFields.head), aggFields.tail.map{ field => sum(field).as(field)}:_*)
+                  //.groupBy(groupByFields.head, groupByFields.tail: _*)
+                  //.agg(sum(aggFields.head).as(aggFields.head), aggFields.tail.map{ field => sum(field).as(field)}:_*)
                   .selectExpr(fields: _*)
 
                 rows.cache()
