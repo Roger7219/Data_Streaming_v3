@@ -1329,25 +1329,23 @@ class MixModuleForBTime (config: Config,
           //          moduleTracer.trace("hbase puts uuid")
           //        }
 
-          if (isEnableDwr && /*dwrCount > 0*/ dwiCount > 0) {
+          if (isEnableDwr && isMaster && rPs.nonEmpty/*dwrCount > 0*/ /*dwiCount > 0*/) {
 
-            if (isMaster) {
-              dwrT = hiveClient.overwriteUnionSum(
-                parentTid,
-                dwrTable,
-                pDwr,
-                aggExprsAlias,
-                unionAggExprsAndAlias,
-                dwrGroupByExprsAlias ++ dwrGroupbyExtendedFieldsAlias,
-                rPs,
-                "l_time",
-                "b_date",
-                "b_time"
-              )
+            dwrT = hiveClient.overwriteUnionSum(
+              parentTid,
+              dwrTable,
+              pDwr,
+              aggExprsAlias,
+              unionAggExprsAndAlias,
+              dwrGroupByExprsAlias ++ dwrGroupbyExtendedFieldsAlias,
+              rPs,
+              "l_time",
+              "b_date",
+              "b_time"
+            )
 
-              LOG.warn("hiveClient.overwriteUnionSum dwrTable completed", dwrT)
-              moduleTracer.trace("hvie dwr save")
-            }
+            LOG.warn("hiveClient.overwriteUnionSum dwrTable completed", dwrT)
+            moduleTracer.trace("hvie dwr save")
           }
           // l_time: The time of the data is saved
           // l_date: The date of the data is saved, Use for partition
@@ -1515,7 +1513,7 @@ class MixModuleForBTime (config: Config,
             //          moduleTracer.trace("hbase uuid commit")
           }
 
-          if (isEnableDwr && isMaster && /*dwrCount > 0*/ dwiCount > 0) {
+          if (isEnableDwr && isMaster && rPs.nonEmpty/*dwrCount > 0*//* dwiCount > 0*/) {
             hiveClient.commit(dwrT)
             LOG.warn("hiveClient.commit(t2) completed(overwrite dwr)", dwrT)
             moduleTracer.trace("hive dwr commit")
