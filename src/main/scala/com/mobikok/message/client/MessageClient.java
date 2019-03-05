@@ -224,8 +224,9 @@ public class MessageClient {
         String result = "";
         try {
             URL url = new URL(addr);
-            HttpURLConnection connection = (HttpURLConnection) url
-                    .openConnection();
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            connection.setConnectTimeout(20*1000);// 20秒
+            connection.setReadTimeout(20*1000);   // 20秒
             connection.setRequestMethod(requestMethod/*"PUT"*/);
             connection.setDoOutput(true);
             connection.setRequestProperty("Content-Type",
