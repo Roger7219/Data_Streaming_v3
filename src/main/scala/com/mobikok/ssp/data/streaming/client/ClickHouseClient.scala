@@ -36,7 +36,7 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
   private val fileSystem = FileSystem.get(conf)
 
 //  private val hosts = config.getStringList("clickhouse.hosts")
-  private val hosts = List("node111", "node110", "node16" , "node15")
+  private val hosts = List("master.ck")
   private var aggFields: List[String] = _
   try {
     aggFields = config.getConfigList(s"modules.$moduleName.dwr.groupby.aggs").map{ c =>
