@@ -785,15 +785,14 @@ class PluggableModule(config: Config,
                     .withColumn("b_time", expr(s"from_unixtime(unix_timestamp($businessTimeExtractBy), '$dwrBTimeFormat')").as("b_time"))
                     .groupBy(col("l_time") :: col("b_date") :: col("b_time") :: dwrGroupByExprs: _*)
                     .agg(aggExprs.head, aggExprs.tail: _*)
+
+                  //-----------------------------------------------------------------------------------------------------------------
+                  // Wait union all module dwr data
+                  //-----------------------------------------------------------------------------------------------------------------
+                  moduleTracer.trace("wait dwr union all", {
+                    mixModulesBatchController.waitUnionAll(preparedDwr, isMaster, moduleName)
+                  })
                 }
-
-                //-----------------------------------------------------------------------------------------------------------------
-                // Wait union all module dwr data
-                //-----------------------------------------------------------------------------------------------------------------
-                moduleTracer.trace("wait dwr union all", {
-                  mixModulesBatchController.waitUnionAll(preparedDwr, isMaster, moduleName)
-                })
-
 
                 //-----------------------------------------------------------------------------------------------------------------
                 //  DWR handle
