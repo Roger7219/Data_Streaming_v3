@@ -17,7 +17,9 @@ import com.mobikok.ssp.data.streaming.util._
 import com.typesafe.config.Config
 import org.apache.hadoop.fs.Path
 import org.apache.hadoop.hbase.{HTableDescriptor, TableName}
+import org.apache.log4j.Level
 import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.execution.command.DropTableCommand
 import org.apache.spark.sql.{Column, DataFrame, SaveMode}
 import org.apache.spark.sql.hive.HiveContext
 import org.apache.spark.sql.types.StructType
@@ -348,7 +350,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
     }
   }
 
-  private def partitionsWhereSQL(ps : Array[Array[HivePartitionPart]]): String = {
+  def partitionsWhereSQL(ps : Array[Array[HivePartitionPart]]): String = {
     var w = ps.map { x =>
       x.map { y =>
         y.name + "=\"" + y.value + "\""
@@ -359,7 +361,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
     w
   }
 
-  private def partitionsAlterSQL(ps : Array[Array[HivePartitionPart]]): Array[String] = {
+  def partitionsAlterSQL(ps : Array[Array[HivePartitionPart]]): Array[String] = {
     ps.map { x =>
       x.map { y =>
         y.name + "=\"" + y.value + "\""
@@ -965,7 +967,23 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 
   def sql(sqlText: String): DataFrame ={
     LOG.warn("Execute HQL", sqlText)
-    hiveContext.sql(sqlText)
+
+    // Fix bug: https://issues.apache.org/jira/browse/SPARK-22686
+    var level: Level = null;
+    var log: org.apache.log4j.Logger = null
+    if(sqlText.contains("if exists")) {
+      level = org.apache.log4j.Logger.getLogger(classOf[DropTableCommand]).getLevel
+      log = org.apache.log4j.Logger.getLogger(classOf[DropTableCommand])
+      log.setLevel(Level.ERROR)
+    }
+
+    var result = hiveContext.sql(sqlText)
+
+    // Fix bug: https://issues.apache.org/jira/browse/SPARK-22686
+    if(sqlText.contains("if exists")) {
+      log.setLevel(level)
+    }
+    result
   }
 
   override def clean(cookies: TransactionCookie*): Unit = {

@@ -46,7 +46,8 @@ class UUIDFilterDwiHandler extends Handler {
           s"dwi.*",
           s"'$dwiLTimeExpr' as l_time",
           s"cast(to_date($businessTimeExtractBy) as string)  as b_date",
-          s"from_unixtime(unix_timestamp($businessTimeExtractBy), '$dwiBTimeFormat')  as b_time"
+          s"from_unixtime(unix_timestamp($businessTimeExtractBy), '$dwiBTimeFormat')  as b_time",
+          s"'0' as b_version"
       )
     } else {
       uuidDwi = newDwi
@@ -56,7 +57,8 @@ class UUIDFilterDwiHandler extends Handler {
           s"'N' as repeated",
           s"'$dwiLTimeExpr' as l_time",
           s"cast(to_date($businessTimeExtractBy) as string)  as b_date",
-          s"from_unixtime(unix_timestamp($businessTimeExtractBy), '$dwiBTimeFormat')  as b_time"
+          s"from_unixtime(unix_timestamp($businessTimeExtractBy), '$dwiBTimeFormat')  as b_time",
+          s"'0' as b_version"
         )
     }
     LOG.warn("uuid handler after dwi schema", uuidDwi.schema.fieldNames)

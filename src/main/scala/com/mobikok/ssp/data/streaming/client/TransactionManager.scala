@@ -141,13 +141,21 @@ class TransactionManager(config: Config) {
   private val tidTimeFormat = CSTTime.formatter("yyyyMMdd_HHmmss_SSS") //DateFormatUtil.CST("yyyyMMdd_HHmmss_SSS");// new SimpleDateFormat("yyyyMMdd_HHmmss_SSS")
 
   def beginTransaction(moduleName: String): String = {
-    beginTransaction(moduleName, moduleName)
+    this.beginTransaction(moduleName, moduleName)
   }
 
   /**
     * @return transactionParentId
     */
   def beginTransaction(moduleName: String, groupName: String): String = {
+    beginTransaction(moduleName, groupName, 0)
+  }
+
+  def beginTransaction(moduleName: String, groupName: String, order: Long): String = {
+    newTransactionParentId()
+  }
+
+  protected def newTransactionParentId():String={
     TransactionManager.syncLock.synchronized{
       Thread.sleep(10)
       return tidTimeFormat.format(new Date)

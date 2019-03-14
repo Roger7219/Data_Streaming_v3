@@ -167,7 +167,7 @@ class MixModulesBatchController(config:Config, runnableModuleNames: Array[String
       LOG.warn("MixModulesBatchController persist final df start")
 
       cacheGroupByDwr = cacheGroupByDwr
-        .groupBy(col("l_time") :: col("b_date") :: col("b_time") :: dwrGroupByDimensionFieldsAlias: _*)
+        .groupBy(col("l_time") :: col("b_date") :: col("b_time"):: col("b_version") :: dwrGroupByDimensionFieldsAlias: _*)
         .agg(dwrGroupByUnionAggExprsAndAlias.head, dwrGroupByUnionAggExprsAndAlias.tail: _*)
 
       cacheGroupByDwr.cache()// persist(StorageLevel.MEMORY_ONLY_SER)

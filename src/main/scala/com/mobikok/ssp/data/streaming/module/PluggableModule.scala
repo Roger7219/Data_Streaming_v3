@@ -485,7 +485,7 @@ class PluggableModule(config: Config,
     try {
       LOG.warn(s"${getClass.getSimpleName} init started", moduleName)
       //      AS3.main3(sqlContext)
-      GlobalAppRunningStatusV2.setStatus(concurrentGroup, moduleName, GlobalAppRunningStatusV2.STATUS_IDLE)
+//      GlobalAppRunningStatusV2.setStatus(concurrentGroup, moduleName, GlobalAppRunningStatusV2.STATUS_IDLE)
 
       hiveClient.init()
       if (hbaseClient != null) hbaseClient.init()
@@ -611,6 +611,7 @@ class PluggableModule(config: Config,
     stream.foreachRDD { source =>
       try {
 
+        var order = System.currentTimeMillis()
         moduleTracer.startBatch
 
         val offsetRanges = source
@@ -662,7 +663,7 @@ class PluggableModule(config: Config,
 
         val filtered = jsonSource
 
-        if (isFastPollingEnable && filtered.isEmpty() && GlobalAppRunningStatusV2.isPreviousRunning(concurrentGroup, moduleName)) {
+        if (isFastPollingEnable && filtered.isEmpty() /*&& GlobalAppRunningStatusV2.isPreviousRunning(concurrentGroup, moduleName)*/) {
           LOG.warn("Fast polling", "concurrentGroup", concurrentGroup, "moduleName", moduleName)
           moduleTracer.trace("fast polling")
           moduleReadingKafkaMarks.put(moduleName, false)
@@ -689,18 +690,21 @@ class PluggableModule(config: Config,
           // Wait checking concurrent group status
           //-----------------------------------------------------------------------------------------------------------------
           //          LOG.warn(s"Show modules running status", "concurrentGroup", concurrentGroup, "moduleName", moduleName , "allModulesStatus", OM.toJOSN(GlobalAppRunningStatusV2.STATUS_MAP_AS_JAVA))
-          moduleTracer.trace("wait module queue", {
-            GlobalAppRunningStatusV2.waitRunAndSetRunningStatus(concurrentGroup, moduleName)
-          })
+//          moduleTracer.trace("wait module queue", {
+//            GlobalAppRunningStatusV2.waitRunAndSetRunningStatus(concurrentGroup, moduleName)
+//          })
 
           val groupName = if (StringUtil.notEmpty(dwrTable)) dwrTable else moduleName
 
+          //-----------------------------------------------------------------------------------------------------------------
+          //  Begin Transaction !!
+          //-----------------------------------------------------------------------------------------------------------------
+          val parentTid = mixTransactionManager.beginTransaction(moduleName, groupName, order)
+
           // 开始异步处理
-          //          executorService.execute(new Runnable {
-          new Thread(new Runnable {
-
-            override def run(): Unit = {
-
+//          new Thread(new Runnable {
+//
+//            override def run(): Unit = {
 
               try {
 
@@ -739,10 +743,10 @@ class PluggableModule(config: Config,
                 val countDownLatch = new CountDownLatch(asyncHandlers.size())
 
 //                val transactionCookies = new util.ArrayList[(String, TransactionCookie)]()
-                //-----------------------------------------------------------------------------------------------------------------
-                //  Begin Transaction !!
-                //-----------------------------------------------------------------------------------------------------------------
-                val parentTid = mixTransactionManager.beginTransaction(moduleName, groupName)
+//                //-----------------------------------------------------------------------------------------------------------------
+//                //  Begin Transaction !!
+//                //-----------------------------------------------------------------------------------------------------------------
+//                val parentTid = mixTransactionManager.beginTransaction(moduleName, groupName, true)
 
                 val dwiLTimeExpr = s"'${mixTransactionManager.dwiLoadTime()}'"
                 val dwrLTimeExpr = s"'${mixTransactionManager.dwrLoadTime()}'"
@@ -783,7 +787,8 @@ class PluggableModule(config: Config,
                     .withColumn("l_time", expr(dwrLTimeExpr))
                     .withColumn("b_date", to_date(expr(businessTimeExtractBy)).cast("string"))
                     .withColumn("b_time", expr(s"from_unixtime(unix_timestamp($businessTimeExtractBy), '$dwrBTimeFormat')").as("b_time"))
-                    .groupBy(col("l_time") :: col("b_date") :: col("b_time") :: dwrGroupByExprs: _*)
+                    .withColumn("b_version", expr("'0'")) // 默认0
+                    .groupBy(col("l_time") :: col("b_date") :: col("b_time") :: col("b_version") :: dwrGroupByExprs: _*)
                     .agg(aggExprs.head, aggExprs.tail: _*)
 
                   //-----------------------------------------------------------------------------------------------------------------
@@ -1025,8 +1030,8 @@ class PluggableModule(config: Config,
 
                 kafkaClient.clean(popNeedCleanTransactions(COOKIE_KIND_KAFKA_T, parentTid): _*)
 
-                LOG.warn(moduleName, "clean kafka and set module status idle")
-                GlobalAppRunningStatusV2.setStatus(concurrentGroup, moduleName, GlobalAppRunningStatusV2.STATUS_IDLE)
+//                LOG.warn(moduleName, "clean kafka and set module status idle")
+//                GlobalAppRunningStatusV2.setStatus(concurrentGroup, moduleName, GlobalAppRunningStatusV2.STATUS_IDLE)
 
                 moduleTracer.trace("batch done")
 
@@ -1075,8 +1080,8 @@ class PluggableModule(config: Config,
                   LOG.warn(s"Kill self yarn app via async thread error !!!", "important_notice", "Kill self yarn app at once !!!", "app_name", appName, "error", e)
                   YarnAPPManagerUtil.killApps(appName)
               }
-            }
-          }).start()
+//            }
+//          }).start()
         }
       } catch {
         case e: Exception => throw new ModuleException(s"${classOf[FasterModule].getSimpleName} '$moduleName' execution failed !! ", e)

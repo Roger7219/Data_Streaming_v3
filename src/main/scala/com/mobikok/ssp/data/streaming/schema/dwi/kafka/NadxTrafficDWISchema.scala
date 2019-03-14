@@ -97,6 +97,6 @@ object NadxTrafficDWISchema{
     StructField("click_revenue",                     DoubleType) ::
     StructField("conversion_count",                  LongType) ::
     StructField("conversion_price",                  DoubleType) ::
-    StructField("saveCount", IntegerType) ::
+    StructField("saveCount",                         IntegerType) ::
       Nil)
 }

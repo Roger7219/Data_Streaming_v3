@@ -115,7 +115,7 @@ public class KafkaOffsetTool {
           }
         }
       } catch (Throwable e) {
-        e.printStackTrace();
+        LOG.error("Kafka findLeader fail, broker: " + broker + ", brokerPortMap: " + OM.toJOSN(brokerPortMap), e);
       } finally {
         if (consumer != null)
           consumer.close();
@@ -183,18 +183,18 @@ public class KafkaOffsetTool {
     return map;
   }
 
-  public static void main(String[] args) {
-//	  modifyOffset();
-    List<String> topics = Lists.newArrayList();
-    topics.add("topic_ad_fill");
-//    topics.store("bugfix");
-    Map<TopicAndPartition, Long> topicAndPartitionLongMap =
-        KafkaOffsetTool.getInstance().getLastOffset("node14:6667", topics, "my.group.id");
-
-    for (Map.Entry<TopicAndPartition, Long> entry : topicAndPartitionLongMap.entrySet()) {
-     System.out.println(entry.getKey().topic() + "-"+ entry.getKey().partition() + ":" + entry.getValue());
-    }
-  }
+//  public static void main(String[] args) {
+////	  modifyOffset();
+//    List<String> topics = Lists.newArrayList();
+//    topics.add("topic_ad_fill");
+////    topics.store("bugfix");
+//    Map<TopicAndPartition, Long> topicAndPartitionLongMap =
+//        KafkaOffsetTool.getInstance().getLastOffset("node14:6667", topics, "my.group.id");
+//
+//    for (Map.Entry<TopicAndPartition, Long> entry : topicAndPartitionLongMap.entrySet()) {
+//     System.out.println(entry.getKey().topic() + "-"+ entry.getKey().partition() + ":" + entry.getValue());
+//    }
+//  }
   
   public static void modifyOffset() {
 	  

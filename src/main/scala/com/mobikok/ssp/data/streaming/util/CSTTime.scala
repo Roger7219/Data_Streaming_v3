@@ -24,6 +24,17 @@ object CSTTime {
     }
   }
 
+  def uniqueMS (): Date ={
+    lock.synchronized{
+      Thread.sleep(1)
+      return new Date()
+    }
+  }
+
+  def uniqueMsAsFormated (): String ={
+    MS_TIME.get().format(uniqueMS())
+  }
+
   def uniqueSecondesAsFormated (): String ={
     DF_yyyyMMddHHmmss.get().format(uniqueSecondes())
   }
@@ -43,6 +54,10 @@ object CSTTime {
 
   private val B_TIME = new ThreadLocal[DateFormat]() {
     override protected def initialValue = formatter("yyyy-MM-dd HH:00:00")
+  }
+
+  private val MS_TIME = new ThreadLocal[DateFormat]() {
+    override protected def initialValue = formatter("yyyyMMddHHmmssSSS")
   }
 
   def dateFormatter(): DateFormat ={

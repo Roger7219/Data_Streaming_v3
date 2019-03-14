@@ -18,6 +18,10 @@ public class MessageClientUtil {
         pullAndSortDescHivePartitionParts(messageClient, consumer, "b_date",callback, topics);
     }
 
+    public static void pullAndSortByBTimeDescHivePartitionParts(MessageClient messageClient, String consumer, Callback<ArrayList<HivePartitionPart>> callback, String... topics){
+        pullAndSortDescHivePartitionParts(messageClient, consumer, "b_time",callback, topics);
+    }
+
     private static void pullAndSortDescHivePartitionParts(
             MessageClient messageClient, String consumer,
             final String partitionFieldName,

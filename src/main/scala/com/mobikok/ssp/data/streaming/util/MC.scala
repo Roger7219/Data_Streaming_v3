@@ -57,6 +57,15 @@ object MC {
     }, topics:_*)
   }
 
+  def pullBTimeDesc (consumer: String, topics:Array[String], callback: List[HivePartitionPart] => Boolean ): Unit ={
+    checkInited
+    MessageClientUtil.pullAndSortByBTimeDescHivePartitionParts(messageClient, consumer, new MessageClientUtil.Callback[util.ArrayList[HivePartitionPart]] {
+      override def doCallback (resp: util.ArrayList[HivePartitionPart]): lang.Boolean = {
+        callback(resp.asScala.toList)
+      }
+    }, topics:_*)
+  }
+
   def pullLTimeDesc (consumer: String, topics:Array[String], callback: List[HivePartitionPart] => Boolean ): Unit ={
     checkInited
     MessageClientUtil.pullAndSortByLTimeDescHivePartitionParts(messageClient, consumer, new MessageClientUtil.Callback[util.ArrayList[HivePartitionPart]] {
