@@ -442,7 +442,7 @@ class HBaseClient (moduleName: String, sc: SparkContext, config: Config, transac
         c.hbaseStorableImplClass
       ).collect()
 
-      moduleTracer.trace("    hbase scan trans-tmp")
+      moduleTracer.trace("    hbase scan trans-pluggable")
 
       val r = gets(
         c.targetTable,

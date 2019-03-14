@@ -1005,7 +1005,7 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
       }
 
       val isE = newDF.take(1).isEmpty
-      moduleTracer.trace("    clickhouse client updated to tmp table finished")
+      moduleTracer.trace("    clickhouse client updated to pluggable table finished")
       new ClickHouseRollbackableTransactionCookie(transactionParentId, tid, tempTable, dmTable, SaveMode.Overwrite, ps, processingTable, completeTable, isE)
     } catch {
       case e: Exception =>

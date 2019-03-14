@@ -20,8 +20,8 @@ object ORC {
   def main(args: Array[String]): Unit = {
 
 //    System.setProperty("hadoop.home.dir", """D:\lxl\hadoop-2.6.0""")
-//    System.setProperty("hive.exec.scratchdir", """D:\lxl\hadoop-2.6.0\hive\tmp""")
-//    System.setProperty("spark.local.dir", """D:\lxl\hadoop-2.6.0\spark\tmp""")
+//    System.setProperty("hive.exec.scratchdir", """D:\lxl\hadoop-2.6.0\hive\pluggable""")
+//    System.setProperty("spark.local.dir", """D:\lxl\hadoop-2.6.0\spark\pluggable""")
 
 
     def bufferSchema: StructType = {
@@ -128,10 +128,10 @@ object ORC {
             StructField("imsi",        StringType)  ::
             StructField("l_date",      StringType)  :: Nil)
 
-        hiveContext.read.schema(schema).json(nr).write.mode(SaveMode.Append).format("orc").insertInto("ad_click_dwi_spark2")//.save("/tmp/ad_click_dwi_spark")//.insertInto("ad_click_dwi_spark")
+        hiveContext.read.schema(schema).json(nr).write.mode(SaveMode.Append).format("orc").insertInto("ad_click_dwi_spark2")//.save("/pluggable/ad_click_dwi_spark")//.insertInto("ad_click_dwi_spark")
 
-        //sqlContext.read.json("/tmp/json").printSchema()
-        //          sqlContext.read.json("/tmp/json").foreach{ x=>
+        //sqlContext.read.json("/pluggable/json").printSchema()
+        //          sqlContext.read.json("/pluggable/json").foreach{ x=>
         //            print(x)
         //          }
         //          sqlContext.read.json()
@@ -139,7 +139,7 @@ object ORC {
       catch {
         case t: Throwable => t.printStackTrace();println("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&") // TODO: handle error
       }
-      //hiveContext.read.json(x)//.write.mode(SaveMode.Overwrite).format("orc").save("/tmp/ad_click_dwi_spark")//.insertInto("ad_click_dwi_spark")
+      //hiveContext.read.json(x)//.write.mode(SaveMode.Overwrite).format("orc").save("/pluggable/ad_click_dwi_spark")//.insertInto("ad_click_dwi_spark")
     }
 
 

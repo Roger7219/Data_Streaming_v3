@@ -73,7 +73,7 @@ class GoogleBigQueryHandler extends Handler {
         .toArray
 
       ms.foreach{y=>
-        var gzDir = s"/root/kairenlo/tmp/${x._1}_${y.getValue.replaceAll("-","_")}_gz.dir"
+        var gzDir = s"/root/kairenlo/pluggable/${x._1}_${y.getValue.replaceAll("-","_")}_gz.dir"
         LOG.warn("GoogleBigQueryHandler generate gz file starting", gzDir)
         var bqDate = y.getValue.replaceAll("-", "")
         hiveContext

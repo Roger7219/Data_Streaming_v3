@@ -67,20 +67,20 @@ class GreenplumClient (moduleName:String, config: Config, ssc: StreamingContext,
       try {
                                                                                                                                                                greenplumJDBCClient.execute(s"DROP TABLE IF EXISTS ${pTmpTable}")
       }catch {case  e:Exception=> LOG.warn("Greenplum execute fail", e.getMessage)}
-      LOG.warn(s"GreenplumClient clean prev tmp table if exists", pTmpTable)
+      LOG.warn(s"GreenplumClient clean prev pluggable table if exists", pTmpTable)
 
       try {
         greenplumJDBCClient.execute(s"CREATE TABLE ${pTmpTable} (LIKE $greenplumPartitionTable)")
       }catch {case  e:Exception=> LOG.warn("Greenplum execute fail", e.getMessage)}
 
-      LOG.warn(s"GreenplumClient write tmp table starting", s"tmpTable: $pTmpTable\ncount: $c")
+      LOG.warn(s"GreenplumClient write pluggable table starting", s"tmpTable: $pTmpTable\ncount: $c")
 
       var p = (c/40000).toInt
       if(p == 0) p = 1
       if(p > 200) p = 200
 
       df.repartition(p).write.mode(SaveMode.Append).format("jdbc").options(options).option("dbtable", pTmpTable).save()
-      LOG.warn(s"GreenplumClient write tmp table completed", s"partitions: $p")
+      LOG.warn(s"GreenplumClient write pluggable table completed", s"partitions: $p")
 
       greenplumJDBCClient.execute(
         s"""
@@ -91,7 +91,7 @@ class GreenplumClient (moduleName:String, config: Config, ssc: StreamingContext,
       LOG.warn(s"GreenplumClient exchange partition", s"targetTable: $greenplumTable\ntmpTable: $pTmpTable\npartition: ${partitionValue}")
 
       greenplumJDBCClient.execute(s"DROP TABLE IF EXISTS ${pTmpTable}")
-      LOG.warn(s"GreenplumClient drop tmp table if exists ", pTmpTable)
+      LOG.warn(s"GreenplumClient drop pluggable table if exists ", pTmpTable)
 
       df.unpersist()
     }catch {case e:FileNotFoundException=>
@@ -134,13 +134,13 @@ class GreenplumClient (moduleName:String, config: Config, ssc: StreamingContext,
           try {
             greenplumJDBCClient.execute(s"DROP TABLE IF EXISTS ${pTmpTable}")
           }catch {case  e:Exception=> LOG.warn("Greenplum execute fail", e.getMessage)}
-          LOG.warn(s"GreenplumClient clean prev tmp table if exists", pTmpTable)
+          LOG.warn(s"GreenplumClient clean prev pluggable table if exists", pTmpTable)
 
           try {
             greenplumJDBCClient.execute(s"CREATE TABLE ${pTmpTable} (LIKE $pTable)")
           }catch {case  e:Exception=> LOG.warn("Greenplum execute fail", e.getMessage)}
 
-          LOG.warn(s"GreenplumClient write tmp table starting", s"tmpTable: $pTmpTable\ncount: $c")
+          LOG.warn(s"GreenplumClient write pluggable table starting", s"tmpTable: $pTmpTable\ncount: $c")
 
           var p = (c/40000).toInt
           if(p == 0) p = 1
@@ -148,7 +148,7 @@ class GreenplumClient (moduleName:String, config: Config, ssc: StreamingContext,
 
 
           df.repartition(p).write.mode(SaveMode.Append).format("jdbc").options(options).option("dbtable", pTmpTable).save()
-          LOG.warn(s"GreenplumClient write tmp table completed", s"partitions: $p")
+          LOG.warn(s"GreenplumClient write pluggable table completed", s"partitions: $p")
 
           greenplumJDBCClient.execute(
             s"""
@@ -159,7 +159,7 @@ class GreenplumClient (moduleName:String, config: Config, ssc: StreamingContext,
           LOG.warn(s"GreenplumClient exchange partition", s"targetTable: $greenplumDwrTable\ntmpTable: $pTmpTable\npartition: ${pValue}")
 
           greenplumJDBCClient.execute(s"DROP TABLE IF EXISTS ${pTmpTable}")
-          LOG.warn(s"GreenplumClient drop tmp table if exists", pTmpTable)
+          LOG.warn(s"GreenplumClient drop pluggable table if exists", pTmpTable)
 
           x._3.unpersist()
         }
@@ -267,7 +267,7 @@ class GreenplumClient (moduleName:String, config: Config, ssc: StreamingContext,
           moduleTracer.trace("  greenplumn exchange")
 
           greenplumJDBCClient.execute(s"DROP TABLE IF EXISTS ${pUpsertTable}")
-          LOG.warn(s"GreenplumClient drop tmp table if exists", pUpsertTable)
+          LOG.warn(s"GreenplumClient drop pluggable table if exists", pUpsertTable)
 
           newDF.unpersist()
         }

@@ -612,7 +612,7 @@ class PluggableModule(config: Config,
       try {
 
         var order = System.currentTimeMillis()
-        moduleTracer.startBatch
+        moduleTracer.startBatch(order, "UN-BEGIN")
 
         val offsetRanges = source
           .asInstanceOf[HasOffsetRanges]
@@ -708,7 +708,7 @@ class PluggableModule(config: Config,
 
               try {
 
-                moduleTracer.startBatch
+                moduleTracer.startBatch(order, parentTid)
 
 //                var asyncTaskCount = 0
                 // 记录所有异步handler的数量

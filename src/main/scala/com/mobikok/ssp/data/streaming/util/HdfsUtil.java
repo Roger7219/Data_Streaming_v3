@@ -17,7 +17,7 @@ import org.apache.log4j.Logger;
 public class HdfsUtil {
 
     private Logger LOG = Logger.getLogger(HdfsUtil.class);
-    private static String uri = "hdfs://node17:8020";
+    private static String uri = "hdfs://master:8020";
 
     /**
      * 设置hadoop HDFS 初始化配置方法
@@ -39,7 +39,7 @@ public class HdfsUtil {
     /**
      * make a new dir in the hdfs
      *
-     * @param dir the dir may like '/tmp/testdir'
+     * @param dir the dir may like '/pluggable/testdir'
      * @return boolean true-success, false-failed
      * @exception IOException something wrong happends when operating files
      */
@@ -61,7 +61,7 @@ public class HdfsUtil {
      * delete a dir in the hdfs.
      * if dir not exists, it will throw FileNotFoundException
      *
-     * @param path the dir may like '/tmp/testdir'
+     * @param path the dir may like '/pluggable/testdir'
      * @return boolean true-success, false-failed
      * @exception IOException something wrong happends when operating files
      *
@@ -204,7 +204,7 @@ public class HdfsUtil {
      * list files/directories/links names under a directory, not include embed
      * objects
      *
-     * @param dir a folder path may like '/tmp/testdir'
+     * @param dir a folder path may like '/pluggable/testdir'
      * @return List<String> list of file names
      * @throws IOException file io exception
      */

@@ -196,7 +196,7 @@ class AccelerateTableHandler extends Handler {
 
 //                  sql(incrViewSql).write.mode(SaveMode.Overwrite).insertInto(tmpBaseTable)
 
-                  LOG.warn(s"Init-Overwrite tmp base table done", tmpBaseTable)
+                  LOG.warn(s"Init-Overwrite pluggable base table done", tmpBaseTable)
 
                   sql(s"drop view if exists $view")
                   sql(s"drop table if exists $baseTable")

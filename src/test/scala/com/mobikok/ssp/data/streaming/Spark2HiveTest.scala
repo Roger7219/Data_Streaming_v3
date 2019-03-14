@@ -46,7 +46,7 @@ object Spark2HiveTest {
 
   def main (args: Array[String]): Unit = {
     val sc = new SparkContext(sparkConf)
-    sc.setCheckpointDir("C:\\Users\\Administrator\\Desktop\\tmp\\新建文件夹 (11)")
+    sc.setCheckpointDir("C:\\Users\\Administrator\\Desktop\\pluggable\\新建文件夹 (11)")
     val sqlC= new SQLContext(sc)
     AS3.main3(sqlC)
   }
@@ -82,7 +82,7 @@ object Spark2HiveTest {
 
 
     //    testSch
-//    hiveContext.read.table("ssp_report_campaign_dm").where(""" b_date = "2017-10-17" """).repartition(1).write.format("csv").save("/tmp/test/csv2")
+//    hiveContext.read.table("ssp_report_campaign_dm").where(""" b_date = "2017-10-17" """).repartition(1).write.format("csv").save("/pluggable/test/csv2")
 
     //.insertInto("ssp_report_campaign_dm_spark_csv")
 //    testJoin

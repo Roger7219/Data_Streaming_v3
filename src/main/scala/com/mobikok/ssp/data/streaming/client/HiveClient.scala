@@ -113,7 +113,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
         .mode(SaveMode.Append)
         .insertInto(tt)
 
-      moduleTracer.trace("    write transactional tmp table")
+      moduleTracer.trace("    write transactional pluggable table")
 
       new HiveRollbackableTransactionCookie(
         transactionParentId,
@@ -455,9 +455,9 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
           .read
           .table(c.transactionalTmpTable)
 
-        val fileNumber2 = aHivePartitionRecommendedFileNumber("HiveClient read tmp table repartition", shufflePartitions, df2.rdd.getNumPartitions, c.partitions.length)
-//        val parts2 = sparkPartitionNum("HiveClient read tmp table repartition", shufflePartitions, df2.rdd.getNumPartitions, c.partitions.length)
-        moduleTracer.trace(s"    read tmp repartition fs: $fileNumber2, rs: ${df2.rdd.getNumPartitions}, ps: ${c.partitions.length}")
+        val fileNumber2 = aHivePartitionRecommendedFileNumber("HiveClient read pluggable table repartition", shufflePartitions, df2.rdd.getNumPartitions, c.partitions.length)
+//        val parts2 = sparkPartitionNum("HiveClient read pluggable table repartition", shufflePartitions, df2.rdd.getNumPartitions, c.partitions.length)
+        moduleTracer.trace(s"    read pluggable repartition fs: $fileNumber2, rs: ${df2.rdd.getNumPartitions}, ps: ${c.partitions.length}")
 
         df2
           .repartition(fileNumber2*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber2}) ) )"))
@@ -642,7 +642,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 
           val dstT = s"""${srcT.substring(0,srcT.indexOf(compactedTmpTableSign))}"""
 
-          LOG.warn("Hive compact: ", "exsist tmp table ", srcT, "dstT ", dstT)
+          LOG.warn("Hive compact: ", "exsist pluggable table ", srcT, "dstT ", dstT)
 
           //将临时表中所有分区的数据移动到目标表
           sql(s""" show partitions ${srcT}  """)

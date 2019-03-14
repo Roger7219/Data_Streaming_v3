@@ -740,7 +740,7 @@ class HBaseMultiSubTableClient (moduleName: String, sc: SparkContext, config: Co
         c.hbaseStorableImplClass
       ).collect()
 
-      moduleTracer.trace("    hbase scan trans-tmp")
+      moduleTracer.trace("    hbase scan trans-pluggable")
 
       val r = gets(
         c.targetTable,

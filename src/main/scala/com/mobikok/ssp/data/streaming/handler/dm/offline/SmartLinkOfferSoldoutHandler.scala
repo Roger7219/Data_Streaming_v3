@@ -457,9 +457,9 @@ object bb{
     val oldModes = ",1,7,3,4,5,6,"
     if(! oldModes.contains(",2")){
 
-      val tmp = oldModes.split(",").filter(x => !x.isEmpty).toList :+ "2"
+      val pluggable = oldModes.split(",").filter(x => !x.isEmpty).toList :+ "2"
 
-      val modes = tmp.sorted.mkString(",", ",", ",")
+      val modes = pluggable.sorted.mkString(",", ",", ",")
       reopenOfferSql =
         s"""
            |UPDATE OFFER

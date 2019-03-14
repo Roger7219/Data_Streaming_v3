@@ -35,7 +35,7 @@ class MixTransactionManager (config: Config, transactionalStrategy: Transactiona
 //  @volatile private var moduleNames :java.util.HashSet[String] = new util.HashSet[String]()
   @volatile private var countDownLatch: CountDownLatch = null
 
-  @volatile private var moduleTransactionCurrentRunnings: java.util.HashMap[String, Boolean] = new util.HashMap[String, Boolean]()
+  @volatile private var moduleCurrentTransactionReadyCommits: java.util.HashMap[String, Boolean] = new util.HashMap[String, Boolean]()
 
   @volatile private var isAllModuleTransactionCommited:Boolean = true
 
@@ -163,9 +163,11 @@ class MixTransactionManager (config: Config, transactionalStrategy: Transactiona
     moudleTransactionOrders.get(moduleName).min == order
   }
 
+  var moduleCurrentTransactionOrder:java.util.Map[String, java.lang.Long]  = new util.HashMap[String, java.lang.Long]()
+
   override def beginTransaction(moduleName: String, groupName: String, order: Long): String = {
 
-    LOG.warn(" Require begin transaction", "module", moduleName, "isModuleStartedTransactions", moduleTransactionCurrentRunnings, "isAllModuleCommited", isAllModuleTransactionCommited, "order", order)
+    LOG.warn(" Require begin transaction", "module", moduleName, "isModuleStartedTransactions", moduleCurrentTransactionReadyCommits, "isAllModuleCommited", isAllModuleTransactionCommited, "ownOrder", order, "currentTransactionOrder", moduleCurrentTransactionOrder.get(moduleName))
 
     var runnable: Boolean = false
     addOrder(moduleName, order)
@@ -173,16 +175,14 @@ class MixTransactionManager (config: Config, transactionalStrategy: Transactiona
     while(!runnable) {
       synchronizedCall(new Callback {
         override def onCallback(): Unit = {
-          runnable = !moduleTransactionCurrentRunnings.getOrDefault(moduleName, false) && isMinimum(moduleName, order)
+          runnable = isMinimum(moduleName, order)
         }
       }, LOCK)
       if(runnable) {
-        isAllModuleTransactionCommited = false
-        moduleTransactionCurrentRunnings.put(moduleName, true)
-        moudleTransactionOrders.get(moduleName).remove(order)
+        moduleCurrentTransactionOrder.put(moduleName, order)
       }else {
         if(System.currentTimeMillis() - lastLogTime > 1000*30) {
-            LOG.warn("Waiting for last transaction commit", "module", moduleName, "order", order, "orders", moudleTransactionOrders.get(moduleName))
+            LOG.warn("Waiting for last transaction commit", "module", moduleName, "ownOrder", order,"currentTransactionOrder", moduleCurrentTransactionOrder.get(moduleName), "orders", moudleTransactionOrders.get(moduleName))
             lastLogTime = System.currentTimeMillis()
         }
         Thread.sleep(100)
@@ -216,7 +216,7 @@ class MixTransactionManager (config: Config, transactionalStrategy: Transactiona
 
 //        isAllModuleTransactionCommited = false
 //        moduleTransactionRunningMap.put(moduleName, true)
-        LOG.warn(" Obtain begin transaction", "module", moduleName, "isModuleStartedTransactions", moduleTransactionCurrentRunnings, "isAllModuleCommited", isAllModuleTransactionCommited, "order", order)
+        LOG.warn(" Obtain begin transaction", "module", moduleName, "isModuleStartedTransactions", moduleCurrentTransactionReadyCommits, "isAllModuleCommited", isAllModuleTransactionCommited, "order", order)
 
         if(transactionActionStatus == TRANSACTION_ACTION_STATUS_READY || transactionActionStatus == TRANSACTION_ACTION_STATUS_COMMITED /*transactionParentIdCache == null*/) {
 
@@ -233,7 +233,7 @@ class MixTransactionManager (config: Config, transactionalStrategy: Transactiona
           transactionParentIdCache = newTransactionParentId()
           transactionActionStatus = TRANSACTION_ACTION_STATUS_BEGINED
 
-          countDownLatch = new CountDownLatch(moduleTransactionCurrentRunnings.size())
+          countDownLatch = new CountDownLatch(moduleCurrentTransactionReadyCommits.size())
 
           LOG.warn("Generate new transaction id", transactionParentIdCache)
 
@@ -295,13 +295,13 @@ class MixTransactionManager (config: Config, transactionalStrategy: Transactiona
   }
 
   def waitAllModuleReadyCommit (isMasterModule: Boolean, moduleName:String, commitCallback: =>Unit): Unit ={
-//    synchronizedCall(new Callback {
-//      override def onCallback (): Unit = {
-//        moduleNamesMappingCurrBatchModuleCommitReadied.put(moduleName, true)
-//      }
-//    }, LOCK)
+    synchronizedCall(new Callback {
+      override def onCallback (): Unit = {
+        moduleCurrentTransactionReadyCommits.put(moduleName, true)
+      }
+    }, LOCK)
 
-//    isAllModuleCommited = false
+    isAllModuleTransactionCommited = false
 
     //Wait for all module readied
     var b = true
@@ -309,7 +309,7 @@ class MixTransactionManager (config: Config, transactionalStrategy: Transactiona
       var allReadied = true
       synchronizedCall(new Callback {
         override def onCallback (): Unit = {
-          moduleTransactionCurrentRunnings.entrySet().foreach{x=>
+          moduleCurrentTransactionReadyCommits.entrySet().foreach{x=>
             if(!x.getValue  && allReadied) {
               allReadied = false
             }
@@ -332,9 +332,11 @@ class MixTransactionManager (config: Config, transactionalStrategy: Transactiona
       isAllModuleTransactionCommited = true
     } else {
       while(!isAllModuleTransactionCommited) {
-        Thread.sleep(500)
+        Thread.sleep(100)
       }
     }
+
+    moudleTransactionOrders.get(moduleName).remove(moduleCurrentTransactionOrder.get(moduleName))
 
 //    synchronizedCall(new Callback {
 //      override def onCallback (): Unit = {
@@ -377,8 +379,8 @@ class MixTransactionManager (config: Config, transactionalStrategy: Transactiona
 //          currMixBatchInited = false
 //  //        currBatchNeedTransactionalPersistence = None
 
-          moduleTransactionCurrentRunnings.entrySet().foreach{x=>
-            moduleTransactionCurrentRunnings.put(x.getKey, false)
+          moduleCurrentTransactionReadyCommits.entrySet().foreach{x=>
+            moduleCurrentTransactionReadyCommits.put(x.getKey, false)
           }
   //        countDownLatch = new CountDownLatch(moduleNamesMappingCurrBatchModuleCommitReadied.size())
         }
@@ -402,7 +404,7 @@ class MixTransactionManager (config: Config, transactionalStrategy: Transactiona
   def addMoudleName(moudleName: String): Unit = {
     synchronizedCall(new Callback {
       override def onCallback (): Unit = {
-        moduleTransactionCurrentRunnings.put(moudleName, false)
+        moduleCurrentTransactionReadyCommits.put(moudleName, false)
 //        countDownLatch = new CountDownLatch(moduleNames.size())
       }
     }, LOCK)

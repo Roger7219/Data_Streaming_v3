@@ -143,7 +143,7 @@ class BigQueryClient (moduleName: String, config: Config, ssc: StreamingContext,
       }
 
       var fn = b_date.replaceAll("-","_")
-      var gzDir = s"/root/kairenlo/tmp/${hiveTable}_${fn}_gz.dir"
+      var gzDir = s"/root/kairenlo/pluggable/${hiveTable}_${fn}_gz.dir"
 
       val hiveContext = new HiveContext(ssc.sparkContext)
 
@@ -195,7 +195,7 @@ class BigQueryClient (moduleName: String, config: Config, ssc: StreamingContext,
 
     LOG.warn(s"Overwrite bigQueryTable start", "bigQueryTable", bigQueryTable, "hiveTable", hiveTable, "hivePartitionBDate", hivePartitionBDate, "bqPartitionDay", bqDay)
 
-    var gzDir = s"/root/kairenlo/tmp/${hiveTable}_${hivePartitionBDate}_gz.dir"
+    var gzDir = s"/root/kairenlo/pluggable/${hiveTable}_${hivePartitionBDate}_gz.dir"
 
     val hiveContext = new HiveContext(ssc.sparkContext)
 
@@ -349,7 +349,7 @@ class BigQueryClient (moduleName: String, config: Config, ssc: StreamingContext,
           if(b_date.equals(b_time.split(" ")(0))) {
 
             var fn = b_time.replaceAll("-","_").replaceAll(" ", "__").replaceAll(":", "_")
-            var gzDir = s"/root/kairenlo/tmp/${hiveTable}_${fn}_gz.dir"
+            var gzDir = s"/root/kairenlo/pluggable/${hiveTable}_${fn}_gz.dir"
             var gz: Array[FileStatus] = null
 
             val hiveContext = new HiveContext(ssc.sparkContext)
