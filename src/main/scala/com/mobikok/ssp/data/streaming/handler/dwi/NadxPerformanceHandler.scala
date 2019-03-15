@@ -33,12 +33,12 @@ class NadxPerformanceHandler extends Handler {
 
     LOG.warn(s"NadxPerformanceHandler handle start")
 
-    var unM = selectUnMatchedPerformanceByTrafficDWIPartitionMessage()
+    val unM = selectUnMatchedPerformanceByTrafficDWIPartitionMessage()
     val newDWIBTs = collectNewDWIBTimes(newDwi)
 
-    var df = joinTrafficData(newDwi, newDWIBTs, unM._1,  unM._2)
+    val df = joinTrafficData(newDwi, newDWIBTs, unM._1,  unM._2)
 
-    cookie = saveUnMatchedPerformance(df._2, unM._2)
+    cookie = saveUnMatchedPerformance(df._2)
 
     batchTransactionCookiesCache.add(cookie)
 
@@ -51,15 +51,34 @@ class NadxPerformanceHandler extends Handler {
     var ps: Array[Array[HivePartitionPart]] = Array()
 
     // 读取hive以前没有匹配到的Performance数据
-    MC.pullBTimeDescTail("NadxPerformanceHandlerCer", Array(trafficTable), {x=>
+    MC.pullBTimeDesc("NadxPerformanceHandlerCer", Array(trafficTable), {x=>
 
       var bts = x.map{y=>Array(y)}.toArray[Array[HivePartitionPart]]
       val where = hiveClient.partitionsWhereSQL(bts)
 
+      // b_version +1是为了再次写入（如果没有匹配到流量数据）
       df = sql(
         s"""
            |select
-           |  *
+           |  repeats,
+           |  rowkey,
+           |
+           |  `type`,
+           |  bidTime,
+           |  supplyid,
+           |  bidid,
+           |  impid,
+           |  price,
+           |  cur,
+           |  withPrice,
+           |  eventType,
+           |
+           |  repeated,
+           |  l_time,
+           |  b_date,
+           |  b_time,
+           |  cast(cast(b_version as int) + 1 as string) as b_version
+           |
            |from $unmatchedPerformanceDwiTable where (b_time, b_version) in (
            |  select b_time, b_version
            |  from (
@@ -329,10 +348,10 @@ class NadxPerformanceHandler extends Handler {
          |  '${transactionManager.asInstanceOf[MixTransactionManager].dwiLoadTime()}' as l_time,
          |  pDwi.b_date,
          |  pDwi.b_time,
-         |  '0' as b_version
+         |  pDwi.b_version as b_version
          |from (select * from performanceDF where ${whereBTimes}) pDwi
          |left join (
-         |  select * from $trafficTable where ${whereBTimes}
+         |  select * from $trafficTable where ${whereBTimes} and dataType = 4
          |) tDwi on tDwi.b_time = pDwi.b_time AND pDwi.bidid = tDwi.bidRequestId
          |
        """.stripMargin)
@@ -359,27 +378,30 @@ class NadxPerformanceHandler extends Handler {
           "l_time",
           "b_date",
           "b_time",
-          s"cast(b_version as int) + 1 as b_version"
+          "b_version"
         )
       )
       result
   }
 
-  def saveUnMatchedPerformance(df: DataFrame, updateVersionBTimes: Array[Array[HivePartitionPart]]) = {
+  def saveUnMatchedPerformance(df: DataFrame/*, updateVersionBTimes: Array[Array[HivePartitionPart]]*/) = {
     val tm = transactionManager.asInstanceOf[MixTransactionManager]
 
     val pTid = tm.getCurrentTransactionParentId()
 
-    var ps = updateVersionBTimes.map{ x=>
-      x.map{y=>
-        if("b_version".equals(y.name)) HivePartitionPart(y.name, String.valueOf(Integer.valueOf(y.value) + 1))
-        y
+    val partitionFields = Array("repeated", "l_time", "b_date", "b_time", "b_version")
+    val ps = df
+      .dropDuplicates(partitionFields)
+      .collect()
+      .map { x =>
+        partitionFields.map { y =>
+          HivePartitionPart(y, x.getAs[String](y))
+        }
       }
-    }
 
     // 必须创建分区，因为b_version是根据分区来识别的，空分区说明该版本数据为空
     hiveClient.partitionsAlterSQL(ps).foreach{x=>
-      sql(s"alter table ${unmatchedPerformanceDwiTable} add partition($x)")
+      sql(s"alter table ${unmatchedPerformanceDwiTable} add if not exists partition($x)")
     }
 
 

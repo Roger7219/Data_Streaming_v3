@@ -389,10 +389,10 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
     try {
       val c = cookie.asInstanceOf[HiveRollbackableTransactionCookie]
 
-      LOG.warn(s"Hive before commit starting, cookie: ${OM.toJOSN(cookie)}")
+      LOG.warn(s"Hive commit start, cookie: ${OM.toJOSN(cookie)}")
 
       if(c.isEmptyData) {
-        LOG.warn(s"Hive commit skiped, Because no data is inserted (into or overwrite) !!")
+        LOG.warn(s"Hive commit skipped, Because no data is inserted (into or overwrite) !!")
       }
       else {
         //Back up legacy data for possible rollback
