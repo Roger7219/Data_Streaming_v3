@@ -1275,7 +1275,7 @@ class GenericModule (config: Config,
         lastCommitTime = new Date()
         //      }
 
-        transactionManager.commitTransaction(true, tid, moduleName)
+        transactionManager.commitTransaction(true, moduleName, {})
         moduleTracer.trace("transaction commit ")
 //        traceBatchUsingTime("transaction manager commit", lastTraceTime, traceBatchUsingTimeLog)
 

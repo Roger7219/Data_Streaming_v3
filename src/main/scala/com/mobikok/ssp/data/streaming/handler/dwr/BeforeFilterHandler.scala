@@ -5,6 +5,7 @@ import com.mobikok.ssp.data.streaming.util.Logger
 import com.typesafe.config.Config
 import org.apache.spark.sql.DataFrame
 
+@deprecated
 class BeforeFilterHandler extends Handler {
 
   var LOG: Logger = _
@@ -22,8 +23,8 @@ class BeforeFilterHandler extends Handler {
     this.dwiWhere = handlerConfig.getString("where")
   }
 
-  override def handle(persistenceDwr: DataFrame): DataFrame = {
-    persistenceDwr
+  override def handle(unionedPersistenceDwr: DataFrame): DataFrame = {
+    unionedPersistenceDwr
   }
 
   override def prepare(dwi: DataFrame): DataFrame = {

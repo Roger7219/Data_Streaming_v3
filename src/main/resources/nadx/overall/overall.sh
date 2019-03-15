@@ -1,10 +1,10 @@
 spark-submit \
---name overall \
+--name nadx_overall \
 --class com.mobikok.ssp.data.streaming.OptimizedMixApp \
 --master yarn-cluster \
 --driver-memory 3g \
 --executor-memory 3g \
---executor-cores 1 \
+--executor-cores 3 \
 --num-executors 1 \
 --queue default \
 --files /usr/hdp/current/spark2-client/conf/hive-site.xml,/apps/data-streaming/nadx/overall/overall.conf \
@@ -30,7 +30,7 @@ hdfs:/libs/kafka-clients-0.10.1.0.jar,\
 hdfs:/libs/config-1.3.1.jar \
 --verbose \
 --conf spark.ui.port=1111 \
---conf spark.app.name=overall \
+--conf spark.app.name=nadx_overall \
 --conf spark.yarn.executor.memoryOverhead=2g  \
 /apps/data-streaming/nadx/overall/data-streaming.jar \
 overall.conf buration = 10 kill=true modules = overall_traffic,overall_performance

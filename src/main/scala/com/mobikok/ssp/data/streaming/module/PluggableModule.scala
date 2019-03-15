@@ -18,8 +18,7 @@ import com.mobikok.ssp.data.streaming.exception.ModuleException
 import com.mobikok.ssp.data.streaming.handler.Handler
 import com.mobikok.ssp.data.streaming.handler.dm.offline.{ClickHouseQueryByBDateHandler, ClickHouseQueryByBTimeHandler, ClickHouseQueryMonthHandler}
 import com.mobikok.ssp.data.streaming.handler.dwi.core.{HBaseDWIPersistHandler, HiveDWIPersistHandler, UUIDFilterDwiHandler}
-import com.mobikok.ssp.data.streaming.handler.dwr.UUIDFilterDwrHandler
-import com.mobikok.ssp.data.streaming.handler.dwr.core.{HiveDWRPersistDayHandler, HiveDWRPersistHandler, HiveDWRPersistMonthHandler}
+import com.mobikok.ssp.data.streaming.handler.dwr.core.{HiveDWRPersistDayHandler, HiveDWRPersistHandler, HiveDWRPersistMonthHandler, UUIDFilterDwrHandler}
 import com.mobikok.ssp.data.streaming.module.support.uuid.{DefaultUuidFilter, UuidFilter}
 import com.mobikok.ssp.data.streaming.module.support.{HiveContextGenerater, MixModulesBatchController, SQLContextGenerater}
 import com.mobikok.ssp.data.streaming.util._
@@ -611,8 +610,8 @@ class PluggableModule(config: Config,
     stream.foreachRDD { source =>
       try {
 
-        var order = System.currentTimeMillis()
-        moduleTracer.startBatch(order, "UN-BEGIN")
+        val order = mixTransactionManager.generateTransactionOrder(moduleName)
+        moduleTracer.startBatch(order, "INIT")
 
         val offsetRanges = source
           .asInstanceOf[HasOffsetRanges]
@@ -714,33 +713,33 @@ class PluggableModule(config: Config,
                 // 记录所有异步handler的数量
                 val asyncHandlers = new util.ArrayList[Handler]()
                 if (dwiHandlers != null) {
-                  LOG.warn(s"""dwi handlers:\n${dwiHandlers.map{ h => h.getClass.getName}.mkString("\n")}""")
+                  LOG.warn("dwi handlers", dwiHandlers.map{ h => h.getClass.getName})
                   asyncHandlers.addAll(dwiHandlers.filter{ h => h.isAsynchronous })
                 }
                 if (dwrHandlers != null && dwrHandlers.nonEmpty) {
                   if (!isMaster) {
                     throw new ModuleException("Module of include 'dwr.handler' must config: master=true")
                   }
-                  LOG.warn(s"""dwr handlers:\n${dwrHandlers.map{ h => h.getClass.getName}.mkString("\n")}""")
+                  LOG.warn("dwr handlers", dwrHandlers.map{ h => h.getClass.getName})
                   asyncHandlers.addAll(dwrHandlers.filter{ h => h.isAsynchronous })
                 }
                 if (dmOnlineHandlers != null && dmOnlineHandlers.nonEmpty) {
                   if (!isMaster) {
                     throw new ModuleException("Module of include 'dm.online.handler' must config: master=true")
                   }
-                  LOG.warn(s"""dm online handlers:\n${dmOnlineHandlers.map{ h => h.getClass.getName}.mkString("\n")}""")
+                  LOG.warn("dm online handlers", dmOnlineHandlers.map{ h => h.getClass.getName})
                   asyncHandlers.addAll(dmOnlineHandlers.filter{ h => h.isAsynchronous })
                 }
                 if (dmOfflineHandlers != null && dmOfflineHandlers.nonEmpty) {
                   if (!isMaster) {
                     throw new ModuleException("Module of include 'dm.online.handler' must config: master=true")
                   }
-                  LOG.warn(s"""dm offline handlers:\n${dmOfflineHandlers.map{ h => h.getClass.getName}.mkString("\n")}""")
+                  LOG.warn("dm offline handlers", dmOfflineHandlers.map{ h => h.getClass.getName})
                   asyncHandlers.addAll(dmOfflineHandlers.filter{ h => h.isAsynchronous })
                 }
-                LOG.warn(s"""asyncHandlers:\n ${asyncHandlers.map{ h => h.getClass.getName }.mkString("\n")}""")
+                LOG.warn("async handlers", asyncHandlers.map{ h => h.getClass.getName })
                 // 全局计数，记录异步执行的handler数量，异步执行完后再执行commit操作
-                val countDownLatch = new CountDownLatch(asyncHandlers.size())
+                val asyncHandlersCountDownLatch = new CountDownLatch(asyncHandlers.size())
 
 //                val transactionCookies = new util.ArrayList[(String, TransactionCookie)]()
 //                //-----------------------------------------------------------------------------------------------------------------
@@ -756,9 +755,10 @@ class PluggableModule(config: Config,
                 var handledDwi: DataFrame = dwi
                 if (dwiHandlers.nonEmpty) {
                   dwiHandlers.filter{ h => !h.isAsynchronous }.foreach{ h =>
+                    moduleTracer.trace(s"dwi ${h.getClass.getSimpleName} handle start")
                     val (middleDwi, _) = h.handle(handledDwi)
                     handledDwi = middleDwi
-                    moduleTracer.trace(s"dwi ${h.getClass.getSimpleName} handle")
+                    moduleTracer.trace(s"dwi ${h.getClass.getSimpleName} handle done")
                   }
                 }
                 if (handledDwi != dwi) {
@@ -775,8 +775,9 @@ class PluggableModule(config: Config,
                     throw new ModuleException("Module of include 'dwr.handler' must config: master=true")
                   }
                   dwrHandlers.filter( h => !h.isAsynchronous).foreach { h =>
+                    moduleTracer.trace(s"dwr ${h.getClass.getSimpleName} prepare start")
                     dwrDwi = h.prepare(dwrDwi)
-                    moduleTracer.trace(s"dwr ${h.getClass.getSimpleName} filter")
+                    moduleTracer.trace(s"dwr ${h.getClass.getSimpleName} prepare done")
                   }
                 }
 
@@ -808,9 +809,11 @@ class PluggableModule(config: Config,
                     throw new ModuleException("Module of include 'dwr.handler' must config: master=true")
                   }
                   dwrHandlers.filter{ h => !h.isAsynchronous }.foreach{ h =>
+                    moduleTracer.trace(s"dwr ${h.getClass.getSimpleName} handle start")
                     mixModulesBatchController.set({
                       h.handle(mixModulesBatchController.get())
                     })
+                    moduleTracer.trace(s"dwr ${h.getClass.getSimpleName} handle done")
                   }
                 }
 
@@ -823,9 +826,9 @@ class PluggableModule(config: Config,
                     throw new ModuleException("Module of include 'dwr.handler' must config: master=true")
                   }
                   dmOnlineHandlers.filter{ h => !h.isAsynchronous}.foreach{ h =>
-                    moduleTracer.trace(s"dm online handler ${h.getClass.getSimpleName} start handling")
+                    moduleTracer.trace(s"dm online ${h.getClass.getSimpleName} handle start")
                     h.handle(mixModulesBatchController.get())
-                    moduleTracer.trace(s"dm online handler ${h.getClass.getSimpleName} start handling")
+                    moduleTracer.trace(s"dm online ${h.getClass.getSimpleName} handle done")
                   }
                 }
 
@@ -838,68 +841,125 @@ class PluggableModule(config: Config,
                     throw new ModuleException("Module of include 'dwr.handler' must config: master=true")
                   }
                   dmOfflineHandlers.filter{ h => !h.isAsynchronous }.foreach{ h =>
-                    moduleTracer.trace(s"dm offline handler ${h.getClass.getSimpleName} start handling")
+                    moduleTracer.trace(s"dm offline ${h.getClass.getSimpleName} handle start")
                     h.handle()
-                    moduleTracer.trace(s"dm offline handler ${h.getClass.getSimpleName} finish handling")
+                    moduleTracer.trace(s"dm offline ${h.getClass.getSimpleName} handler done")
                   }
                 }
 
                 //-----------------------------------------------------------------------------------------------------------------
                 // Asynchronous handle
                 //-----------------------------------------------------------------------------------------------------------------
+                val pTheadId:java.lang.Long = Thread.currentThread().getId
                 if (asyncHandlers.nonEmpty) {
-                  if (isMaster) {
-                    mixModulesBatchController.get().cache()
-                    mixModulesBatchController.get().count()
-                  }
+                  startAsyncHandlersCountDownHeartbeats(asyncHandlersCountDownLatch)
+
                   asyncHandlers.foreach {
 
                     case dwiHandler: com.mobikok.ssp.data.streaming.handler.dwi.Handler =>
                       ThreadPool.execute {
-                        LOG.warn(s"dwi handle, className=${dwiHandler.getClass.getName}")
+                        val n = dwiHandler.getClass.getSimpleName
                         try {
+                          moduleTracer.startBatch(order, parentTid,  pTheadId, "    ")
+
+                          // handle
+                          LOG.warn(s"dwi async ${n} handle start")
+                          moduleTracer.trace(s"dwi async ${n} handle start")
                           dwiHandler.handle(handledDwi)
-                          countDownLatch.synchronized {
-                            countDownLatch.countDown()
-                          }
+                          moduleTracer.trace(s"dwi async ${n} handle done")
+                          LOG.warn(s"dwi async ${n} handle done")
+
+                          // commit
+                          LOG.warn(s"dwi async ${n} commit start")
+                          moduleTracer.trace(s"dwi async ${n} commit start")
+                          dwiHandler.commit(null)
+                          moduleTracer.trace(s"dwi async ${n} commit done")
+                          LOG.warn(s"dwi async ${n} commit done")
+
+                          asyncHandlersCountDownLatch.countDown()
                         } catch {
-                          case e: Exception => LOG.warn(ExceptionUtil.getStackTraceMessage(e))
+                          case e: Exception => LOG.warn("DWI asynchronous handle error", "handler", n, "exception",e)
                         }
                       }
                     case dwrHandler: com.mobikok.ssp.data.streaming.handler.dwr.Handler =>
                       ThreadPool.execute {
-                        LOG.warn(s"dwr handle, className=${dwrHandler.getClass.getName}")
+                        val n = dwrHandler.getClass.getSimpleName
                         try {
+                          moduleTracer.startBatch(order, parentTid, pTheadId, "    ")
+
+                          // handle
+                          LOG.warn(s"dwr async ${n} handle start")
+                          moduleTracer.trace(s"dwr async ${n} handle start")
                           dwrHandler.handle(mixModulesBatchController.get())
-                          countDownLatch.synchronized {
-                            countDownLatch.countDown()
+                          moduleTracer.trace(s"dwr async ${n} handle done")
+                          LOG.warn(s"dwr async ${n} handle done")
+
+                          // commit
+                          if(dwrHandler.isInstanceOf[Transactional]){
+                            LOG.warn(s"dwr async ${n} commit start")
+                            moduleTracer.trace(s"dwr async ${n} commit start")
+                            dwrHandler.asInstanceOf[Transactional].commit(null)
+                            moduleTracer.trace(s"dwr async ${n} commit done")
+                            LOG.warn(s"dwr async ${n} commit done")
                           }
+
+                          asyncHandlersCountDownLatch.countDown()
                         } catch {
-                          case e: Exception => LOG.warn(ExceptionUtil.getStackTraceMessage(e))
+                          case e: Exception => LOG.warn("DWR asynchronous handle error", "handler", n, "exception", e)
                         }
                       }
                     case dmOnlineHandler: com.mobikok.ssp.data.streaming.handler.dm.online.Handler =>
                       ThreadPool.execute {
-                        LOG.warn(s"dmOnline handle, className=${dmOnlineHandler.getClass.getName}")
+                        val n = dmOnlineHandler.getClass.getSimpleName
                         try {
+                          moduleTracer.startBatch(order, parentTid, pTheadId, "    ")
+
+                          // handle
+                          LOG.warn(s"dm online async ${n} handle start")
+                          moduleTracer.trace(s"dm online async ${n} handle start")
                           dmOnlineHandler.handle(mixModulesBatchController.get())
-                          countDownLatch.synchronized {
-                            countDownLatch.countDown()
+                          moduleTracer.trace(s"dm online async ${n} handle done")
+                          LOG.warn(s"dm online async ${n} handle done")
+
+                          // commit
+                          if(dmOnlineHandler.isInstanceOf[Transactional]){
+                            LOG.warn(s"dm online async ${n} commit start")
+                            moduleTracer.trace(s"dm online async ${n} commit start")
+                            dmOnlineHandler.asInstanceOf[Transactional].commit(null)
+                            moduleTracer.trace(s"dm online async ${n} commit done")
+                            LOG.warn(s"dm online async ${n} commit done")
                           }
+
+                          asyncHandlersCountDownLatch.countDown()
                         } catch {
-                          case e: Exception => LOG.warn(ExceptionUtil.getStackTraceMessage(e))
+                          case e: Exception => LOG.warn(s"DM online asynchronous handle error", "handler", n, "exception", e)
                         }
                       }
                     case dmOfflineHandler: com.mobikok.ssp.data.streaming.handler.dm.offline.Handler =>
                       ThreadPool.execute {
-                        LOG.warn(s"dmOffline handle, className=${dmOfflineHandler.getClass.getName}")
+                        val n = dmOfflineHandler.getClass.getSimpleName
                         try {
+                          moduleTracer.startBatch(order, parentTid, pTheadId, "    ")
+
+                          // handle
+                          LOG.warn(s"dm offline async handle start", n)
+                          moduleTracer.trace(s"dm offline async ${n} handle start")
                           dmOfflineHandler.handle()
-                          countDownLatch.synchronized {
-                            countDownLatch.countDown()
+                          moduleTracer.trace(s"dm offline async ${n} handle done")
+                          LOG.warn(s"dm offline async handle done", n)
+
+                          // commit
+                          if(dmOfflineHandler.isInstanceOf[Transactional]){
+                            LOG.warn(s"dm offline async ${n} commit start")
+                            moduleTracer.trace(s"dm offline async ${n} commit start")
+                            dmOfflineHandler.asInstanceOf[Transactional].commit(null)
+                            moduleTracer.trace(s"dm offline ${n} commit done")
+                            LOG.warn(s"dm offline async ${n} commit start")
                           }
+
+                          asyncHandlersCountDownLatch.countDown()
                         } catch {
-                          case e: Exception => LOG.warn(ExceptionUtil.getStackTraceMessage(e))
+                          case e: Exception => LOG.warn("dm offline asynchronous handle error", "handler", n, "exception", e)
                         }
                       }
                     case _ =>
@@ -944,53 +1004,98 @@ class PluggableModule(config: Config,
                 //------------------------------------------------------------------------------------
                 // Commit Transaction
                 //------------------------------------------------------------------------------------
-
-
-                dwiHandlers.filter{ x => !x.isAsynchronous }.foreach{ h => h.commit(null) }
-
-                if (dwrHandlerCookies != null) {
-                  dwrHandlers.filter{ x => x.isInstanceOf[Transactional] && !x.isAsynchronous }
-                    .foreach{ h => h.asInstanceOf[Transactional].commit(null) }
+                // Synchronous handler commit transaction
+                if(dwiHandlers != null) {
+                  dwiHandlers
+                    .filter{ x => !x.isAsynchronous }
+                    .foreach{ h =>
+                      moduleTracer.trace(s"dwi ${h.getClass.getSimpleName} commit start")
+                      h.commit(null)
+                      moduleTracer.trace(s"dwi ${h.getClass.getSimpleName} commit done")
+                    }
                 }
-
+                if (dwrHandlers != null) {
+                  dwrHandlers
+                    .filter{ x => x.isInstanceOf[Transactional] && !x.isAsynchronous }
+                    .foreach{ h =>
+                      moduleTracer.trace(s"dwr ${h.getClass.getSimpleName} commit start")
+                      h.asInstanceOf[Transactional].commit(null)
+                      moduleTracer.trace(s"dwr ${h.getClass.getSimpleName} commit done")
+                    }
+                }
                 if (dmOnlineHandlers != null) {
-                  dmOnlineHandlers.filter{ x => x.isInstanceOf[Transactional] && !x.isAsynchronous}
-                    .foreach{ h => h.asInstanceOf[Transactional].commit(null)}
+                  dmOnlineHandlers
+                    .filter{ x => x.isInstanceOf[Transactional] && !x.isAsynchronous}
+                    .foreach{ h =>
+                      moduleTracer.trace(s"dm online ${h.getClass.getSimpleName} commit start")
+                      h.asInstanceOf[Transactional].commit(null)
+                      moduleTracer.trace(s"dm online ${h.getClass.getSimpleName} commit done")
+                    }
                 }
-
                 if (dmOfflineHandlers != null) {
-                  dmOfflineHandlers.filter{ x => x.isInstanceOf[Transactional] && !x.isAsynchronous}
-                    .foreach{ h => h.asInstanceOf[Transactional].commit(null)}
+                  dmOfflineHandlers
+                    .filter{ x => x.isInstanceOf[Transactional] && !x.isAsynchronous}
+                    .foreach{ h =>
+                      moduleTracer.trace(s"dm offline ${h.getClass.getSimpleName} commit start")
+                      h.asInstanceOf[Transactional].commit(null)
+                      moduleTracer.trace(s"dm offline ${h.getClass.getSimpleName} commit done")
+                    }
                 }
 
-                // asynchronous handler await before commit
-                LOG.warn("wait all handlers commit")
+                moduleTracer.trace("kafka commit start")
+                kafkaClient.commit(kafkaT)
+                LOG.warn("kafkaClient offset committed", kafkaT)
+                moduleTracer.trace("kafka commit done")
 
-                startCountDownHeartbeats(countDownLatch)
-                countDownLatch.await()
-                LOG.warn("handlers commit finished!")
+                // Asynchronous handler commit transaction
+//                asyncHandlers
+//                  .filter{ h => h.isInstanceOf[Transactional] }
+//                  .par
+//                  .foreach{ h => h.asInstanceOf[Transactional].commit(null) }
 
-                asyncHandlers.filter{ h => h.isInstanceOf[Transactional] }
-                  .par.foreach{ h => h.asInstanceOf[Transactional].commit(null) }
+                // Wait all asynchronous handler commit transaction
+                LOG.warn("wait async handlers handle done")
+                asyncHandlersCountDownLatch.await()
+                LOG.warn("all async handlers commit done")
 
                 //------------------------------------------------------------------------------------
                 // Wait all module transaction commit
                 //------------------------------------------------------------------------------------
                 LOG.warn(s"wait transaction commit start", "tid", parentTid, "master", isMaster)
                 // Key code !!
-                moduleTracer.trace("wait master tx commit", {
-                  mixTransactionManager.waitAllModuleReadyCommit(isMaster, moduleName, {
-                    mixTransactionManager.commitTransaction(isMaster, parentTid, moduleName)
+                moduleTracer.trace("wait master tx commit start", {
+                  mixTransactionManager.commitTransaction(isMaster, moduleName, {
                     mixModulesBatchController.completeBatch(isMaster)
                   })
                 })
-                LOG.warn(s"wait transaction commit done")
+                LOG.warn(s"wait master tx commit done")
+                moduleTracer.trace("wait master tx commit done")
 
                 //------------------------------------------------------------------------------------
                 // Clean
                 //------------------------------------------------------------------------------------
                 if (dwi != null) dwi.unpersist()
                 if (handledDwi != null) handledDwi.unpersist()
+                // Asynchronous and synchronous handler clean
+                if(dwiHandlers != null) {
+                  dwiHandlers.foreach{ h => h.clean() }
+                }
+                if (isMaster) {
+                  if (dwrHandlers != null) {
+                    dwrHandlers.filter{h => h.isInstanceOf[Transactional]}.par.foreach{h => h.asInstanceOf[Transactional].clean()}
+                  }
+                  if (dmOnlineHandlers != null) {
+                    dmOnlineHandlers.filter{ h => h.isInstanceOf[Transactional]}.par.foreach{h => h.asInstanceOf[Transactional].clean()}
+                  }
+                  if (dmOfflineHandlers != null) {
+                    dmOfflineHandlers.filter{ h => h.isInstanceOf[Transactional]}.par.foreach{h => h.asInstanceOf[Transactional].clean()}
+                  }
+                }
+
+                kafkaClient.clean(popNeedCleanTransactions(COOKIE_KIND_KAFKA_T, parentTid): _*)
+
+                moduleTracer.trace("clean done")
+
                 // 清理上一次启动的产生的事务数据
                 if (!mixTransactionManager.needTransactionalAction()) {
                   if (hiveCleanable != null) {
@@ -1014,21 +1119,6 @@ class PluggableModule(config: Config,
                     phoenixCleanable = null
                   }
                 }
-
-                dwiHandlers.foreach{ h => h.clean() }
-                if (isMaster) {
-                  if (dwrHandlers != null) {
-                    dwrHandlers.filter{h => h.isInstanceOf[Transactional]}.par.foreach{h => h.asInstanceOf[Transactional].clean()}
-                  }
-                  if (dmOnlineHandlers != null) {
-                    dmOnlineHandlers.filter{ h => h.isInstanceOf[Transactional]}.par.foreach{h => h.asInstanceOf[Transactional].clean()}
-                  }
-                  if (dmOfflineHandlers != null) {
-                    dmOfflineHandlers.filter{ h => h.isInstanceOf[Transactional]}.par.foreach{h => h.asInstanceOf[Transactional].clean()}
-                  }
-                }
-
-                kafkaClient.clean(popNeedCleanTransactions(COOKIE_KIND_KAFKA_T, parentTid): _*)
 
 //                LOG.warn(moduleName, "clean kafka and set module status idle")
 //                GlobalAppRunningStatusV2.setStatus(concurrentGroup, moduleName, GlobalAppRunningStatusV2.STATUS_IDLE)
@@ -1154,15 +1244,13 @@ class PluggableModule(config: Config,
 
   }
 
-  def startCountDownHeartbeats(countDownLatch: CountDownLatch): Unit = {
+  def startAsyncHandlersCountDownHeartbeats(countDownLatch: CountDownLatch): Unit = {
 
     ThreadPool.execute {
       var b = true
       while (b) {
         if (countDownLatch.getCount > 0) {
-          countDownLatch.synchronized {
-            LOG.warn(s"$moduleName left task count are: ${countDownLatch.getCount}")
-          }
+           LOG.warn(s"$moduleName async handler executing count: ${countDownLatch.getCount}")
         } else {
           b = false
         }

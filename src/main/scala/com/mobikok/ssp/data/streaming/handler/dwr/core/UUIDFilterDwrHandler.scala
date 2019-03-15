@@ -1,5 +1,6 @@
-package com.mobikok.ssp.data.streaming.handler.dwr
+package com.mobikok.ssp.data.streaming.handler.dwr.core
 
+import com.mobikok.ssp.data.streaming.handler.dwr.BeforeFilterHandler
 import com.mobikok.ssp.data.streaming.module.support.uuid.UuidFilter
 import org.apache.spark.sql.DataFrame
 
@@ -10,10 +11,12 @@ class UUIDFilterDwrHandler extends BeforeFilterHandler {
   def this(uuidFilter: UuidFilter) {
     this()
     this.uuidFilter = uuidFilter
+    // 预处理必须是同步的
+    isAsynchronous = false
   }
 
-  override def handle(persistenceDwr: DataFrame): DataFrame = {
-    persistenceDwr
+  override def handle(unionedPersistenceDwr: DataFrame): DataFrame = {
+    unionedPersistenceDwr
   }
 
   override def prepare(dwi: DataFrame): DataFrame = {

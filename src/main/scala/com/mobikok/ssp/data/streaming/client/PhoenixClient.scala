@@ -213,13 +213,13 @@ class PhoenixClient (moduleName:String, sc: SparkContext, config: Config, transa
   override def rollback (cookies: TransactionCookie*): Cleanable = {
     val cleanable = new Cleanable()
     if (cookies.isEmpty) {
-      LOG.warn(s"KafkaClient rollback started(cookies is empty)")
+      LOG.warn(s"PhoenixClient rollback started(cookies is empty)")
       //...
       return cleanable
     }
-    LOG.warn(s"KafkaClient rollback started(cookies not empty)")
+    LOG.warn(s"PhoenixClient rollback started(cookies not empty)")
     //...
-    LOG.warn(s"KafkaClient rollback completed")
+    LOG.warn(s"PhoenixClient rollback completed")
     cleanable
   }
 

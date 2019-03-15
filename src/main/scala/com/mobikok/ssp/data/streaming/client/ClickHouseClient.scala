@@ -1046,7 +1046,7 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
   private def uploadToClickHouseSingleTable(targetTable: String, sourceTable: String, host: String, data: Dataset[String]): Boolean = {
 //    sql(s"CREATE TABLE IF NOT EXISTS $targetTable as $sourceTable")
     val fileCount = (data.count() / 2000000 + 1).toInt    // 200w条数据为一个文件
-    LOG.warn(s"Data count: ${data.count()}, fileCount: $fileCount")
+    LOG.warn("uploadToClickHouseSingleTable", "dataCount", data.count(), "fileCount", fileCount)
     val dataArray = data.repartition(fileCount).rdd.mapPartitions{ rows =>
       val buffer = new Buffer()
       rows.foreach{ row =>
@@ -1246,7 +1246,7 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
   }
 
   def sql(sql: String, tryAgainWhenError: Boolean = false): String = {
-    LOG.warn(s"execute clickhouse sql:\n$sql")
+    LOG.warn(s"execute sql", sql)
     if (tryAgainWhenError) {
       RunAgainIfError.run{
         sendSQLToClickHouse(sql)

@@ -162,7 +162,16 @@ class TransactionManager(config: Config) {
     }
   }
 
-  def commitTransaction (isMasterModule: Boolean, parentTransactionId: String, moduleName: String) = {
+  private val transactionOrderTimeFormat = CSTTime.formatter("yyyyMMddHHmmssSSS")
+
+  def newTransactionOrder(moduleName: String): java.lang.Long = {
+    TransactionManager.syncLock.synchronized{
+      Thread.sleep(1)
+      return java.lang.Long.valueOf(transactionOrderTimeFormat.format(new Date))
+    }
+  }
+
+  protected def commitTransaction0(isMasterModule: Boolean, parentTransactionId: String, moduleName: String) = {
     currBatchTransactionIdIncrCache.clear()
     mySqlJDBCClient.execute(
       s"""

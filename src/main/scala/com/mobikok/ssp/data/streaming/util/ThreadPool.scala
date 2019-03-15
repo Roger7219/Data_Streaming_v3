@@ -28,7 +28,7 @@ object ThreadPool {
 
 
   // 在多层嵌套的线程池调用中如果线程池的数量太少会造成死锁,最少数量为最底层之前所有线程之和+1
-  private val threadPool = ExecutorServiceUtil.createdExecutorService(100)
+  private val threadPool = ExecutorServiceUtil.createdExecutorService(500)
 
   def concurrentExecuteStatic(runnables: Runnable*): Unit = {
     val countDownLatch = new CountDownLatch(runnables.length)

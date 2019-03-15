@@ -39,6 +39,7 @@ class ModuleTracer(moduleName: String, config: Config, mixModulesBatchController
   @volatile private var moduleBatchEndTime: Long = System.currentTimeMillis()
   @volatile private var checkCurrBatchWaitTimePollingThread: Thread = null
 
+
   //mixModulesBatchController == null 为了兼容此前的
 
   if(mixModulesBatchController == null || mixModulesBatchController.isRunnable(moduleName)) {
@@ -57,6 +58,11 @@ class ModuleTracer(moduleName: String, config: Config, mixModulesBatchController
 
   private var lastTraceTime = new ThreadLocal[Long]()//new Date().getTime
   private var traceBatchUsingTimeLog = new ThreadLocal[mutable.ListBuffer[String]]()//mutable.ListBuffer[String]()
+  private var threadPrefix = new ThreadLocal[String](){
+    override protected def initialValue: String = {
+      ""
+    }
+  }
 
   private var historyBatchCollector = new FixedList[mutable.ListBuffer[String]](recordHistoryBatches)
 
@@ -74,6 +80,10 @@ class ModuleTracer(moduleName: String, config: Config, mixModulesBatchController
     trace(s"thread: ${Thread.currentThread().getId}")
   }
   def startBatch(transactionOrder: Long, parentTid: String): Unit = {
+    startBatch(transactionOrder, parentTid, null, "")
+  }
+
+  def startBatch(transactionOrder: Long, parentTid: String, parentThreadId: java.lang.Long, prefix: String): Unit = {
     batchBeginTime.set(new Date().getTime)
     batchContinueTime.set(batchBeginTime.get())
     batchActualTime.set(0)
@@ -83,8 +93,13 @@ class ModuleTracer(moduleName: String, config: Config, mixModulesBatchController
     var b = mutable.ListBuffer[String]()
     historyBatchCollector.add(b)
     traceBatchUsingTimeLog.set(b)
+    threadPrefix.set(prefix)
 
-    trace(s"thread: ${Thread.currentThread().getId}, order: ${transactionOrder}, parentTid: ${parentTid}")
+    if(parentThreadId != null) {
+      trace(s"thread: ${Thread.currentThread().getId}, pThread: ${parentThreadId}, order: ${transactionOrder}, pTid: ${parentTid}")
+    }else {
+      trace(s"thread: ${Thread.currentThread().getId}, order: ${transactionOrder}, pTid: ${parentTid}")
+    }
   }
 
   def endBatch(): Unit ={
@@ -115,11 +130,11 @@ class ModuleTracer(moduleName: String, config: Config, mixModulesBatchController
   def trace (title: String) = {
     val ms = System.currentTimeMillis() - lastTraceTime.get()
     val m = traceBatchUsingTimeFormat.format((100.0*ms/1000/60).asInstanceOf[Int]/100.0)
+    lastTraceTime.set(new Date().getTime)
     if (traceBatchUsingTimeLog.get() == null) {
       startBatch
     }
-    traceBatchUsingTimeLog.get().append(s"${CSTTime.now.time}  $m  $title")
-    lastTraceTime.set(new Date().getTime)
+    traceBatchUsingTimeLog.get().append(s"${CSTTime.now.time}  $m  ${threadPrefix.get()}$title")
   }
 
   private def updatableTrace (title: String) = {

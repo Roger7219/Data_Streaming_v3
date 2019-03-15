@@ -87,7 +87,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 
       val fileNumber = aHivePartitionRecommendedFileNumber("HiveClient into repartition", shufflePartitions, df.rdd.getNumPartitions, ps.length)
 //      val parts = sparkPartitionNum("HiveClient into repartition", shufflePartitions, df.rdd.getNumPartitions, ps.length)
-      moduleTracer.trace(s"    into repartition fs: $fileNumber, rs: ${df.rdd.getNumPartitions}, ps: ${ps.length}")
+      moduleTracer.trace(s"        into repartition fs: $fileNumber, rs: ${df.rdd.getNumPartitions}, ps: ${ps.length}")
 
       if(!transactionManager.needTransactionalAction()) {
 
@@ -113,7 +113,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
         .mode(SaveMode.Append)
         .insertInto(tt)
 
-      moduleTracer.trace("    write transactional pluggable table")
+      moduleTracer.trace("        into table done")
 
       new HiveRollbackableTransactionCookie(
         transactionParentId,
@@ -145,7 +145,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
       }
       .collect()
 
-    moduleTracer.trace("    get update partitions")
+    moduleTracer.trace("        get update partitions")
     into(transactionParentId, table, df, ps)
   }
 
@@ -169,7 +169,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
           HivePartitionPart(y, x.getAs[String](y))
         }
       }
-    moduleTracer.trace("    get update partitions")
+    moduleTracer.trace("        get update partitions")
 
     overwriteUnionSum(transactionParentId, table, newDF, aggExprsAlias, unionAggExprsAndAlias, groupByFields, ps, partitionField, partitionFields:_*)
   }
@@ -206,7 +206,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
         .table(table)
         .where(w)
 
-      moduleTracer.trace("    read hive data for union")
+      moduleTracer.trace("        read hive data for union")
 
       // Group by fields with partition fields
       val gs = (groupByFields :+ partitionField) ++ partitionFields
@@ -228,7 +228,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 
       val fileNumber = aHivePartitionRecommendedFileNumber("HiveClient unionSum repartition", shufflePartitions, updated.rdd.getNumPartitions, ps.length)
 //      val parts = sparkPartitionNum("HiveClient unionSum repartition", shufflePartitions, updated.rdd.getNumPartitions, ps.length)
-      moduleTracer.trace(s"    union sum repartition fs: ${fileNumber}, rs: ${updated.rdd.getNumPartitions}, ps: ${ps.length}")
+      moduleTracer.trace(s"        union sum repartition fs: ${fileNumber}, rs: ${updated.rdd.getNumPartitions}, ps: ${ps.length}")
 
       if(transactionManager.needTransactionalAction()) {
         //支持事务，先写入临时表，commit()时在写入目标表
@@ -257,7 +257,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 
       val isE = newDF.take(1).isEmpty
 
-      moduleTracer.trace("    union sum and write")
+      moduleTracer.trace("        union sum and write")
 
       new HiveRollbackableTransactionCookie(
         transactionParentId,
@@ -303,7 +303,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 
       val fileNumber = aHivePartitionRecommendedFileNumber("HiveClient overwrite repartition", shufflePartitions, df.rdd.getNumPartitions, ps.length)
 //      val parts = sparkPartitionNum("HiveClient overwrite repartition", shufflePartitions, df.rdd.getNumPartitions, ps.length)
-      moduleTracer.trace(s"    overwrite repartition fs: $fileNumber, rs: ${df.rdd.getNumPartitions}, ps: ${ps.length}")
+      moduleTracer.trace(s"        overwrite repartition fs: $fileNumber, rs: ${df.rdd.getNumPartitions}, ps: ${ps.length}")
 
       if(!transactionManager.needTransactionalAction()) {
         df.repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
@@ -437,7 +437,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
         //hivePartitions不一定是df.rdd.getNumPartitions, 待优化
         val fileNumber = aHivePartitionRecommendedFileNumber("HiveClient read for backup repartition", shufflePartitions, df.rdd.getNumPartitions, backPs)
 //        val parts = sparkPartitionNum("HiveClient read for backup repartition", shufflePartitions, df.rdd.getNumPartitions, df.rdd.getNumPartitions)
-        moduleTracer.trace(s"    read for backup repartition fs: $fileNumber, rs: ${df.rdd.getNumPartitions}, ps: ${backPs}")
+        moduleTracer.trace(s"        read for backup repartition fs: $fileNumber, rs: ${df.rdd.getNumPartitions}, ps: ${backPs}")
 
         df.repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
           .write
@@ -445,9 +445,9 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
           .mode(SaveMode.Overwrite)
           .insertInto(c.transactionalProgressingBackupTable)
 
-        moduleTracer.trace("    insert into progressing backup table")
+        moduleTracer.trace("        insert into progressing backup table")
         sql(s"alter table ${c.transactionalProgressingBackupTable} rename to ${c.transactionalCompletedBackupTable}")
-        moduleTracer.trace("    rename to completed backup table")
+        moduleTracer.trace("        rename to completed backup table")
   //      hiveContext.sql(s"alter table ${c.transactionalProgressingBackupTable} rename to ${c.transactionalCompletedBackupTable}")
 
         //Commit critical code
@@ -457,7 +457,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 
         val fileNumber2 = aHivePartitionRecommendedFileNumber("HiveClient read pluggable table repartition", shufflePartitions, df2.rdd.getNumPartitions, c.partitions.length)
 //        val parts2 = sparkPartitionNum("HiveClient read pluggable table repartition", shufflePartitions, df2.rdd.getNumPartitions, c.partitions.length)
-        moduleTracer.trace(s"    read pluggable repartition fs: $fileNumber2, rs: ${df2.rdd.getNumPartitions}, ps: ${c.partitions.length}")
+        moduleTracer.trace(s"        read pluggable repartition fs: $fileNumber2, rs: ${df2.rdd.getNumPartitions}, ps: ${c.partitions.length}")
 
         df2
           .repartition(fileNumber2*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber2}) ) )"))
@@ -466,7 +466,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
           .mode(c.saveMode)
           .insertInto(c.targetTable)
 
-          moduleTracer.trace("    insert into target table")
+          moduleTracer.trace("        insert into target table")
       }
 
       tryAsyncCompaction(c)

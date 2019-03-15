@@ -1596,9 +1596,9 @@ class MixModule (config: Config,
 
           moduleTracer.pauseBatch()
           LOG.warn(s"wait transaction commit starting", s"tid:  $parentTid\nmaster: $isMaster")
-          mixTransactionManager.waitAllModuleReadyCommit(isMaster, moduleName, {
+          mixTransactionManager.commitTransaction(isMaster, moduleName, {
             //            if (isEnableDwr) {
-            mixTransactionManager.commitTransaction(isMaster, parentTid, moduleName)
+//            mixTransactionManager.commitTransaction0(isMaster, parentTid, moduleName)
             mixModulesBatchController.completeBatch(isMaster)
             //            }
           })

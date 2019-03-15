@@ -1,5 +1,7 @@
 package com.mobikok.ssp.data.streaming.handler.dwi
 
+import java.util
+
 import com.mobikok.message.client.MessageClient
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.client.cookie.TransactionCookie
@@ -11,8 +13,11 @@ import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{IntegerType, LongType, StringType, StructField}
 import org.apache.spark.storage.StorageLevel
+import scala.collection.JavaConversions._
 
 class NadxPerformanceHandler extends Handler {
+
+  val batchTransactionCookiesCache = new util.ArrayList[TransactionCookie]()
 
   var unmatchedPerformanceDwiTable = "nadx_overall_performance_unmatched_dwi"
   var trafficTable = "nadx_overall_traffic_dwi"
@@ -34,6 +39,8 @@ class NadxPerformanceHandler extends Handler {
     var df = joinTrafficData(newDwi, newDWIBTs, unM._1,  unM._2)
 
     cookie = saveUnMatchedPerformance(df._2, unM._2)
+
+    batchTransactionCookiesCache.add(cookie)
 
     LOG.warn(s"NadxPerformanceHandler handle done")
     (df._1, Array())
@@ -391,18 +398,15 @@ class NadxPerformanceHandler extends Handler {
 
   override def clean (cookies: TransactionCookie*): Unit = {
     joinedDF.unpersist()
-    hiveClient.clean(cookie)
+
+    var result = Array[TransactionCookie]()
+
+    val mixTransactionManager = transactionManager.asInstanceOf[MixTransactionManager]
+    if (mixTransactionManager.needTransactionalAction()) {
+      val needCleans = batchTransactionCookiesCache.filter(!_.parentId.equals(mixTransactionManager.getCurrentTransactionParentId()))
+      result = needCleans.toArray
+      batchTransactionCookiesCache.removeAll(needCleans)
+    }
+    hiveClient.clean(result:_*)
   }
 }
-
-//object  mm {
-//  def main(args: Array[String]): Unit = {
-//    MC.init(new MessageClient("http://node14:5555"))
-//    MC.pullBTimeDesc("NadxPerformanceHandlerCer", Array("nadx_overall_traffic_dwi"), {x=>
-//      println(1111)
-//      false
-//    })
-//
-//    println("33333333")
-//  }
-//}

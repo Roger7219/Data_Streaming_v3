@@ -17,7 +17,7 @@ import com.mobikok.ssp.data.streaming.entity.{HivePartitionPart, LatestOffsetRec
 import com.mobikok.ssp.data.streaming.exception.ModuleException
 import com.mobikok.ssp.data.streaming.handler.dm.offline.{ClickHouseQueryByBDateHandler, ClickHouseQueryByBTimeHandler, ClickHouseQueryMonthHandler, Handler}
 import com.mobikok.ssp.data.streaming.handler.dwi.core.UUIDFilterDwiHandler
-import com.mobikok.ssp.data.streaming.handler.dwr.UUIDFilterDwrHandler
+import com.mobikok.ssp.data.streaming.handler.dwr.core.UUIDFilterDwrHandler
 import com.mobikok.ssp.data.streaming.module.support._
 import com.mobikok.ssp.data.streaming.module.support.uuid.{DefaultUuidFilter, UuidFilter}
 import com.mobikok.ssp.data.streaming.util._
@@ -1279,8 +1279,8 @@ class FasterModule(config: Config,
                 LOG.warn(s"wait transaction commit start", "tid", parentTid, "master", isMaster)
                 // Key code !!
                 moduleTracer.trace("wait master tx commit", {
-                  mixTransactionManager.waitAllModuleReadyCommit(isMaster, moduleName, {
-                    mixTransactionManager.commitTransaction(isMaster, parentTid, moduleName)
+                  mixTransactionManager.commitTransaction(isMaster, moduleName, {
+//                    mixTransactionManager.commitTransaction0(isMaster, parentTid, moduleName)
                     mixModulesBatchController.completeBatch(isMaster)
                   })
                 })
