@@ -185,7 +185,7 @@ class ShareDwrTableModulesBatchController (dwrShareTable: String, mixTransaction
       override def onCallback (): Unit = {
         moduleNamesMappingCurrBatchModuleUnionReadied.put(moudleName, false)
         moduleIsMasterOfSettingFilePlainVlaueMap.put(moudleName, isMaster)
-        mixTransactionManager.addMoudleName(moudleName)
+        mixTransactionManager.addModuleName(moudleName)
       }
     }, lock)
 

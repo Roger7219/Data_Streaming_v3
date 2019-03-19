@@ -7,12 +7,13 @@ import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.client.cookie.TransactionCookie
 import com.mobikok.ssp.data.streaming.config.RDBConfig
 import com.mobikok.ssp.data.streaming.entity.{HivePartitionPart, SspUserIdHistory}
-import com.mobikok.ssp.data.streaming.util.{CSTTime, MC, OM, PushReq}
+import com.mobikok.ssp.data.streaming.util._
 import com.typesafe.config.Config
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{IntegerType, LongType, StringType, StructField}
 import org.apache.spark.storage.StorageLevel
+
 import scala.collection.JavaConversions._
 
 class NadxPerformanceHandler extends Handler {
@@ -24,6 +25,7 @@ class NadxPerformanceHandler extends Handler {
   var cookie: TransactionCookie = _
   var dwiBTimeFormat = "yyyy-MM-dd HH:00:00"
   var joinedDF: DataFrame = null
+  var unMatchedPerformanceDf: DataFrame = null
 
   override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, handlerConfig: Config, globalConfig: Config, expr: String, as: Array[String]): Unit = {
     super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, handlerConfig, globalConfig, expr, as)
@@ -47,68 +49,73 @@ class NadxPerformanceHandler extends Handler {
   }
 
   def selectUnMatchedPerformanceByTrafficDWIPartitionMessage(): (DataFrame, Array[Array[HivePartitionPart]]) = {
-    var df: DataFrame = null
+
     var ps: Array[Array[HivePartitionPart]] = Array()
 
     // 读取hive以前没有匹配到的Performance数据
+    // pullBTimeDescTail无值时不调用，pullBTimeDesc无值时也调用，待改
     MC.pullBTimeDesc("NadxPerformanceHandlerCer", Array(trafficTable), {x=>
 
-      var bts = x.map{y=>Array(y)}.toArray[Array[HivePartitionPart]]
-      val where = hiveClient.partitionsWhereSQL(bts)
+      if(x.size > 0) {
+        var bts = x.map{y=>Array(y)}.toArray[Array[HivePartitionPart]]
+        val where = hiveClient.partitionsWhereSQL(bts)
 
-      // b_version +1是为了再次写入（如果没有匹配到流量数据）
-      df = sql(
-        s"""
-           |select
-           |  repeats,
-           |  rowkey,
-           |
-           |  `type`,
-           |  bidTime,
-           |  supplyid,
-           |  bidid,
-           |  impid,
-           |  price,
-           |  cur,
-           |  withPrice,
-           |  eventType,
-           |
-           |  repeated,
-           |  l_time,
-           |  b_date,
-           |  b_time,
-           |  cast(cast(b_version as int) + 1 as string) as b_version
-           |
-           |from $unmatchedPerformanceDwiTable where (b_time, b_version) in (
-           |  select b_time, b_version
-           |  from (
-           |    select
-           |      row_number() over(partition by b_time order by cast(b_version as int) desc) as version_num,
-           |      b_time,
-           |      b_version
-           |    from $unmatchedPerformanceDwiTable
-           |    where $where
-           |  )t0 where version_num = 1
-           |)
-           |""".stripMargin)
+        // b_version +1是为了再次写入（如果没有匹配到流量数据）
+        RunAgainIfError.run{
+          unMatchedPerformanceDf = sql(
+            s"""
+               |select
+               |  repeats,
+               |  rowkey,
+               |
+               |  `type`,
+               |  bidTime,
+               |  supplyid,
+               |  bidid,
+               |  impid,
+               |  price,
+               |  cur,
+               |  withPrice,
+               |  eventType,
+               |
+               |  repeated,
+               |  l_time,
+               |  b_date,
+               |  b_time,
+               |  cast(cast(b_version as int) + 1 as string) as b_version
+               |
+               |from $unmatchedPerformanceDwiTable where $where AND (b_time, b_version) in (
+               |  select b_time, b_version
+               |  from (
+               |    select
+               |      row_number() over(partition by b_time order by cast(b_version as int) desc) as version_num,
+               |      b_time,
+               |      b_version
+               |    from $unmatchedPerformanceDwiTable
+               |    where $where
+               |  )t0 where version_num = 1
+               |)
+               |""".stripMargin)
+
+          unMatchedPerformanceDf.cache()
+
+          val ts = Array("repeated", "l_time", "b_date", "b_time", "b_version")
+
+          ps = unMatchedPerformanceDf
+            .dropDuplicates(ts)
+            .collect()
+            .map { x =>
+              ts.map { y =>
+                HivePartitionPart(y, x.getAs[String](y))
+              }
+            }
+        }
+      }
 
       true
     })
 
-    val ts = Array("repeated", "l_time", "b_date", "b_time", "b_version")
-
-    if(df != null) {
-     ps = df
-      .dropDuplicates(ts)
-      .collect()
-      .map { x =>
-        ts.map { y =>
-          HivePartitionPart(y, x.getAs[String](y))
-        }
-      }
-    }
-
-    (df, ps)
+    (unMatchedPerformanceDf, ps)
   }
 
 
@@ -420,6 +427,7 @@ class NadxPerformanceHandler extends Handler {
 
   override def clean (cookies: TransactionCookie*): Unit = {
     joinedDF.unpersist()
+    if(unMatchedPerformanceDf != null) unMatchedPerformanceDf.unpersist()
 
     var result = Array[TransactionCookie]()
 

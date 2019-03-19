@@ -170,7 +170,7 @@ class MixModulesBatchController(config:Config, runnableModuleNames: Array[String
         .groupBy(col("l_time") :: col("b_date") :: col("b_time"):: col("b_version") :: dwrGroupByDimensionFieldsAlias: _*)
         .agg(dwrGroupByUnionAggExprsAndAlias.head, dwrGroupByUnionAggExprsAndAlias.tail: _*)
 
-      cacheGroupByDwr.cache()// persist(StorageLevel.MEMORY_ONLY_SER)
+      cacheGroupByDwr.persist(StorageLevel.MEMORY_ONLY_SER)
 
       cacheGroupByDwr.count()//触发persist
       currBatchUnionAllAndPersisted = true
@@ -221,11 +221,11 @@ class MixModulesBatchController(config:Config, runnableModuleNames: Array[String
   def addMoudle(moduleName: String, isMasterOfConfigSpecify:Boolean): Unit = {
     synchronizedCall(new Callback {
       override def onCallback (): Unit = {
-        LOG.warn("Add addMoudle", "moudleName", moduleName, "isMasterOfConfigSpecify", isMasterOfConfigSpecify, "runnableModuleNames", runnableModuleNames)
+        LOG.warn("Add Moudle", "moudleName", moduleName, "isMasterOfConfigSpecify", isMasterOfConfigSpecify, "runnableModuleNames", runnableModuleNames)
         if(runnableModuleNames.contains(moduleName)) {
           moduleNamesMappingCurrBatchModuleUnionReadied.put(moduleName, false)
           moduleIsMasterOfSettingFilePlainVlaueMap.put(moduleName, isMasterOfConfigSpecify)
-          mixTransactionManager.addMoudleName(moduleName)
+          mixTransactionManager.addModuleName(moduleName)
         }
         allMixModuleNames.add(moduleName)
 

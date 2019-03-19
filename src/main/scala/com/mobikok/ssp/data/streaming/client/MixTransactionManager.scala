@@ -48,26 +48,17 @@ class MixTransactionManager (config: Config, transactionalStrategy: Transactiona
   @volatile private var STRATEGY_LOCK = new Object
 
   //  @volatile private var moduleNames :java.util.HashSet[String] = new util.HashSet[String]()
-  //  @volatile private var countDownLatch: CountDownLatch = null
+    @volatile private var countDownLatch: CountDownLatch = null
 
   @volatile private var isAllModuleTransactionCommited:Boolean = true
 
   @volatile private var moudleTransactionOrders = new java.util.HashMap[String,util.List[Long]]()
   @volatile private var moduleCurrentTransactionOrder:java.util.Map[String, java.lang.Long]  = new util.HashMap[String, java.lang.Long]()
-  @volatile private var currentBatchTransactionOrder: java.lang.Long = null
   @volatile private var mixModuleNames = new util.ArrayList[String]()
 
 
   def generateTransactionOrder(moduleName: String): java.lang.Long ={
-    synchronizedCall(new Callback() {
-      override def onCallback(): Unit = {
-        if(currentBatchTransactionOrder == null) {
-          currentBatchTransactionOrder = newTransactionOrder(moduleName)
-        }
-      }
-    }, LOCK)
-
-    currentBatchTransactionOrder
+    return newTransactionOrder(moduleName)
   }
 
   //  @volatile private var currBatchNeedTransactionalPersistence: Option[Boolean] = None
@@ -216,7 +207,7 @@ class MixTransactionManager (config: Config, transactionalStrategy: Transactiona
     }
   }
 
-  var uninitializedBatch = true
+  var uninitializedCurrentBatch = true
 
   override def beginTransaction(moduleName: String, groupName: String, order: Long): String = {
 
@@ -227,12 +218,14 @@ class MixTransactionManager (config: Config, transactionalStrategy: Transactiona
 
         //        isAllModuleTransactionCommited = false
         //        moduleTransactionRunningMap.put(moduleName, true)
-        LOG.warn(" Obtain begin transaction", "module", moduleName, "order", order)
+        LOG.warn(" Obtain begin transaction", "module", moduleName, "order", order, "uninitializedCurrentBatch", uninitializedCurrentBatch)
 
-        if(uninitializedBatch/*transactionActionStatus == TRANSACTION_ACTION_STATUS_READY || transactionActionStatus == TRANSACTION_ACTION_STATUS_COMMITED*/ /*transactionParentIdCache == null*/) {
+        if(uninitializedCurrentBatch/*transactionActionStatus == TRANSACTION_ACTION_STATUS_READY || transactionActionStatus == TRANSACTION_ACTION_STATUS_COMMITED*/ /*transactionParentIdCache == null*/) {
           // Key code !!
           transactionalStrategy.initBatch()
-          uninitializedBatch = false
+          uninitializedCurrentBatch = false
+          isAllModuleTransactionCommited = false
+          countDownLatch = new CountDownLatch(mixModuleNames.size())
 
           //          //效验状态
           //          moduleNamesMappingCurrBatchModuleCommitReadied.entrySet().foreach{x=>
@@ -307,33 +300,35 @@ class MixTransactionManager (config: Config, transactionalStrategy: Transactiona
 
     readyCommitModules.add(moduleName)
 
-    if(isMasterModule) {
-      isAllModuleTransactionCommited = false
-    }
+
+//    if(isMasterModule) {
+//      isAllModuleTransactionCommited = false
+//    }
 
     //Wait for all module readied
-    var b = true
-    while(b) {
-      var allReadied = true
-      synchronizedCall(new Callback {
-        override def onCallback (): Unit = {
-          mixModuleNames.foreach{x=>
-            if(!readyCommitModules.contains(x)  && allReadied) {
-              allReadied = false
-            }
-          }
-        }
-      }, LOCK)
+//    var b = true
+//    while(b) {
+//      var allReadied = true
+//      synchronizedCall(new Callback {
+//        override def onCallback (): Unit = {
+//          mixModuleNames.foreach{x=>
+//            if(!readyCommitModules.contains(x)  && allReadied) {
+//              allReadied = false
+//            }
+//          }
+//        }
+//      }, LOCK)
+//
+//      if(allReadied) {
+//        b = false
+//        //        countDownLatch.countDown()
+//      }else {
+//        Thread.sleep(100)
+//      }
+//    }
+    countDownLatch.countDown()
 
-      if(allReadied) {
-        b = false
-        //        countDownLatch.countDown()
-      }else {
-        Thread.sleep(100)
-      }
-    }
-
-    //    countDownLatch.await()
+    countDownLatch.await()
 
     commitTransaction0(isMasterModule, getCurrentTransactionParentId(), moduleName)
     commitCallback
@@ -341,9 +336,9 @@ class MixTransactionManager (config: Config, transactionalStrategy: Transactiona
     if(isMasterModule) {
       isAllModuleTransactionCommited = true
       // reset
-      currentBatchTransactionOrder = null
-      readyCommitModules = new java.util.HashSet[String]()
-      uninitializedBatch = true
+      readyCommitModules.clear()
+      countDownLatch = null
+      uninitializedCurrentBatch = true
     } else {
       // Wait master module reset
       while(!isAllModuleTransactionCommited) {
@@ -417,14 +412,15 @@ class MixTransactionManager (config: Config, transactionalStrategy: Transactiona
   }
 
   //初始化app的时候调用
-  def addMoudleName(moudleName: String): Unit = {
+  def addModuleName(moduleName: String): Unit = {
     synchronizedCall(new Callback {
       override def onCallback (): Unit = {
-        mixModuleNames.add(moudleName)
-        //        currentBatchTransactionReadyCommits.put(moudleName, false)
+        mixModuleNames.add(moduleName)
+        //        currentBatchTransactionReadyCommits.put(moduleName, false)
         //        countDownLatch = new CountDownLatch(moduleNames.size())
       }
     }, LOCK)
+    LOG.warn("Added module", "name", moduleName, "mixModuleNames", mixModuleNames)
   }
 
   private def synchronizedCall(callback: Callback, lock: Object): Unit ={

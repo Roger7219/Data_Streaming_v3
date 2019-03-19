@@ -164,9 +164,9 @@ class TransactionManager(config: Config) {
 
   private val transactionOrderTimeFormat = CSTTime.formatter("yyyyMMddHHmmssSSS")
 
-  def newTransactionOrder(moduleName: String): java.lang.Long = {
+  protected def newTransactionOrder(moduleName: String): java.lang.Long = {
     TransactionManager.syncLock.synchronized{
-      Thread.sleep(1)
+      Thread.sleep(10)
       return java.lang.Long.valueOf(transactionOrderTimeFormat.format(new Date))
     }
   }

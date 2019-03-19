@@ -194,82 +194,90 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
       val pt = table + transactionalLegacyDataBackupProgressingTableSign + tid
       val ct = table + transactionalLegacyDataBackupCompletedTableSign + tid
 
-
       val ts = Array(partitionField)  ++ partitionFields // l_time, b_date and b_time
 
       var w = partitionsWhereSQL(ps) // (l_time="2018-xx-xx xx:00:00" and b_date="2018-xx-xx" and b_time="2018-xx-xx xx:00:00")
 
       LOG.warn(s"HiveClient overwriteUnionSum overwrite partitions where", w)
 
-      val original = hiveContext
-        .read
-        .table(table)
-        .where(w)
+      val isE = newDF.take(1).isEmpty
 
-      moduleTracer.trace("        read hive data for union")
+      if(isE) {
 
-      // Group by fields with partition fields
-      val gs = (groupByFields :+ partitionField) ++ partitionFields
-
-      var fs = original.schema.fieldNames
-      var _newDF = newDF.select(fs.head, fs.tail:_*)
-//      LOG.warn(s"HiveClient re-ordered field name via hive table _newDF take(2)", _newDF.take(2))
-
-      // Sum
-      val updated = original
-        .union(_newDF /*newDF*/)
-        .groupBy(gs.head, gs.tail:_*)
-        .agg(
-          unionAggExprsAndAlias.head,
-          unionAggExprsAndAlias.tail:_*
-        )
-        .select(fs.head, fs.tail:_* /*groupByFields ++ aggExprsAlias ++ ts:_**/)
-
-
-      val fileNumber = aHivePartitionRecommendedFileNumber("HiveClient unionSum repartition", shufflePartitions, updated.rdd.getNumPartitions, ps.length)
-//      val parts = sparkPartitionNum("HiveClient unionSum repartition", shufflePartitions, updated.rdd.getNumPartitions, ps.length)
-      moduleTracer.trace(s"        union sum repartition fs: ${fileNumber}, rs: ${updated.rdd.getNumPartitions}, ps: ${ps.length}")
-
-      if(transactionManager.needTransactionalAction()) {
-        //支持事务，先写入临时表，commit()时在写入目标表
-        createTableIfNotExists(tt, table)
-        updated
-//          .coalesce(1)
-          .repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
-          .write
-          .format("orc")
-          .mode(SaveMode.Overwrite)
-          .insertInto(tt)
+        LOG.warn(s"Hive overwriteUnionSum skipped, Because no data needs to be written !!")
 
       }else {
-        //非事务，直接写入目标表
-        updated
-//          .coalesce(1)
-          .repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
-          .write
-          .format("orc")
-          .mode(SaveMode.Overwrite)
-          .insertInto(table)
+        val original = hiveContext
+          .read
+          .table(table)
+          .where(w)
 
+        moduleTracer.trace("        read hive data for union")
+
+        // Group by fields with partition fields
+        val gs = (groupByFields :+ partitionField) ++ partitionFields
+
+        var fs = original.schema.fieldNames
+        var _newDF = newDF.select(fs.head, fs.tail:_*)
+  //      LOG.warn(s"HiveClient re-ordered field name via hive table _newDF take(2)", _newDF.take(2))
+
+        // Sum
+        val updated = original
+          .union(_newDF /*newDF*/)
+          .groupBy(gs.head, gs.tail:_*)
+          .agg(
+            unionAggExprsAndAlias.head,
+            unionAggExprsAndAlias.tail:_*
+          )
+          .select(fs.head, fs.tail:_* /*groupByFields ++ aggExprsAlias ++ ts:_**/)
+
+
+        val fileNumber = aHivePartitionRecommendedFileNumber("HiveClient unionSum repartition", shufflePartitions, updated.rdd.getNumPartitions, ps.length)
+  //      val parts = sparkPartitionNum("HiveClient unionSum repartition", shufflePartitions, updated.rdd.getNumPartitions, ps.length)
+        moduleTracer.trace(s"        union sum repartition fs: ${fileNumber}, rs: ${updated.rdd.getNumPartitions}, ps: ${ps.length}")
+
+        if(transactionManager.needTransactionalAction()) {
+          //支持事务，先写入临时表，commit()时在写入目标表
+          createTableIfNotExists(tt, table)
+          updated
+  //          .coalesce(1)
+            .repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
+            .write
+            .format("orc")
+            .mode(SaveMode.Overwrite)
+            .insertInto(tt)
+
+        }else {
+          //非事务，直接写入目标表
+          updated
+  //          .coalesce(1)
+            .repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
+            .write
+            .format("orc")
+            .mode(SaveMode.Overwrite)
+            .insertInto(table)
+
+
+        }
+        moduleTracer.trace("        union sum and write")
+      }
+
+      if(transactionManager.needTransactionalAction()) {
+        return new HiveRollbackableTransactionCookie(
+          transactionParentId,
+          tid,
+          tt,
+          table,
+          SaveMode.Overwrite,
+          ps,
+          pt,
+          ct,
+          isE
+        )
+      } else {
         return new HiveNonTransactionCookie(transactionParentId, tid, table, ps)
       }
 
-
-      val isE = newDF.take(1).isEmpty
-
-      moduleTracer.trace("        union sum and write")
-
-      new HiveRollbackableTransactionCookie(
-        transactionParentId,
-        tid,
-        tt,
-        table,
-        SaveMode.Overwrite,
-        ps,
-        pt,
-        ct,
-        isE
-      )
     } catch {
       case e: Exception =>
         LOG.warn(ExceptionUtil.getStackTraceMessage(e))
@@ -530,7 +538,9 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
     lts = lts
       .sortBy{_.getKeyBody}(Ordering.String.reverse)
       .tail
-      .sortBy{_.getOffset}
+// 取两个l_time之前的，尽量避免与流统计操作的数据发生并发操作冲突
+//    if(lts.nonEmpty) lts = lts.tail
+    lts = lts.sortBy{_.getOffset}
 
     LOG.warn(s"Hive compact table ${c.targetTable} starting, partitions", lts.toArray)
 
@@ -1012,4 +1022,11 @@ object HiveClient{
 
   private var  lock = new Object()
   private var executorService = ExecutorServiceUtil.createdExecutorService(1)// must is 1
+
+  def main(args: Array[String]): Unit = {
+    var list = Array("ss")
+    println( list.tail.foreach({x=>}))
+    println( list.tail.isEmpty)
+
+  }
 }
