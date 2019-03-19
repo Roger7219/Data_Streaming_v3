@@ -1,13 +1,13 @@
 spark-submit \
---name nadx_overall \
+--name nadx_dwi \
 --class com.mobikok.ssp.data.streaming.OptimizedMixApp \
 --master yarn-cluster \
 --driver-memory 7g \
 --executor-memory 7g \
---executor-cores 12 \
---num-executors 5 \
+--executor-cores 4 \
+--num-executors 1 \
 --queue default \
---files /usr/hdp/current/spark2-client/conf/hive-site.xml,/apps/data-streaming/nadx/overall/overall.conf \
+--files /usr/hdp/current/spark2-client/conf/hive-site.xml,/apps/data-streaming/nadx/dwi/dwi.conf \
 --jars \
 file:///apps/data-streaming/libs/metrics-core-2.2.0.jar,\
 file:///apps/data-streaming/libs/spark-streaming-kafka-0-10_2.11-2.2.0.jar,\
@@ -30,15 +30,14 @@ hdfs:/libs/kafka-clients-0.10.1.0.jar,\
 hdfs:/libs/config-1.3.1.jar \
 --verbose \
 --conf spark.ui.port=1111 \
---conf spark.app.name=nadx_overall \
---conf spark.yarn.executor.memoryOverhead=2g  \
-/apps/data-streaming/nadx/overall/data-streaming.jar \
-overall.conf buration = 300 kill=true modules = overall_traffic,overall_performance
+--conf spark.app.name=nadx_dwi \
+--conf spark.yarn.executor.memoryOverhead=1g \
+/apps/data-streaming/nadx/dwi/data-streaming.jar \
+dwi.conf buration = 300 kill=true modules = nadx_traffic_dwi,nadx_performance_dwi
 
 
 
-
-# delete from rollbackable_transaction_cookie where module_name = 'overall_traffic';
-# delete from rollbackable_transaction_cookie where module_name = 'overall_performance';
-# delete from  offset where module_name='overall_traffic';
-# delete from  offset where module_name='overall_performance';
+# delete from rollbackable_transaction_cookie where module_name = 'nadx_traffic_dwi';
+# delete from rollbackable_transaction_cookie where module_name = 'nadx_performance_dwi';
+# delete from  offset where module_name='nadx_traffic_dwi';
+# delete from  offset where module_name='nadx_performance_dwi';
