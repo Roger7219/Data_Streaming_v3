@@ -290,3 +290,7 @@ STORED AS ORC;
 drop view if exists nadx_overall_dm;
 create view nadx_overall_dm as
 select * from nadx_overall_dwr;
+
+
+
+

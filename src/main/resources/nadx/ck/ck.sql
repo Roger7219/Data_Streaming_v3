@@ -62,13 +62,14 @@ CREATE TABLE nadx_overall_dm (
   click_revenue                     Float64 DEFAULT CAST(0. AS Float64),
   conversion_count                  Int64 DEFAULT CAST(0 AS Int64),
   conversion_price                  Float64 DEFAULT CAST(0. AS Float64),
-  l_time DateTime,
-  b_date Date,
-  b_time DateTime
+  l_time                            DateTime,
+  b_date                            Date,
+  b_time                            DateTime,
+  b_version                         Nullable(String)
 )
 ENGINE = MergeTree PARTITION BY (b_date, b_time) ORDER BY (b_date, b_time) SETTINGS index_granularity = 8192;
 
 CREATE TABLE nadx_overall_dm_all AS nadx_overall_dm ENGINE = Distributed(bip_ck_cluster, default, nadx_overall_dm, rand());
 
-CREATE TABLE nadx_overall_dm_for_select LIKE nadx_overall_dm;
+CREATE TABLE nadx_overall_dm_for_select AS nadx_overall_dm;
 CREATE TABLE nadx_overall_dm_for_select_all AS nadx_overall_dm_for_select ENGINE = Distributed(bip_ck_cluster, default, nadx_overall_dm_for_select, rand());
