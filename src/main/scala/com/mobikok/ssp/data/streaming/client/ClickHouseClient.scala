@@ -196,7 +196,8 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
               val gzDir = s"/root/kairenlo/data-streaming/test/${hiveTable}_${time}_gz.dir"
               var gzFiles = null.asInstanceOf[Array[FileStatus]]
 
-              RunAgainIfError.run {
+              var rows: DataFrame = null
+              RunAgainIfError.run({
                 // 名称全部转为小写
                 val fields = hiveContext
                   .read
@@ -209,7 +210,7 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
 
                 val groupByFields = (fields.map{ f => f.split(" as ")(1)}.toSet -- aggFields.toSet).toList
 
-                val rows = hiveContext
+                rows = hiveContext
                   .read
                   .table(hiveTable)
                   .where(s""" b_date = "$b_date" and b_time = "$b_time" """)
@@ -253,7 +254,9 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
                   lastLengthMap.put(s"$hiveTable^$b_time", current)
                 }
 
-              }
+              }, {t:Throwable=>
+                if(rows !=null) rows.unpersist()
+              })
 
               LOG.warn("ClickHouseClient generate gz file completed", gzDir)
 

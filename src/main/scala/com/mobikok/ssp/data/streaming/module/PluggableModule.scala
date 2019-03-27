@@ -662,7 +662,8 @@ class PluggableModule(config: Config,
 
         val filtered = jsonSource
 
-        if (isFastPollingEnable && filtered.isEmpty() /*&& GlobalAppRunningStatusV2.isPreviousRunning(concurrentGroup, moduleName)*/) {
+        // 待改
+        if (false /*isFastPollingEnable  && filtered.isEmpty() && GlobalAppRunningStatusV2.isPreviousRunning(concurrentGroup, moduleName)*/) {
           LOG.warn("Fast polling", "concurrentGroup", concurrentGroup, "moduleName", moduleName)
           moduleTracer.trace("fast polling")
           moduleReadingKafkaMarks.put(moduleName, false)

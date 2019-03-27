@@ -90,6 +90,10 @@ object CSTTime {
     DF_TIME.get().parse(date_str).getTime
   }
 
+  def ms(time: String): Long ={
+    DF_TIME.get().parse(time).getTime
+  }
+
 
 //  def timeObject(time: Long): Date  = {
 //    new Date(time)

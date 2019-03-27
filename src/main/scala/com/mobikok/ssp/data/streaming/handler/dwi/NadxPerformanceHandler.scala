@@ -2,16 +2,14 @@ package com.mobikok.ssp.data.streaming.handler.dwi
 
 import java.util
 
-import com.mobikok.message.client.MessageClient
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.client.cookie.TransactionCookie
 import com.mobikok.ssp.data.streaming.config.RDBConfig
-import com.mobikok.ssp.data.streaming.entity.{HivePartitionPart, SspUserIdHistory}
+import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
 import com.mobikok.ssp.data.streaming.util._
 import com.typesafe.config.Config
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.{IntegerType, LongType, StringType, StructField}
 import org.apache.spark.storage.StorageLevel
 
 import scala.collection.JavaConversions._
@@ -336,28 +334,24 @@ class NadxPerformanceHandler extends Handler {
          |      tDwi.bundle,
          |      tDwi.size,
          |
-         |      0 AS supply_request_count,
-         |      0 AS supply_invalid_request_count,
-         |      0 AS supply_bid_count,
-         |      tDwi.supply_bid_price_cost_currency,
-         |      tDwi.supply_bid_price,
+         |      0  AS supply_request_count,
+         |      0  AS supply_invalid_request_count,
+         |      0  AS supply_bid_count,
+         |      0. AS supply_bid_price_cost_currency,
+         |      0. AS supply_bid_price,
          |
          |      CASE pDwi.type
          |        WHEN 'win' THEN 1
-         |        WHEN 'impression' THEN 0
-         |        WHEN 'click' THEN 0
-         |        WHEN 'conversion' THEN 0
-         |        WHEN 'event' THEN tDwi.dataType
          |        ELSE 0 END
          |      AS supply_win_count,
          |
          |      CASE pDwi.type
          |        WHEN 'win' THEN (
          |         CASE
-         |           WHEN (!pDwi.withPrice OR (pDwi.withPrice AND pDwi.price is null)) THEN tDwi.supply_bid_price_cost_currency
+         |           WHEN (!pDwi.withPrice OR (pDwi.withPrice AND winDwi.price is null)) THEN tDwi.supply_bid_price_cost_currency
          |           ELSE (CASE
-         |             WHEN pDwi.cur is null OR pDwi.cur = tDwi.cost_currency THEN pDwi.price
-         |             ELSE pDwi.price*1.00000000 END
+         |             WHEN pDwi.cur is null OR pDwi.cur = tDwi.cost_currency THEN winDwi.price
+         |             ELSE winDwi.price*1.00000000 END
          |           ) END
          |        )
          |        ELSE 0. END
@@ -366,15 +360,15 @@ class NadxPerformanceHandler extends Handler {
          |      CASE pDwi.type
          |        WHEN 'win' THEN (
          |         CASE
-         |           WHEN (!pDwi.withPrice OR (pDwi.withPrice AND pDwi.price is null)) THEN tDwi.supply_bid_price
+         |           WHEN (!winDwi.withPrice OR (winDwi.withPrice AND winDwi.price is null)) THEN tDwi.supply_bid_price
          |           ELSE (CASE
          |             WHEN pDwi.cur is null OR pDwi.cur = tDwi.cost_currency THEN (CASE
-         |               WHEN tDwi.cost_currency = tDwi.currency THEN pDwi.price
-         |               ELSE pDwi.price*1.000000 END
+         |               WHEN tDwi.cost_currency = tDwi.currency THEN winDwi.price
+         |               ELSE winDwi.price*1.000000 END
          |             )
          |             ELSE (CASE
-         |               WHEN pDwi.cur = tDwi.currency THEN pDwi.price
-         |               ELSE pDwi.price*1.000000 END
+         |               WHEN pDwi.cur = tDwi.currency THEN winDwi.price
+         |               ELSE winDwi.price*1.000000 END
          |             ) END
          |           ) END
          |        )
@@ -387,7 +381,7 @@ class NadxPerformanceHandler extends Handler {
          |      0. as demand_bid_price,
          |      0  as demand_win_count,
          |      0. as demand_win_price_revenue_currency,
-         |      tDwi.demand_win_price,
+         |      0. as demand_win_price,
          |      0  as demand_timeout_count,
          |
          |      CASE pDwi.type
@@ -399,19 +393,28 @@ class NadxPerformanceHandler extends Handler {
          |        ELSE 0 END
          |      AS impression_count,
          |
-         |      0. as impression_cost_currency,
+         |      CASE pDwi.type
+         |        WHEN 'impression' THEN (CASE
+         |          WHEN !winDwi.withPrice OR winDwi.price is null THEN tDwi.supply_bid_price_cost_currency
+         |          ELSE (CASE
+         |            WHEN pDwi.cur is null OR pDwi.cur = tDwi.cost_currency THEN winDwi.price
+         |            ELSE winDwi.price*1.0000000 END
+         |          )END
+         |        )
+         |        ELSE 0. END
+         |      AS impression_cost_currency,
          |
          |      CASE pDwi.type
          |        WHEN 'impression' THEN (CASE
-         |          WHEN !pDwi.withPrice OR pDwi.price is null THEN tDwi.supply_win_price/IF(tDwi.bid_price_model = 1, 1000.0, 1.0)
+         |          WHEN !winDwi.withPrice OR winDwi.price is null THEN tDwi.supply_bid_price
          |          ELSE (CASE
          |            WHEN pDwi.cur is null OR pDwi.cur = tDwi.cost_currency THEN (CASE
-         |              WHEN tDwi.cost_currency = tDwi.currency THEN pDwi.price/IF(tDwi.bid_price_model = 1, 1000.0, 1.0)
-         |              ELSE pDwi.price*1.000000/IF(tDwi.bid_price_model = 1, 1000.0, 1.0) END
+         |              WHEN tDwi.cost_currency = tDwi.currency THEN winDwi.price
+         |              ELSE winDwi.price*1.000000 END
          |            )
          |            ELSE (CASE
-         |              WHEN pDwi.cur = tDwi.currency THEN pDwi.price/IF(tDwi.bid_price_model = 1, 1000.0, 1.0)
-         |              ELSE pDwi.price*1.0000000/IF(tDwi.bid_price_model = 1, 1000.0, 1.0) END
+         |              WHEN pDwi.cur = tDwi.currency THEN winDwi.price
+         |              ELSE winDwi.price*1.0000000 END
          |            ) END
          |          )END
          |        )
@@ -419,18 +422,12 @@ class NadxPerformanceHandler extends Handler {
          |      AS impression_cost,
          |
          |      CASE pDwi.type
-         |        WHEN 'impression' THEN (CASE
-         |          WHEN !pDwi.withPrice OR pDwi.price is null THEN tDwi.supply_win_price_cost_currency/IF(tDwi.bid_price_model = 1, 1000.0, 1.0)
-         |          ELSE (CASE
-         |            WHEN pDwi.cur is null OR pDwi.cur = tDwi.cost_currency/IF(tDwi.bid_price_model = 1, 1000.0, 1.0) THEN pDwi.price
-         |            ELSE pDwi.price*1.0000000/IF(tDwi.bid_price_model = 1, 1000.0, 1.0) END
-         |          ) END
-         |        )
+         |        WHEN 'impression' THEN tDwi.demand_win_price_revenue_currency
          |        ELSE 0. END
          |      AS impression_revenue_currency,
          |
          |      CASE pDwi.type
-         |        WHEN 'impression' THEN tDwi.demand_win_price/IF(tDwi.bid_price_model = 1, 1000.0, 1.0)
+         |        WHEN 'impression' THEN tDwi.demand_win_price
          |        ELSE 0. END
          |      AS impression_revenue,
          |
@@ -464,15 +461,17 @@ class NadxPerformanceHandler extends Handler {
          |      pDwi.b_date,
          |      pDwi.b_time,
          |      pDwi.b_version as b_version
-         |    from (select * from performanceDF where ${whereBTimes}) pDwi
+         |    from (select * from performanceDF where ( ${whereBTimes} ) ) pDwi
          |    left join (
-         |      select * from $trafficTable where ${whereBTimes} and dataType = 4
-         |    ) tDwi on tDwi.b_time = pDwi.b_time AND pDwi.bidid = tDwi.bidRequestId
+         |      select * from $trafficTable where ( ${whereBTimes} ) and dataType = 4
+         |    ) tDwi ON tDwi.b_time = pDwi.b_time AND pDwi.bidid = tDwi.bidRequestId
+         |    left join (
+         |     select * from performanceDF where ( ${whereBTimes} ) AND repeated = 'N' AND type = 'win'
+         |    ) winDwi ON winDwi.b_time = pDwi.b_time AND winDwi.bidid = pDwi.bidid
          |
          |  )t0
          |)t1
          |where row_num = 1
-         |
        """.stripMargin)
 
       joinedDF.persist(StorageLevel.MEMORY_ONLY_SER)

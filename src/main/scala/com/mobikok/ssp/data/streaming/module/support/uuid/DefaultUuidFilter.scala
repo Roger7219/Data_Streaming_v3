@@ -125,7 +125,9 @@ class DefaultUuidFilter extends UuidFilter{
     var result = new util.ArrayList[(String, String)]()
 
     b_times.foreach{bt=>
-        CSTTime.neighborTimes(bt, 1.0, 1).foreach{x=> result.add((x.split(" ")(0), x))}
+      // CSTTime.neighborTimes(bt, 1.0, 1).foreach{x=> result.add((x.split(" ")(0), x))}
+      // for nadx
+      CSTTime.neighborTimes(bt, 1.0, 0).foreach{x=> result.add((x.split(" ")(0), x))}
     }
     result.toArray(new Array[(String, String)](0))
   }
@@ -164,7 +166,10 @@ class DefaultUuidFilter extends UuidFilter{
         })
         LOG.warn("read dwi table uuids done", "count ", c.length, "b_time ", b_time)
 
-        val bf = new BloomFilter(math.max(20,/*(Int.MaxValue/100000000)*/ 20 * c.length), 12 /*16*/, Hash.MURMUR_HASH)
+//        val bf = new BloomFilter(math.max(20,/*(Int.MaxValue/100000000)*/ 20 * c.length), 12 /*16*/, Hash.MURMUR_HASH)
+
+        val vectorSize = if(c.length == 0) 40 else c.length * 40
+        val bf = new BloomFilter(vectorSize, 16, Hash.MURMUR_HASH)
         var wrap = uuidBloomFilterMap.get(b_time)
         if(wrap == null) {
           wrap = new BloomFilterWrapper()
@@ -201,16 +206,20 @@ class DefaultUuidFilter extends UuidFilter{
   def filterRepeatedUuids(ids: Array[(String, Iterable[(String, String)])] /*Array[String]*/): DataFrame ={
 
     //Uuid BloomFilter 去重（重复的rowkey）
-    val repeatedIds = ids.map{case(_bt, _ids) =>
+    val repeatedIds = ids.map{ case(_bt, _ids) =>
 
-      var bts = CSTTime.neighborTimes(_bt, 1.0, 1)
-      var initS = 20 * _ids.size // Integer.MAX_VALUE*_ids.size/100000000
-      LOG.warn("BloomFilter filter neighborTimes", "currBTime", _bt, "neighborTimes", bts, "sourceBTimes", ids.map(_._1), "dataCount", _ids.size, "vectorSize", initS)
+      // var bts = CSTTime.neighborTimes(_bt, 1.0, 1)
+      // for nadx
+      var bts = CSTTime.neighborTimes(_bt, 1.0, 0)
 
-      val bf = new BloomFilter(initS, 16, Hash.MURMUR_HASH)
+      val vectorSize = if(_ids.size == 0) 40 else _ids.size * 40
+      // Integer.MAX_VALUE*_ids.size/100000000
+      LOG.warn("BloomFilter filter neighborTimes", "currBTime", _bt, "neighborTimes", bts, "sourceBTimes", ids.map(_._1), "dataCount", _ids.size, "vectorSize", vectorSize)
+
+      val bf = new BloomFilter(vectorSize, 16, Hash.MURMUR_HASH)
 
       // 存起所有重复的rowkey
-      val reps = _ids.filter{y=>
+      val reps = _ids.filter{ y=>
         val z = y._2
 //        LOG.warn(s"ids._2=$z")
         var re = false
@@ -226,7 +235,7 @@ class DefaultUuidFilter extends UuidFilter{
               val k = new Key(z.getBytes())
 
               if(f.membershipTest(k)) {
-                LOG.warn("filterRepeatedUuids：data has repeated" , "repeated id: ",z)//test
+//                LOG.warn("filterRepeatedUuids：data has repeated" , "repeated id: ",z)//test
                 re = true
               }else if(_bt.equals(bt)){
                 bf.add(k)

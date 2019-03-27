@@ -38,19 +38,20 @@ class HiveDWIPersistHandler extends Handler {
 //    val partitionFields = globalConfig.getStringList(s"modules.$moduleName.dwi.partition.fields")
     val partitionFields = Array("repeated", "l_time", "b_date", "b_time", "b_version")
 
-    val ps = newDwi
-      .dropDuplicates(partitionFields)
-      .collect()
-      .map { x =>
-        partitionFields.map { y =>
-          HivePartitionPart(y, x.getAs[String](y))
-        }.toArray
-      }
+//    val ps = newDwi
+//      .dropDuplicates(partitionFields)
+//      .collect()
+//      .map { x =>
+//        partitionFields.map { y =>
+//          HivePartitionPart(y, x.getAs[String](y))
+//        }.toArray
+//      }
     cookie = hiveClient.into(
       transactionManager.asInstanceOf[MixTransactionManager].getCurrentTransactionParentId(),
       table,
       newDwi,
-      ps
+      partitionFields.head,
+      partitionFields.tail:_*
     )
 
     batchTransactionCookiesCache.add(cookie)

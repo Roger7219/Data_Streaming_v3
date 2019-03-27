@@ -133,8 +133,8 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
     }
   }
 
-  def into(transactionParentId: String, table: String, df: DataFrame, tranPartition: String, tranPartitions: String*): HiveTransactionCookie = {
-    val ts = tranPartitions :+ tranPartition
+  def into(transactionParentId: String, table: String, df: DataFrame, partitionField: String, partitionFields: String*): HiveTransactionCookie = {
+    val ts = partitionFields :+ partitionField
     val ps = df
       .dropDuplicates(ts)
       .rdd
@@ -145,7 +145,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
       }
       .collect()
 
-    moduleTracer.trace("        get update partitions")
+    moduleTracer.trace("        count partitions")
     into(transactionParentId, table, df, ps)
   }
 
@@ -169,7 +169,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
           HivePartitionPart(y, x.getAs[String](y))
         }
       }
-    moduleTracer.trace("        get update partitions")
+    moduleTracer.trace("        count partitions")
 
     overwriteUnionSum(transactionParentId, table, newDF, aggExprsAlias, unionAggExprsAndAlias, groupByFields, ps, partitionField, partitionFields:_*)
   }
@@ -442,6 +442,8 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
           .where(w) //key code !!
 //          .repartition(shufflePartitions) //?
 
+        moduleTracer.trace(s"        read for backup repartition start")
+
         //hivePartitions不一定是df.rdd.getNumPartitions, 待优化
         val fileNumber = aHivePartitionRecommendedFileNumber("HiveClient read for backup repartition", shufflePartitions, df.rdd.getNumPartitions, backPs)
 //        val parts = sparkPartitionNum("HiveClient read for backup repartition", shufflePartitions, df.rdd.getNumPartitions, df.rdd.getNumPartitions)
@@ -465,7 +467,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 
         val fileNumber2 = aHivePartitionRecommendedFileNumber("HiveClient read pluggable table repartition", shufflePartitions, df2.rdd.getNumPartitions, c.partitions.length)
 //        val parts2 = sparkPartitionNum("HiveClient read pluggable table repartition", shufflePartitions, df2.rdd.getNumPartitions, c.partitions.length)
-        moduleTracer.trace(s"        read pluggable repartition fs: $fileNumber2, rs: ${df2.rdd.getNumPartitions}, ps: ${c.partitions.length}")
+        moduleTracer.trace(s"        read current batch repartition fs: $fileNumber2, rs: ${df2.rdd.getNumPartitions}, ps: ${c.partitions.length}")
 
         df2
           .repartition(fileNumber2*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber2}) ) )"))
@@ -965,9 +967,9 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
   def aHivePartitionRecommendedFileNumber(logTip: String, shufflePartitions: Int, rddPartitions: Int, hivePartitions: Int): Int ={
     var result = 0
     if(rddPartitions == 0 || hivePartitions == 0) {
-      result = 8
+      result = 8 //Math.ceil(8.0/hivePartitions).toInt
     }else {
-      result = 8//Math.ceil(1.0*shufflePartitions/hivePartitions).toInt
+      result = Math.ceil(8.0/hivePartitions).toInt //Math.ceil(1.0*shufflePartitions/hivePartitions).toInt
     }
 
     LOG.warn(logTip, "aHivePartitionRecommendedFileNumber", result, "shufflePartitions", shufflePartitions, "rddPartitions", rddPartitions, "hivePartition", hivePartitions)

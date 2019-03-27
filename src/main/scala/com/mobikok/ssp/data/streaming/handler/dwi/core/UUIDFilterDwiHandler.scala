@@ -1,11 +1,16 @@
 package com.mobikok.ssp.data.streaming.handler.dwi.core
 
+import java.util.UUID
+
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.client.cookie.TransactionCookie
 import com.mobikok.ssp.data.streaming.config.RDBConfig
 import com.mobikok.ssp.data.streaming.handler.dwi.Handler
 import com.mobikok.ssp.data.streaming.module.support.uuid.UuidFilter
+import com.mobikok.ssp.data.streaming.util.CSTTime
 import com.typesafe.config.Config
+import org.apache.hadoop.util.bloom.{BloomFilter, Key}
+import org.apache.hadoop.util.hash.Hash
 import org.apache.spark.sql.DataFrame
 
 /**
@@ -87,3 +92,29 @@ class UUIDFilterDwiHandler extends Handler {
   }
 }
 
+//object testbloom{
+//
+//  def main (args: Array[String] ): Unit = {
+//    var _bt = "2018-12-12 11:13:44"
+//    var bts = CSTTime.neighborTimes(_bt, 1.0, 0)
+//    println(bts.toSet)
+//
+//    var size = 2409300
+//    val bf = new BloomFilter(40*size, 16 /*16*/, Hash.MURMUR_HASH)
+//    for(i <- 1 to size) {
+//      bf.add(new Key(UUID.randomUUID().toString().getBytes))
+//    }
+//
+//    for (j <- 1 to 100) {
+//      var c = 0
+//      for(i <- 1 to size) {
+//        if(bf.membershipTest(new Key(UUID.randomUUID().toString().getBytes))){
+//          c = c+1
+//        }
+//      }
+//      println(c)
+//    }
+//
+//
+//  }
+//}
