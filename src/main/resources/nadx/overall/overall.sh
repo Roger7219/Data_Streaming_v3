@@ -54,7 +54,7 @@ stdout_logfile_backups=10
 
 
 
-# delete from rollbackable_transaction_cookie where module_name = 'overall_traffic';
-# delete from rollbackable_transaction_cookie where module_name = 'overall_performance';
-# delete from  offset where module_name='overall_traffic';
-# delete from  offset where module_name='overall_performance';
+delete from rollbackable_transaction_cookie where module_name = 'overall_traffic';
+delete from rollbackable_transaction_cookie where module_name = 'overall_performance';
+delete from  offset where module_name='overall_traffic';
+delete from  offset where module_name='overall_performance';

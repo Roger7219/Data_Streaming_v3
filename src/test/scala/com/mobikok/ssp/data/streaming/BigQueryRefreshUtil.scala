@@ -59,7 +59,7 @@ object BigQueryRefreshUtil {
 //    sendMsg_btime_00_00_00("update_ssp_report_overall","2017-11-28", "2017-11-29")
 
 
-//    sendMsg_btime("update_ssp_report_overall", "2018-01-06 14:00:00")
+//    sendMsg_btime("update_ssp_report_overall", "2019-03-22 01:00:00")
 
 
 //    sendMsg_btime("update_ssp_report_overall", "2018-01-04 05:00:00")
