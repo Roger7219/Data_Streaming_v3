@@ -4,7 +4,7 @@ import java.sql.ResultSet
 import java.text.SimpleDateFormat
 import java.util
 import java.util.Date
-import java.util.concurrent.CountDownLatch
+import java.util.concurrent.{ConcurrentHashMap, CountDownLatch}
 
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
 import com.mobikok.ssp.data.streaming.exception.{ModuleException, TransactionManagerException}
@@ -52,8 +52,8 @@ class MixTransactionManager (config: Config, transactionalStrategy: Transactiona
 
   @volatile private var isAllModuleTransactionCommited:Boolean = true
 
-  @volatile private var moudleTransactionOrders = new java.util.HashMap[String,util.List[Long]]()
-  @volatile private var moduleCurrentTransactionOrder:java.util.Map[String, java.lang.Long]  = new util.HashMap[String, java.lang.Long]()
+  @volatile private var moudleTransactionOrders = new ConcurrentHashMap[String,util.List[Long]]()
+  @volatile private var moduleCurrentTransactionOrder  = new ConcurrentHashMap[String, java.lang.Long]()
   @volatile private var mixModuleNames = new util.ArrayList[String]()
 
 
