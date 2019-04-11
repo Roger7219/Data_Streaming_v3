@@ -356,9 +356,8 @@ where row_num = 1;
 ----------------------------------------------------------------------------------------------------
 -- Drop Partition
 ----------------------------------------------------------------------------------------------------
--- alter table nadx_overall_dwr drop if exists partition(b_date=${b_date});
-alter table nadx_overall_dwr drop partition(b_time=${start_b_time});
-alter table nadx_overall_dwr drop partition(b_time=${end_b_time});
+alter table nadx_overall_dwr drop if exists partition(b_date=${b_date});
+-- alter table nadx_overall_dwr drop partition(b_time=${start_b_time});
 
 insert overwrite table nadx_overall_dwr
 select
@@ -368,7 +367,7 @@ select
   supply_protocol                   ,
   request_flag                      ,
   ad_format                         ,
-  null as site_app_id               ,
+  site_app_id as site_app_id        ,
   null as placement_id              ,
   position                          ,
   country                           ,
@@ -445,7 +444,7 @@ group by
   supply_protocol                   ,
   request_flag                      ,
   ad_format                         ,
---site_app_id                       ,
+  site_app_id                       ,
 --placement_id                      ,
   position                          ,
   country                           ,

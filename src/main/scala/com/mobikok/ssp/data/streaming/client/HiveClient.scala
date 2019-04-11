@@ -104,14 +104,17 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
       val pt = table + transactionalLegacyDataBackupProgressingTableSign + tid
       val ct = table + transactionalLegacyDataBackupCompletedTableSign + tid
 
-      createTableIfNotExists(tt, table)
+//      createTableIfNotExists(tt, table)
+//
+//      df.selectExpr(fs:_*)
+//        .repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
+//        .write
+//        .format("orc")
+//        .mode(SaveMode.Append)
+//        .insertInto(tt)
 
       df.selectExpr(fs:_*)
-        .repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
-        .write
-        .format("orc")
-        .mode(SaveMode.Append)
-        .insertInto(tt)
+        .createOrReplaceTempView(tt)
 
       moduleTracer.trace("        into table done")
 
@@ -238,14 +241,18 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 
         if(transactionManager.needTransactionalAction()) {
           //支持事务，先写入临时表，commit()时在写入目标表
-          createTableIfNotExists(tt, table)
-          updated
-  //          .coalesce(1)
-            .repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
-            .write
-            .format("orc")
-            .mode(SaveMode.Overwrite)
-            .insertInto(tt)
+//          createTableIfNotExists(tt, table)
+//          updated
+//  //          .coalesce(1)
+//            .repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
+//            .write
+//            .format("orc")
+//            .mode(SaveMode.Overwrite)
+//            .insertInto(tt)
+            updated
+                .createOrReplaceTempView(tt)
+
+
 
         }else {
           //非事务，直接写入目标表
@@ -327,15 +334,18 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
       val ct = table + transactionalLegacyDataBackupCompletedTableSign + tid
 
       if(!df.take(1).isEmpty) {
-        createTableIfNotExists(tt, table)
+//        createTableIfNotExists(tt, table)
       }
 
       if(!df.take(1).isEmpty) {
-        df.repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
-          .write
-          .format("orc")
-          .mode(SaveMode.Overwrite)
-          .insertInto(tt)
+//        df.repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
+//          .write
+//          .format("orc")
+//          .mode(SaveMode.Overwrite)
+//          .insertInto(tt)
+
+        df
+          .createOrReplaceTempView(tt);
       }
 
       new HiveRollbackableTransactionCookie(
@@ -479,7 +489,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
           moduleTracer.trace("        insert into target table")
       }
 
-      tryAsyncCompaction(c)
+//      tryAsyncCompaction(c)
 
     } catch {
       case e: Exception =>
@@ -969,7 +979,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
     if(rddPartitions == 0 || hivePartitions == 0) {
       result = 8 //Math.ceil(8.0/hivePartitions).toInt
     }else {
-      result = Math.ceil(8.0/hivePartitions).toInt //Math.ceil(1.0*shufflePartitions/hivePartitions).toInt
+      result = 8;//Math.ceil(8.0/hivePartitions).toInt //Math.ceil(1.0*shufflePartitions/hivePartitions).toInt
     }
 
     LOG.warn(logTip, "aHivePartitionRecommendedFileNumber", result, "shufflePartitions", shufflePartitions, "rddPartitions", rddPartitions, "hivePartition", hivePartitions)
@@ -1006,6 +1016,9 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
           sql(s"drop table if exists ${c.transactionalCompletedBackupTable}")
           sql(s"drop table if exists ${c.transactionalProgressingBackupTable}")
           sql(s"drop table if exists ${c.transactionalTmpTable}")
+          sql(s"drop view if exists ${c.transactionalCompletedBackupTable}")
+          sql(s"drop view if exists ${c.transactionalProgressingBackupTable}")
+          sql(s"drop view if exists ${c.transactionalTmpTable}")
         }
       }
     } catch {
