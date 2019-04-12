@@ -4,7 +4,7 @@ import java.sql.ResultSet
 import java.text.SimpleDateFormat
 import java.util
 import java.util.Date
-import java.util.concurrent.{ConcurrentHashMap, CountDownLatch}
+import java.util.concurrent.{ConcurrentHashMap, CopyOnWriteArrayList, CountDownLatch}
 
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
 import com.mobikok.ssp.data.streaming.exception.{ModuleException, TransactionManagerException}
@@ -172,7 +172,7 @@ class MixTransactionManager (config: Config, transactionalStrategy: Transactiona
   private def addOrder(moduleName: String, order: Long) {
     var os = moudleTransactionOrders.get(moduleName)
     if(os == null) {
-      os = new util.ArrayList[Long]()
+      os = new CopyOnWriteArrayList[Long]()
       moudleTransactionOrders.put(moduleName, os)
     }
     os.add(order)

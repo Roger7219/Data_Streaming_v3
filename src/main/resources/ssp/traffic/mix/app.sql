@@ -321,8 +321,8 @@ PARTITIONED BY (b_date STRING)
 STORED AS ORC;
 
 set l_time = l_time <= "2017-12-31";
-set spark.sql.shuffle.partitions = 1;
-set spark.default.parallelism = 1;
+set spark.sql.shuffle.partitions = 3;
+set spark.default.parallelism = 3;
 set hive.exec.dynamic.partition.mode=nonstrict;
 
 
