@@ -40,11 +40,19 @@ PRIMARY KEY (`topic`,`partition`,`module_name`)
 class KafkaClient (moduleName: String, config: Config /*databaseUrl: String, user: String, password: String,*/ , transactionManager: MixTransactionManager) extends Transactional {
 
   def getLastOffsetAsJava (topics: Array[String]): java.util.Map[kafka.common.TopicAndPartition, java.lang.Long] = {
-    return KafkaOffsetTool.getInstance().getLastOffset(consumerBootstrapServers, topics.toList , "last_offsert_reader");
+    return KafkaOffsetTool.getLatestOffset(consumerBootstrapServers, topics.toList , "last_offsert_reader");
   }
 
-  def getLastOffset (topics: Array[String]): mutable.Map[kafka.common.TopicAndPartition, Long]  = {
+  def getLatestOffset(topics: Array[String]): mutable.Map[kafka.common.TopicAndPartition, Long]  = {
     return getLastOffsetAsJava(topics).map{x=> x._1 -> (x._2 + 0 )};
+  }
+
+  def getEarliestOffsetAsJava (topics: Array[String]): java.util.Map[kafka.common.TopicAndPartition, java.lang.Long] = {
+    return KafkaOffsetTool.getEarliestOffset(consumerBootstrapServers, topics.toList , "earliest_offsert_reader");
+  }
+
+  def getEarliestOffset (topics: Array[String]): mutable.Map[kafka.common.TopicAndPartition, Long]  = {
+    return getEarliestOffsetAsJava(topics).map{x=> x._1 -> (x._2 + 0 )};
   }
 
   //  private[this] val LOG = Logger.getLogger(getClass().getName());
@@ -178,6 +186,30 @@ class KafkaClient (moduleName: String, config: Config /*databaseUrl: String, use
       offsets,
       offsetRanges
     )
+  }
+
+  def setOffset(offsets: mutable.Map[kafka.common.TopicAndPartition, Long]) {
+    offsets.foreach { x =>
+      mySqlJDBCClient.execute(
+        s"""
+           | insert into offset (
+           |   topic,
+           |   partition,
+           |   offset,
+           |   module_name,
+           |   update_time
+           | )
+           | values(
+           |   "${x._1.topic}",
+           |   "${x._1.partition}",
+           |   ${x._2},
+           |   "$moduleName",
+           |   now()
+           | )
+           | on duplicate key update offset = values(offset)
+       """.stripMargin
+      )
+    }
   }
 
   def createTableIfNotExists (table: String, like: String): Unit = {

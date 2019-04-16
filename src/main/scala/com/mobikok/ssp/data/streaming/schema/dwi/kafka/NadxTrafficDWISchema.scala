@@ -12,7 +12,8 @@ object NadxTrafficDWISchema{
   val structType = StructType(
     StructField("dataType",           IntegerType) ::
 
-    StructField("timestamp",          LongType) ::
+    //单位秒，非毫秒
+    StructField("timestamp",          LongType)    ::
 
     StructField("supply_bd_id",       IntegerType) ::
     StructField("supply_am_id",       IntegerType) ::
@@ -95,8 +96,23 @@ object NadxTrafficDWISchema{
     StructField("click_cost",                        DoubleType) ::
     StructField("click_revenue_currency",            DoubleType) ::
     StructField("click_revenue",                     DoubleType) ::
-    StructField("conversion_count",                  LongType) ::
+    StructField("conversion_count",                  LongType)   ::
     StructField("conversion_price",                  DoubleType) ::
     StructField("saveCount",                         IntegerType) ::
-      Nil)
+
+    // 2019.4.15 TIPS功能新增
+    StructField("supply_valid_request_count",        LongType) ::
+    StructField("demand_invalid_request_count",      LongType) ::
+    StructField("demand_valid_request_count",        LongType) ::
+    StructField("demand_valid_bid_count",            LongType) ::
+
+    StructField("supply_valid_bid_count",            LongType) ::
+    StructField("demand_valid_win_count",            LongType) ::
+    StructField("supply_valid_win_count",            LongType) ::
+
+    // 该数据来源节点
+    StructField("node",                              StringType) ::
+    StructField("tips",                              StringType) ::
+
+    Nil)
 }

@@ -87,7 +87,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 
       val fileNumber = aHivePartitionRecommendedFileNumber("HiveClient into repartition", shufflePartitions, df.rdd.getNumPartitions, ps.length)
 //      val parts = sparkPartitionNum("HiveClient into repartition", shufflePartitions, df.rdd.getNumPartitions, ps.length)
-      moduleTracer.trace(s"        into repartition fs: $fileNumber, rs: ${df.rdd.getNumPartitions}, ps: ${ps.length}")
+      moduleTracer.trace(s"        into repartition rs: ${df.rdd.getNumPartitions}, ps: ${ps.length}, fs: $fileNumber")
 
       if(!transactionManager.needTransactionalAction()) {
 
@@ -237,7 +237,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 
         val fileNumber = aHivePartitionRecommendedFileNumber("HiveClient unionSum repartition", shufflePartitions, updated.rdd.getNumPartitions, ps.length)
   //      val parts = sparkPartitionNum("HiveClient unionSum repartition", shufflePartitions, updated.rdd.getNumPartitions, ps.length)
-        moduleTracer.trace(s"        union sum repartition fs: ${fileNumber}, rs: ${updated.rdd.getNumPartitions}, ps: ${ps.length}")
+        moduleTracer.trace(s"        union sum repartition rs: ${updated.rdd.getNumPartitions}, ps: ${ps.length}, fs: ${fileNumber}")
 
         if(transactionManager.needTransactionalAction()) {
           //支持事务，先写入临时表，commit()时在写入目标表
@@ -457,7 +457,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
         //hivePartitions不一定是df.rdd.getNumPartitions, 待优化
         val fileNumber = aHivePartitionRecommendedFileNumber("HiveClient read for backup repartition", shufflePartitions, df.rdd.getNumPartitions, backPs)
 //        val parts = sparkPartitionNum("HiveClient read for backup repartition", shufflePartitions, df.rdd.getNumPartitions, df.rdd.getNumPartitions)
-        moduleTracer.trace(s"        read for backup repartition fs: $fileNumber, rs: ${df.rdd.getNumPartitions}, ps: ${backPs}")
+        moduleTracer.trace(s"        read for backup repartition rs: ${df.rdd.getNumPartitions}, ps: ${backPs}, fs: $fileNumber")
 
         df.repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
           .write
@@ -477,7 +477,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 
         val fileNumber2 = aHivePartitionRecommendedFileNumber("HiveClient read pluggable table repartition", shufflePartitions, df2.rdd.getNumPartitions, c.partitions.length)
 //        val parts2 = sparkPartitionNum("HiveClient read pluggable table repartition", shufflePartitions, df2.rdd.getNumPartitions, c.partitions.length)
-        moduleTracer.trace(s"        read current batch repartition fs: $fileNumber2, rs: ${df2.rdd.getNumPartitions}, ps: ${c.partitions.length}")
+        moduleTracer.trace(s"        read current batch repartition rs: ${df2.rdd.getNumPartitions}, ps: ${c.partitions.length}, fs: $fileNumber2")
 
         df2
           .repartition(fileNumber2*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber2}) ) )"))

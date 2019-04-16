@@ -17,11 +17,10 @@ import scala.collection.JavaConverters._
 /**
   * Created by Administrator on 2018/4/17.
   */
-class DefaultUuidFilter extends UuidFilter{
-
+class DefaultUuidFilter(dwiBTimeFormat: String = "yyyy-MM-dd HH:00:00") extends UuidFilter{
 
   @volatile var uuidBloomFilterMap:util.Map[String, BloomFilterWrapper] = new util.HashMap[String, BloomFilterWrapper]()
-  var bloomFilteBTimeformat = "yyyy-MM-dd HH:00:00"
+  var bloomFilteBTimeformat: String = dwiBTimeFormat //_ //"yyyy-MM-dd HH:00:00"
 
   override def dwrNonRepeatedWhere (): String = {
     "repeated = 'N'"
@@ -36,7 +35,7 @@ class DefaultUuidFilter extends UuidFilter{
       .dropDuplicates(dwiUuidFieldsAlias)
       .select(
         expr(s"$dwiUuidFieldsAlias"),
-        expr(s"from_unixtime(unix_timestamp($businessTimeExtractBy), 'yyyy-MM-dd HH:00:00')").as("b_time")
+        expr(s"from_unixtime(unix_timestamp($businessTimeExtractBy), '${bloomFilteBTimeformat}')").as("b_time")
       )
       .rdd
       .map { x =>
@@ -63,7 +62,7 @@ class DefaultUuidFilter extends UuidFilter{
     val b_dates = dwi
       .select(
         to_date(expr(businessTimeExtractBy)).cast("string").as("b_date"),
-        expr(s"from_unixtime(unix_timestamp($businessTimeExtractBy), 'yyyy-MM-dd HH:00:00')").as("b_time")
+        expr(s"from_unixtime(unix_timestamp($businessTimeExtractBy), '${bloomFilteBTimeformat}')").as("b_time")
       )
       .dropDuplicates("b_date", "b_time")
       .rdd.map{

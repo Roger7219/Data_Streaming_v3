@@ -30,7 +30,11 @@ class ArgsConfig {
   }
 
   def get(configName: String) : String = {
-    argsMap.get(configName).getOrElse(null)
+//    argsMap.get(configName).getOrElse(null)
+    get(configName, null)
+  }
+  def get(configName: String, defaultValue: String) : String = {
+    argsMap.get(configName).getOrElse(defaultValue)
   }
 
   /*def update(configName: String, value: String): ArgsConfig = {
@@ -48,14 +52,14 @@ class ArgsConfig {
     argsMap.containsKey(configName)
   }
 
-  def getElse(configName: String, elseValue: String) : String = {
-    val v = get(configName)
-    if(v == null){
-      elseValue
-    }else {
-      v
-    }
-  }
+//  def getElse(configName: String, elseValue: String) : String = {
+//    val v = get(configName)
+//    if(v == null){
+//      elseValue
+//    }else {
+//      v
+//    }
+//  }
 
   override def toString: String = {
     OM.toJOSN(argsMap.asJava)
@@ -72,10 +76,17 @@ object ArgsConfig{
   val KAFKA_OFFSET_ROLLBACK = "offsetRollback"
   val KAFKA_OFFSET_ROLLBACK_LATEST_HOURS = "rollbackHours"
   val CLONE = "clone"
+  val VERSION = "version"
+
+  val OFFSET = "offset" // earliest or latest
 
   object Value{
     val REBRUSH_RUNNING = "running"
     val REBRUSH_DONE = "done"
+    val VERSION_DEFAULT = "0"
+
+    val OFFSET_EARLIEST = "earliest"
+    val OFFSET_LATEST = "latest"
   }
 
   def main (args: Array[String]): Unit = {

@@ -6,6 +6,7 @@ import java.text.SimpleDateFormat
 import com.fasterxml.jackson.core.`type`.TypeReference
 import com.mobikok.message.client.MessageClient
 import com.mobikok.ssp.data.streaming.MixApp.{argsConfig, config}
+import com.mobikok.ssp.data.streaming.OptimizedMixApp.{appName, argsConfig}
 import com.mobikok.ssp.data.streaming.client.{HBaseMultiSubTableClient, MixTransactionManager}
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.{HivePartitionPart, LatestOffsetRecord, UuidStat}
@@ -35,12 +36,24 @@ object OptimizedMixApp {
   var runnableModulesConfig: Config = null
   var argsConfig: ArgsConfig = new ArgsConfig()
   val dataFormat: SimpleDateFormat = CSTTime.formatter("yyyyMMdd-HHmmss") //new SimpleDateFormat("yyyyMMdd-HHmmss")
+  //加载获取spark-submit启动命令中参数配置
+  var sparkConf: SparkConf = null
+  var appName: String = null
+  var appId: String = null
+  var version: String = null
 
   var dwiLoadTimeFormat = CSTTime.formatter("yyyy-MM-dd HH:00:00")
   var dwrLoadTimeFormat = CSTTime.formatter("yyyy-MM-dd 00:00:00")
 
   def main (args: Array[String]): Unit = {
     try {
+
+      sparkConf = new SparkConf(true)
+//      获取spark-submit启动命令中的--name参数指定的
+      appName = sparkConf.get("spark.app.name").trim
+      appId = YarnAPPManagerUtil.getLatestRunningApp(appName).getApplicationId.toString
+
+      LOG.warn("Starting App", "name", appName, "id", appId)
 
       if(args.length > 0) {
         var f = new File(args(0))
@@ -53,6 +66,7 @@ object OptimizedMixApp {
         LOG.warn(s"Load Config File (exists: ${f.exists()}): " + args(0) + "\nsetting plain:" +allModulesConfig.root().unwrapped().toString + s"\nargs config plain: ${java.util.Arrays.deepToString(args.tail.asInstanceOf[Array[Object]])}")
 
         argsConfig = new ArgsConfig().init(args.tail)
+        version = argsConfig.get(ArgsConfig.VERSION, ArgsConfig.Value.VERSION_DEFAULT)
 
         LOG.warn("\nParsed ArgsConfig: \n" + argsConfig.toString)
 
@@ -199,16 +213,7 @@ object OptimizedMixApp {
 
     //app name
     val conf = initSparkConf()
-    val appName = conf.get("spark.app.name")
-
-    //check task Whether has been launched.
-    if(YarnAPPManagerUtil.isAppRunning(appName)){
-      if("true".equals(argsConfig.get(ArgsConfig.FORCE_KILL_PREV_REPEATED_APP))) {
-        YarnAPPManagerUtil.killPrevApps(appName)
-      }else {
-        throw new RuntimeException(s"This app '$appName' has already submit,forbid to re-submit!")
-      }
-    }
+//    val appName = conf.get("spark.app.name")
 
     conf.registerKryoClasses(Array(
       classOf[UuidStat],
@@ -218,6 +223,15 @@ object OptimizedMixApp {
     ))
 
     val ssc = new StreamingContext(conf, Seconds(allModulesConfig.getInt("spark.conf.streaming.batch.buration")))
+
+    //check task Whether has been launched.
+    if(YarnAPPManagerUtil.isAppRunning(appName)){
+      if("true".equals(argsConfig.get(ArgsConfig.FORCE_KILL_PREV_REPEATED_APP))) {
+        YarnAPPManagerUtil.killApps(appName, false, appId)
+      }else {
+        throw new RuntimeException(s"This app '$appName' has already submit,forbid to re-submit!")
+      }
+    }
 
     initAllModuleInstance() { case (concurrentGroup, moduleName, moduleClass/*, structType*/) =>
 
@@ -256,13 +270,13 @@ object OptimizedMixApp {
 
   def initSparkConf (): SparkConf ={
 
-    //加载获取spark-submit启动命令中参数配置
-    val conf = new SparkConf(true)
+//    //加载获取spark-submit启动命令中参数配置
+//    val conf = new SparkConf(true)
 
     // 获取spark-submit启动命令中的--name参数指定的
-    val cmdAppName = conf.get("spark.app.name").trim
+//    val cmdAppName = sparkConf.get("spark.app.name").trim
     // 一律用spark-submit启动命令中的--name参数值作为app name
-    allModulesConfig = allModulesConfig.withValue("spark.conf.set.spark.app.name", ConfigValueFactory.fromAnyRef(cmdAppName))
+    allModulesConfig = allModulesConfig.withValue("spark.conf.set.spark.app.name", ConfigValueFactory.fromAnyRef(appName))
 
     LOG.info("Final Spark Conf: \n" + allModulesConfig
       .getConfig("spark.conf.set")
@@ -272,24 +286,24 @@ object OptimizedMixApp {
       }.mkString("\n", "\n", "\n")
     )
 
-    conf.setAll(allModulesConfig
+    sparkConf.setAll(allModulesConfig
       .getConfig("spark.conf.set")
       .entrySet()
       .map { x =>
         (x.getKey, x.getValue.unwrapped.toString)
       })
 
-    if(getClass.getName.equals(cmdAppName)) {
-      throw new AppException(s"Spark app name cannot be a main class name '$cmdAppName' ")
+    if(getClass.getName.equals(appName)) {
+      throw new AppException(s"Spark app name cannot be a main class name '$appName' ")
     }
-    if(StringUtil.isEmpty(cmdAppName)) {
+    if(StringUtil.isEmpty(appName)) {
       throw new AppException("Spark app name not specified !!")
     }
 
 //    // 最终还是采用spark-submit启动命令中的--name参数值
 //    conf.setAppName(cmdAppName)
 
-    conf
+    sparkConf
   }
 
   def initMC(): Unit ={
@@ -299,13 +313,31 @@ object OptimizedMixApp {
   def initModulesConfig(): Unit ={
     var refs: java.util.List[String]= null
     var ms: Config = null
+//    val appName = sparkConf.get("spark.app.name")
 
     try {
       ms = allModulesConfig.getConfig("modules")
     }catch {case e:Exception=>}
     if(ms != null) {
       ms.root().foreach{x=>
-        //config = config.withValue(s"modules.${x._1}.concurrent.group", config.getValue("spark.conf.app.name"))
+        if(!ArgsConfig.Value.VERSION_DEFAULT.equals(version)) {
+        // 给module nmae加上对应version信息
+          val newM = versionFeaturesModuleName(version, x._1)
+          allModulesConfig = allModulesConfig.withValue(s"modules.${newM}", x._2)
+
+          if(allModulesConfig.hasPath(s"modules.${x._1}.dwi.table"))
+            allModulesConfig = allModulesConfig.withValue(
+              s"modules.${newM}.dwi.table",
+              ConfigValueFactory.fromAnyRef(versionFeaturesTableName(version,  allModulesConfig.getValue(s"modules.${x._1}.dwi.table").unwrapped().toString)))
+
+          if(allModulesConfig.hasPath(s"modules.${x._1}.dwr.table"))
+            allModulesConfig = allModulesConfig.withValue(
+              s"modules.${newM}.dwr.table",
+              ConfigValueFactory.fromAnyRef(versionFeaturesTableName(version,  allModulesConfig.getValue(s"modules.${x._1}.dwr.table").unwrapped().toString)))
+
+          // 清理
+          allModulesConfig = allModulesConfig.withoutPath(s"modules.${x._1}")
+        }
       }
     }
 
@@ -376,7 +408,7 @@ object OptimizedMixApp {
       if(argsConfig.has(ArgsConfig.RATE)) {
         LOG.warn("reset maxRatePerPartition !")
 
-        val partitionNum = argsConfig.get(ArgsConfig.MODULES).trim.split(",").map { x =>
+        val partitionNum = argsModuleNames(argsConfig).map { x =>
           allModulesConfig.getList(s"modules.${x}.kafka.consumer.partitoins").size()
         }.sum
 
@@ -398,7 +430,7 @@ object OptimizedMixApp {
 
     // 去掉不需要运行的模块配置
     if(argsConfig.has(ArgsConfig.MODULES)) {
-      val rms = argsConfig.get(ArgsConfig.MODULES).split(",").map(_.trim).distinct
+      val rms = argsModuleNames(argsConfig).map(_.trim).distinct
 
       allModulesConfig.getConfig("modules").root().foreach{ x=>
         if(!rms.contains(x._1)) {
@@ -432,6 +464,18 @@ object OptimizedMixApp {
 
     LOG.warn("\nApp runnable modules final config content:\n" + runnableModulesConfig.root().unwrapped().toString +"\n")
 
+  }
+
+  def argsModuleNames(argsConfig: ArgsConfig):Array[String] = {
+    argsConfig.get(ArgsConfig.MODULES).split(",").map(x=>versionFeaturesModuleName(version, x))
+  }
+
+  def versionFeaturesModuleName(version: String, moduleName: String): String = {
+    return if(ArgsConfig.Value.VERSION_DEFAULT.equals(version)) moduleName else s"${moduleName}_v${version}".trim
+  }
+
+  def versionFeaturesTableName(version: String, table: String): String = {
+    return if(ArgsConfig.Value.VERSION_DEFAULT.equals(version)) table else s"${table}_v${version}".trim
   }
 
  //hasSparkStreaming

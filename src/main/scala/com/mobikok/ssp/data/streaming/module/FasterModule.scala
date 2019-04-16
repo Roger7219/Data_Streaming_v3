@@ -494,7 +494,7 @@ class FasterModule(config: Config,
 
 
   def initDwiHandlers(): Unit = {
-    val uuidFilterHandler = new UUIDFilterDwiHandler(uuidFilter, businessTimeExtractBy, isEnableDwiUuid)
+    val uuidFilterHandler = new UUIDFilterDwiHandler(uuidFilter, businessTimeExtractBy, isEnableDwiUuid, dwiBTimeFormat, argsConfig)
     uuidFilterHandler.init(moduleName, mixTransactionManager, rDBConfig, hbaseClient, hiveClient, null, config, config, "null", Array[String]())
 
     if (config.hasPath(s"modules.$moduleName.dwi.handler")) {
@@ -563,7 +563,7 @@ class FasterModule(config: Config,
            |    "$appName",
            |    "$moduleName",
            |    now(),
-           |    "${argsConfig.getElse(ArgsConfig.REBRUSH, "NA").toUpperCase}",
+           |    "${argsConfig.get(ArgsConfig.REBRUSH, "NA").toUpperCase}",
            |    ${(100.0 * config.getInt("spark.conf.streaming.batch.buration") / 60).asInstanceOf[Int] / 100.0},
            |    -1,
            |    -1
@@ -666,7 +666,7 @@ class FasterModule(config: Config,
           }
 
         val offsetDetail: Iterable[(TopicAndPartition, Long, Long)] = kafkaClient
-          .getLastOffset(offsetRanges.map { x => x.topic })
+          .getLatestOffset(offsetRanges.map { x => x.topic })
           .map { x =>
             val v = offsetRanges.filter(o => o.topic.equals(x._1.topic) && o.partition.equals(x._1.partition))
             // topic, partition, cnt, lag
@@ -1377,7 +1377,7 @@ class FasterModule(config: Config,
                      |    ${moduleTracer.getBatchUsingTime()},
                      |    ${moduleTracer.getBatchActualTime()},
                      |    now(),
-                     |    "${argsConfig.getElse(ArgsConfig.REBRUSH, "NA").toUpperCase}",
+                     |    "${argsConfig.get(ArgsConfig.REBRUSH, "NA").toUpperCase}",
                      |    ${(100.0 * config.getInt("spark.conf.streaming.batch.buration") / 60).asInstanceOf[Int] / 100.0},
                      |    "${moduleTracer.getHistoryBatchesTraceResult()}",
                      |    $kafkaConsumeLag

@@ -598,7 +598,7 @@ class MixModuleForBTime (config: Config,
            |    "$appName",
            |    "$moduleName",
            |    now(),
-           |    "${argsConfig.getElse(ArgsConfig.REBRUSH, "NA").toUpperCase}",
+           |    "${argsConfig.get(ArgsConfig.REBRUSH, "NA").toUpperCase}",
            |    ${(100.0*config.getInt("spark.conf.streaming.batch.buration")/60).asInstanceOf[Int]/100.0},
            |    -1,
            |    -1
@@ -839,7 +839,7 @@ class MixModuleForBTime (config: Config,
           }
 
         val offsetDetail: Iterable[(TopicAndPartition, Long, Long)] = kafkaClient
-          .getLastOffset(offsetRanges.map { x => x.topic })
+          .getLatestOffset(offsetRanges.map { x => x.topic })
           .map { x =>
             val v = offsetRanges.filter(o => o.topic.equals(x._1.topic) && o.partition.equals(x._1.partition))
             // topic, partition, cnt, lag
@@ -1763,7 +1763,7 @@ class MixModuleForBTime (config: Config,
                |    ${moduleTracer.getBatchUsingTime()},
                |    ${moduleTracer.getBatchActualTime()},
                |    now(),
-               |    "${argsConfig.getElse(ArgsConfig.REBRUSH, "NA").toUpperCase}",
+               |    "${argsConfig.get(ArgsConfig.REBRUSH, "NA").toUpperCase}",
                |    ${(100.0 * config.getInt("spark.conf.streaming.batch.buration") / 60).asInstanceOf[Int] / 100.0},
                |    "${moduleTracer.getHistoryBatchesTraceResult()}",
                |    $kafkaConsumeLag

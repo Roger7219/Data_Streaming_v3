@@ -47,10 +47,10 @@
 //  var kafkaSender = new KafkaSender(producerTopic, producerTopic, Level.INFO, producerConfig);
 //
 //  def getLastOffsetAsJava (topics: Array[String]): java.util.Map[kafka.common.TopicAndPartition, java.lang.Long] = {
-//    return KafkaOffsetTool.getInstance().getLastOffset(bootstrapServers, topics.toList , "last_offsert_reader");
+//    return KafkaOffsetTool.getInstance().getLatestOffset(bootstrapServers, topics.toList , "last_offsert_reader");
 //  }
 //
-//  def getLastOffset (topics: Array[String]): mutable.Map[kafka.common.TopicAndPartition, Long]  = {
+//  def getLatestOffset (topics: Array[String]): mutable.Map[kafka.common.TopicAndPartition, Long]  = {
 //    return getLastOffsetAsJava(topics).map{x=> x._1 -> (x._2 + 0 )};
 //  }
 //

@@ -198,7 +198,7 @@ object QuartzApp {
     //check task Whether has been launched.
     if(YarnAPPManagerUtil.isAppRunning(appName)){
       if("true".equals(argsConfig.get(ArgsConfig.FORCE_KILL_PREV_REPEATED_APP))) {
-        YarnAPPManagerUtil.killPrevApps(appName)
+        YarnAPPManagerUtil.killApps(appName, true, conf.getAppId)
       }else {
         throw new RuntimeException(s"This app '$appName' has already submit,forbid to re-submit!")
       }

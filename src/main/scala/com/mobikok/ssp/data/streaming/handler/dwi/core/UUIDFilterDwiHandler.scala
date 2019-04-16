@@ -4,7 +4,7 @@ import java.util.UUID
 
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.client.cookie.TransactionCookie
-import com.mobikok.ssp.data.streaming.config.RDBConfig
+import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.handler.dwi.Handler
 import com.mobikok.ssp.data.streaming.module.support.uuid.UuidFilter
 import com.mobikok.ssp.data.streaming.util.CSTTime
@@ -24,13 +24,17 @@ class UUIDFilterDwiHandler extends Handler {
   var businessTimeExtractBy: String = _
   var isEnableDwiUuid: Boolean = _
 
-  val dwiBTimeFormat = "yyyy-MM-dd HH:00:00"
+  var dwiBTimeFormat:String =_
+  var argsConfig: ArgsConfig = _
+  var version:String = "0"
 
-  def this(uuidFilter: UuidFilter, businessTimeExtractBy: String, isEnableDwiUuid: Boolean) {
+  def this(uuidFilter: UuidFilter, businessTimeExtractBy: String, isEnableDwiUuid: Boolean, dwiBTimeFormat:String, argsConfig: ArgsConfig) {
     this()
     this.uuidFilter = uuidFilter
     this.businessTimeExtractBy = businessTimeExtractBy
     this.isEnableDwiUuid = isEnableDwiUuid
+    this.dwiBTimeFormat = dwiBTimeFormat
+//    this.version = argsConfig.getOrDefault(ArgsConfig.VERSION, ArgsConfig.Value.VERSION_DEFAULT);
   }
 
   override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, handlerConfig: Config, globalConfig: Config, expr: String, as: Array[String]): Unit = {
@@ -52,7 +56,7 @@ class UUIDFilterDwiHandler extends Handler {
           s"'$dwiLTimeExpr' as l_time",
           s"cast(to_date($businessTimeExtractBy) as string)  as b_date",
           s"from_unixtime(unix_timestamp($businessTimeExtractBy), '$dwiBTimeFormat')  as b_time",
-          s"'0' as b_version"
+          s"'${version}' as b_version"
       )
     } else {
       uuidDwi = newDwi
@@ -63,7 +67,7 @@ class UUIDFilterDwiHandler extends Handler {
           s"'$dwiLTimeExpr' as l_time",
           s"cast(to_date($businessTimeExtractBy) as string)  as b_date",
           s"from_unixtime(unix_timestamp($businessTimeExtractBy), '$dwiBTimeFormat')  as b_time",
-          s"'0' as b_version"
+          s"'${version}' as b_version"
         )
     }
     LOG.warn("uuid handler after dwi schema", uuidDwi.schema.fieldNames)

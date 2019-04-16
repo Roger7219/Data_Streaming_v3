@@ -5,8 +5,7 @@ import java.util
 import java.util.Date
 import java.util.concurrent.CountDownLatch
 
-import com.google.protobuf.Message
-import com.mobikok.message.MessagePushReq
+import com.mobikok.message.{Message, MessagePushReq}
 import com.mobikok.message.client.MessageClient
 import com.mobikok.monitor.client.MonitorClient
 import com.mobikok.ssp.data.streaming.client._
@@ -266,7 +265,7 @@ class PluggableModule(config: Config,
     val f = config.getString(s"modules.$moduleName.uuid.filter.class")
     uuidFilter = Class.forName(f).newInstance().asInstanceOf[UuidFilter]
   } else {
-    uuidFilter = new DefaultUuidFilter()
+    uuidFilter = new DefaultUuidFilter(dwiBTimeFormat)
   }
   uuidFilter.init(moduleName, config, hiveContext, moduleTracer, dwiUuidFieldsAlias, businessTimeExtractBy, dwiTable)
   //-------------------------  Dwi End  -------------------------
@@ -445,7 +444,7 @@ class PluggableModule(config: Config,
 
 
   def initDwiHandlers(): Unit = {
-    val uuidFilterHandler = new UUIDFilterDwiHandler(uuidFilter, businessTimeExtractBy, isEnableDwiUuid)
+    val uuidFilterHandler = new UUIDFilterDwiHandler(uuidFilter, businessTimeExtractBy, isEnableDwiUuid, dwiBTimeFormat, argsConfig)
     uuidFilterHandler.init(moduleName, mixTransactionManager, rDBConfig, hbaseClient, hiveClient, null, config, config, "null", Array[String]())
 
     if (config.hasPath(s"modules.$moduleName.dwi.handler")) {
@@ -487,6 +486,8 @@ class PluggableModule(config: Config,
 //      GlobalAppRunningStatusV2.setStatus(concurrentGroup, moduleName, GlobalAppRunningStatusV2.STATUS_IDLE)
 
       hiveClient.init()
+      tryCreateTableForVersionFeatures()
+
       if (hbaseClient != null) hbaseClient.init()
       kafkaClient.init()
       phoenixClient.init()
@@ -517,7 +518,7 @@ class PluggableModule(config: Config,
            |    "$appName",
            |    "$moduleName",
            |    now(),
-           |    "${argsConfig.getElse(ArgsConfig.REBRUSH, "NA").toUpperCase}",
+           |    "${argsConfig.get(ArgsConfig.REBRUSH, "NA").toUpperCase}",
            |    ${(100.0 * config.getInt("spark.conf.streaming.batch.buration") / 60).asInstanceOf[Int] / 100.0},
            |    -1,
            |    -1
@@ -535,7 +536,10 @@ class PluggableModule(config: Config,
       //更新状态
       mixTransactionManager.clean(moduleName)
 
+      setCommitedOffsetIfSpecified()
+
       LOG.warn(s"${getClass.getSimpleName} init completed", moduleName)
+
     } catch {
       case e: Exception =>
         throw new ModuleException(s"${getClass.getSimpleName} '$moduleName' init fail, Transactionals rollback exception", e)
@@ -621,7 +625,7 @@ class PluggableModule(config: Config,
           }
 
         val offsetDetail: Iterable[(TopicAndPartition, Long, Long)] = kafkaClient
-          .getLastOffset(offsetRanges.map { x => x.topic })
+          .getLatestOffset(offsetRanges.map { x => x.topic })
           .map { x =>
             val v = offsetRanges.filter(o => o.topic.equals(x._1.topic) && o.partition.equals(x._1.partition))
             // topic, partition, cnt, lag
@@ -654,7 +658,7 @@ class PluggableModule(config: Config,
         var jsonSource: RDD[String] = null
         if (kafkaProtoEnable) {
           jsonSource = source.map { x =>
-            ProtobufUtil.protobufToJSON(_kafkaProtoClass.asInstanceOf[Class[Message]], x.value().asInstanceOf[Array[Byte]])
+            ProtobufUtil.protobufToJSON(_kafkaProtoClass.asInstanceOf[Class[com.google.protobuf.Message]], x.value().asInstanceOf[Array[Byte]])
           }
         } else {
           jsonSource = source.map(_.value().asInstanceOf[String])
@@ -740,7 +744,8 @@ class PluggableModule(config: Config,
                 }
                 LOG.warn("async handlers", asyncHandlers.map{ h => h.getClass.getName })
                 // 全局计数，记录异步执行的handler数量，异步执行完后再执行commit操作
-                val asyncHandlersCountDownLatch = new CountDownLatch(asyncHandlers.size())
+//                val asyncHandlersCountDownLatch = new CountDownLatch(asyncHandlers.size())
+                val asyncWorker = new AsyncWorker(moduleName, asyncHandlers.size())
 
 //                val transactionCookies = new util.ArrayList[(String, TransactionCookie)]()
 //                //-----------------------------------------------------------------------------------------------------------------
@@ -853,12 +858,12 @@ class PluggableModule(config: Config,
                 //-----------------------------------------------------------------------------------------------------------------
                 val pTheadId:java.lang.Long = Thread.currentThread().getId
                 if (asyncHandlers.nonEmpty) {
-                  startAsyncHandlersCountDownHeartbeats(asyncHandlersCountDownLatch)
+//                  startAsyncHandlersCountDownHeartbeats(asyncHandlersCountDownLatch)
 
                   asyncHandlers.foreach {
-
                     case dwiHandler: com.mobikok.ssp.data.streaming.handler.dwi.Handler =>
-                      ThreadPool.execute {
+
+                      asyncWorker.run {
                         val n = dwiHandler.getClass.getSimpleName
                         try {
                           moduleTracer.startBatch(order, parentTid,  pTheadId, "    ")
@@ -877,13 +882,13 @@ class PluggableModule(config: Config,
                           moduleTracer.trace(s"dwi async ${n} commit done")
                           LOG.warn(s"dwi async ${n} commit done")
 
-                          asyncHandlersCountDownLatch.countDown()
+//                          asyncHandlersCountDownLatch.countDown()
                         } catch {
                           case e: Exception => LOG.warn("DWI asynchronous handle error", "handler", n, "exception",e)
                         }
                       }
                     case dwrHandler: com.mobikok.ssp.data.streaming.handler.dwr.Handler =>
-                      ThreadPool.execute {
+                      asyncWorker.run {
                         val n = dwrHandler.getClass.getSimpleName
                         try {
                           moduleTracer.startBatch(order, parentTid, pTheadId, "    ")
@@ -904,13 +909,13 @@ class PluggableModule(config: Config,
                             LOG.warn(s"dwr async ${n} commit done")
                           }
 
-                          asyncHandlersCountDownLatch.countDown()
+//                          asyncHandlersCountDownLatch.countDown()
                         } catch {
                           case e: Exception => LOG.warn("DWR asynchronous handle error", "handler", n, "exception", e)
                         }
                       }
                     case dmOnlineHandler: com.mobikok.ssp.data.streaming.handler.dm.online.Handler =>
-                      ThreadPool.execute {
+                      asyncWorker.run {
                         val n = dmOnlineHandler.getClass.getSimpleName
                         try {
                           moduleTracer.startBatch(order, parentTid, pTheadId, "    ")
@@ -931,13 +936,13 @@ class PluggableModule(config: Config,
                             LOG.warn(s"dm online async ${n} commit done")
                           }
 
-                          asyncHandlersCountDownLatch.countDown()
+//                          asyncHandlersCountDownLatch.countDown()
                         } catch {
                           case e: Exception => LOG.warn(s"DM online asynchronous handle error", "handler", n, "exception", e)
                         }
                       }
                     case dmOfflineHandler: com.mobikok.ssp.data.streaming.handler.dm.offline.Handler =>
-                      ThreadPool.execute {
+                      asyncWorker.run {
                         val n = dmOfflineHandler.getClass.getSimpleName
                         try {
                           moduleTracer.startBatch(order, parentTid, pTheadId, "    ")
@@ -958,7 +963,7 @@ class PluggableModule(config: Config,
                             LOG.warn(s"dm offline async ${n} commit start")
                           }
 
-                          asyncHandlersCountDownLatch.countDown()
+//                          asyncHandlersCountDownLatch.countDown()
                         } catch {
                           case e: Exception => LOG.warn("dm offline asynchronous handle error", "handler", n, "exception", e)
                         }
@@ -1056,7 +1061,8 @@ class PluggableModule(config: Config,
 
                 // Wait all asynchronous handler commit transaction
                 LOG.warn("wait async handlers handle done")
-                asyncHandlersCountDownLatch.await()
+//                asyncHandlersCountDownLatch.await()
+                asyncWorker.await()
                 LOG.warn("all async handlers commit done")
 
                 //------------------------------------------------------------------------------------
@@ -1147,7 +1153,7 @@ class PluggableModule(config: Config,
                      |    ${moduleTracer.getBatchUsingTime()},
                      |    ${moduleTracer.getBatchActualTime()},
                      |    now(),
-                     |    "${argsConfig.getElse(ArgsConfig.REBRUSH, "NA").toUpperCase}",
+                     |    "${argsConfig.get(ArgsConfig.REBRUSH, "NA").toUpperCase}",
                      |    ${(100.0 * config.getInt("spark.conf.streaming.batch.buration") / 60).asInstanceOf[Int] / 100.0},
                      |    "${moduleTracer.getHistoryBatchesTraceResult()}",
                      |    $kafkaConsumeLag
@@ -1261,28 +1267,48 @@ class PluggableModule(config: Config,
   }
 
   def tryKillSelfApp(): Unit = {
-    var killSelfApp = false
-    MC.pull("kill_self_cer", Array(s"kill_self_$appName"), { x =>
-      if (x.nonEmpty) {
-        if (isMaster) {
-          // 尽量等待所有module完成
-          Thread.sleep(10 * 1000)
-          killSelfApp = true
-        } else {
-          //等待master module kill自身app
-          while (true) {
-            Thread.sleep(2000)
-          }
-        }
+    var appId: String = null
+    var ms: List[Message] = List()
+    if(isMaster) {
+      MC.pull("kill_self_cer", Array(s"kill_self_$appName"), { x =>
+        ms = x
         true
-      } else {
-        false
+      })
+    }else {
+      //等待master module kill自身app
+      while (true) {
+        Thread.sleep(2000)
       }
-    })
+    }
 
-    if (killSelfApp) {
-      LOG.warn(s"Kill self yarn app via user operation !!!", "important_notice", "Kill self yarn app at once !!!", "app_name", appName)
-      YarnAPPManagerUtil.killApps(appName)
+    if (ms.nonEmpty) {
+      ms.foreach{y=>
+        appId = y.getKeyBody
+        LOG.warn(s"Kill self yarn app via user operation !!!", "important_notice", "Kill self yarn app at once !!!", "app_name", appName)
+        YarnAPPManagerUtil.killApps(appName, appId)
+      }
+    }
+
+  }
+
+  def tryCreateTableForVersionFeatures() = {
+    val v = argsConfig.get(ArgsConfig.VERSION, ArgsConfig.Value.VERSION_DEFAULT)
+    if(!ArgsConfig.Value.VERSION_DEFAULT.equals(v)) {
+      val vSuffix = s"_v${v}"
+      LOG.warn("Version", v)
+      if(StringUtil.notEmpty(dwiTable)) hiveClient.createTableIfNotExists(dwiTable, dwiTable.substring(0, dwiTable.length - vSuffix.length))
+      if(StringUtil.notEmpty(dwrTable) && isMaster) hiveClient.createTableIfNotExists(dwrTable, dwrTable.substring(0, dwrTable.length - vSuffix.length))
+    }
+  }
+
+  def setCommitedOffsetIfSpecified(): Unit ={
+    val offset = argsConfig.get(ArgsConfig.OFFSET);
+    if(ArgsConfig.Value.OFFSET_EARLIEST.equals(offset)){
+//      mySqlJDBCClientV2.execute(s"delete from rollbackable_transaction_cookie where module_name = '${moduleName}'")
+//      mySqlJDBCClientV2.execute(s"delete from offset where module_name='${moduleName}'");
+      kafkaClient.setOffset(kafkaClient.getEarliestOffset(topics))
+    }else if(ArgsConfig.Value.OFFSET_LATEST.equals(offset)) {
+      kafkaClient.setOffset(kafkaClient.getLatestOffset(topics))
     }
   }
 
