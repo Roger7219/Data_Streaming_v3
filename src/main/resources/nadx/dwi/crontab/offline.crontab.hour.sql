@@ -225,6 +225,18 @@ select
 
   0 as saveCount,
 
+  tDwi.bidfloor as bidfloor,
+  tDwi.site_id as site_id,
+  tDwi.site_cat as site_cat,
+  tDwi.site_domain as site_domain,
+  tDwi.publisher_id as publisher_id,
+  tDwi.app_id as app_id,
+  tDwi.tmax as tmax,
+  tDwi.ip as ip,
+  tDwi.crid as crid,
+  tDwi.cid as cid,
+  tDwi.tips,
+  tDwi.node as node,
   pDwi.repeated,
   from_unixtime(unix_timestamp(),'yyyy-MM-dd HH:00:00') as l_time,
   pDwi.b_date,
@@ -339,6 +351,18 @@ select
   conversion_count                  ,
   conversion_price                  ,
   saveCount                         ,
+  bidfloor                          ,
+  site_id                           ,
+  site_cat                          ,
+  site_domain                       ,
+  publisher_id                      ,
+  app_id                            ,
+  tmax                              ,
+  ip                                ,
+  crid                              ,
+  cid                               ,
+  tips                              ,
+  node                              ,
 
   repeated                          ,
   l_time                            ,
@@ -426,6 +450,8 @@ select
   sum(click_revenue)                     as click_revenue,
   sum(conversion_count)                  as conversion_count,
   sum(conversion_price)                  as conversion_price,
+  coalesce(tips,split(tips,'\\|')[1],null)    as tips,
+  node                                   as node,
 
   from_unixtime(unix_timestamp(),'yyyy-MM-dd 00:00:00') as l_time,
   b_date,
@@ -473,7 +499,9 @@ group by
   bundle                            ,
   size                              ,
   b_date                            ,
-  b_time ;
+  b_time                            ,
+  coalesce(tips,split(tips,'\\|')[1],null),
+  node ;
 
 
 -- site_app_id,
