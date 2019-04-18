@@ -618,3 +618,17 @@ group by
 -- device_brand,
 -- device_model,
 -- bundle
+--------2019-04-18  lilei start
+ALTER TABLE nadx_traffic_dwi ADD COLUMNS (bidfloor STRING);
+ALTER TABLE nadx_traffic_dwi ADD COLUMNS (site_id STRING);
+ALTER TABLE nadx_traffic_dwi ADD COLUMNS (site_cat STRING);
+ALTER TABLE nadx_traffic_dwi ADD COLUMNS (site_domain STRING);
+ALTER TABLE nadx_traffic_dwi ADD COLUMNS (publisher_id STRING);
+ALTER TABLE nadx_traffic_dwi ADD COLUMNS (app_id STRING);
+ALTER TABLE nadx_traffic_dwi ADD COLUMNS (tmax STRING);
+ALTER TABLE nadx_traffic_dwi ADD COLUMNS (ip STRING);
+ALTER TABLE nadx_traffic_dwi ADD COLUMNS (crid STRING);
+ALTER TABLE nadx_traffic_dwi ADD COLUMNS (cid STRING);
+ALTER TABLE nadx_traffic_dwi ADD COLUMNS (tips STRING);
+ALTER TABLE nadx_traffic_dwi ADD COLUMNS (node STRING);
+--------2019-04-18  lilei end
