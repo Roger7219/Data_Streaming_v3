@@ -114,5 +114,15 @@ object NadxTrafficDWISchema{
     StructField("node",                              StringType) ::
     StructField("tips",                              StringType) ::
 
+    StructField("bidfloor",                          DoubleType) ::
+    StructField("site_id",                           StringType) ::
+    StructField("site_cat",                          StringType) ::
+    StructField("site_domain",                       StringType) ::
+    StructField("publisher_id",                      StringType) ::
+    StructField("app_id",                            StringType) ::
+    StructField("tmax",                              IntegerType) ::
+    StructField("ip",                                StringType) ::
+    StructField("crid",                              StringType) ::
+    StructField("cid",                               StringType) ::
     Nil)
 }
