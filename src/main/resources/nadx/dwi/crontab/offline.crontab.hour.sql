@@ -450,7 +450,7 @@ select
   sum(click_revenue)                     as click_revenue,
   sum(conversion_count)                  as conversion_count,
   sum(conversion_price)                  as conversion_price,
-  coalesce(tips,split(tips,'\\|')[1],null)    as tips,
+  if(size((split(tips,'\\|')))>2,split(tips,'\\|')[1],null)  as tips,
   node                                   as node,
 
   from_unixtime(unix_timestamp(),'yyyy-MM-dd 00:00:00') as l_time,
@@ -500,7 +500,7 @@ group by
   size                              ,
   b_date                            ,
   b_time                            ,
-  coalesce(tips,split(tips,'\\|')[1],null),
+  if(size((split(tips,'\\|')))>2,split(tips,'\\|')[1],null),
   node ;
 
 

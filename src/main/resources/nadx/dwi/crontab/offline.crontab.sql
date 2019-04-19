@@ -225,6 +225,9 @@ select
 
   0 as saveCount,
 
+  tDwi.tips as tips,
+  tDwi.node as node,
+
   pDwi.repeated,
   from_unixtime(unix_timestamp(),'yyyy-MM-dd HH:00:00') as l_time,
   pDwi.b_date,
@@ -339,6 +342,8 @@ select
   conversion_count                  ,
   conversion_price                  ,
   saveCount                         ,
+  tips                              ,
+  node                              ,
 
   repeated                          ,
   l_time                            ,
@@ -426,6 +431,8 @@ select
   sum(click_revenue)                     as click_revenue,
   sum(conversion_count)                  as conversion_count,
   sum(conversion_price)                  as conversion_price,
+  if(size((split(tips,'\\|')))>2,split(tips,'\\|')[1],null)  as tips,
+  node                                   as node,
 
   from_unixtime(unix_timestamp(),'yyyy-MM-dd 00:00:00') as l_time,
   b_date,
@@ -473,7 +480,9 @@ group by
   bundle                            ,
   size                              ,
   b_date                            ,
-  b_time ;
+  b_time                            ,
+  if(size((split(tips,'\\|')))>2,split(tips,'\\|')[1],null),
+  node ;
 
 
 -- site_app_id,
