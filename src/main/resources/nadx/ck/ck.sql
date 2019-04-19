@@ -73,3 +73,13 @@ CREATE TABLE nadx_overall_dm_all AS nadx_overall_dm ENGINE = Distributed(bip_ck_
 
 CREATE TABLE nadx_overall_dm_for_select AS nadx_overall_dm;
 CREATE TABLE nadx_overall_dm_for_select_all AS nadx_overall_dm_for_select ENGINE = Distributed(bip_ck_cluster, default, nadx_overall_dm_for_select, rand());
+
+------2019-04-19 新增字段
+ALTER TABLE nadx_overall_dm add column tips Nullable(String);
+ALTER TABLE nadx_overall_dm add column node Nullable(String);
+ALTER TABLE nadx_overall_dm_all add column tips Nullable(String);
+ALTER TABLE nadx_overall_dm_all add column node Nullable(String);
+ALTER TABLE nadx_overall_dm_for_select add column tips Nullable(String);
+ALTER TABLE nadx_overall_dm_for_select add column node Nullable(String);
+ALTER TABLE nadx_overall_dm_for_select_all add column tips Nullable(String);
+ALTER TABLE nadx_overall_dm_for_select_all add column node Nullable(String);
