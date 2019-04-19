@@ -225,6 +225,16 @@ select
 
   0 as saveCount,
 
+  tDwi.bidfloor as bidfloor,
+  tDwi.site_id as site_id,
+  tDwi.site_cat as site_cat,
+  tDwi.site_domain as site_domain,
+  tDwi.publisher_id as publisher_id,
+  tDwi.app_id as app_id,
+  tDwi.tmax as tmax,
+  tDwi.ip as ip,
+  tDwi.crid as crid,
+  tDwi.cid as cid,
   tDwi.tips as tips,
   tDwi.node as node,
 
@@ -342,6 +352,16 @@ select
   conversion_count                  ,
   conversion_price                  ,
   saveCount                         ,
+  bidfloor                          ,
+  site_id                           ,
+  site_cat                          ,
+  site_domain                       ,
+  publisher_id                      ,
+  app_id                            ,
+  tmax                              ,
+  ip                                ,
+  crid                              ,
+  cid                               ,
   tips                              ,
   node                              ,
 
