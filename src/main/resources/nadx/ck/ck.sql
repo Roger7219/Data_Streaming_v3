@@ -83,3 +83,25 @@ ALTER TABLE nadx_overall_dm_for_select add column tips Nullable(String);
 ALTER TABLE nadx_overall_dm_for_select add column node Nullable(String);
 ALTER TABLE nadx_overall_dm_for_select_all add column tips Nullable(String);
 ALTER TABLE nadx_overall_dm_for_select_all add column node Nullable(String);
+
+
+
+------2019-04-20 新增审核送检数据表
+CREATE TABLE nadx_overall_audit_dm (
+  demand_id                         Int32 DEFAULT CAST(0 AS Int32),
+  crid                              Nullable(String),
+  ip                                Nullable(String),
+  country                           Nullable(String),
+  adm                               Nullable(String),
+  demand_crid_count                 Int64 DEFAULT CAST(0 AS Int64),
+
+  l_time                            DateTime,
+  b_date                            Date,
+  b_time                            DateTime,
+  b_version                         Nullable(String)
+)
+ENGINE = MergeTree PARTITION BY (b_date, b_time) ORDER BY (b_date, b_time) SETTINGS index_granularity = 8192;
+CREATE TABLE nadx_overall_audit_dm_all AS nadx_overall_audit_dm ENGINE = Distributed(bip_ck_cluster, default, nadx_overall_audit_dm, rand());
+
+CREATE TABLE nadx_overall_audit_dm_for_select AS nadx_overall_audit_dm;
+CREATE TABLE nadx_overall_audit_dm_for_select_all AS nadx_overall_audit_dm_for_select ENGINE = Distributed(bip_ck_cluster, default, nadx_overall_audit_dm_for_select, rand());
