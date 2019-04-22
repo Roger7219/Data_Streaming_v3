@@ -2,7 +2,7 @@
 CREATE TABLE nadx_overall_audit_dwr(
   demand_id                         int,
   crid                              string,
-  ip                                string,
+  os                                string,
   country                           string,
   adm                               string,
   demand_crid_count                 int

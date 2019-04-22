@@ -90,7 +90,7 @@ ALTER TABLE nadx_overall_dm_for_select_all add column node Nullable(String);
 CREATE TABLE nadx_overall_audit_dm (
   demand_id                         Int32 DEFAULT CAST(0 AS Int32),
   crid                              Nullable(String),
-  ip                                Nullable(String),
+  os                                Nullable(String),
   country                           Nullable(String),
   adm                               Nullable(String),
   demand_crid_count                 Int64 DEFAULT CAST(0 AS Int64),
