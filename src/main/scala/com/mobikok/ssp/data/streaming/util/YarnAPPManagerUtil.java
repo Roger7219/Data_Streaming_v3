@@ -290,10 +290,9 @@ public class YarnAPPManagerUtil {
                     && !excludeAppIds.contains(app.getApplicationId().toString())) {
 
                     filteredApps.add(app);
+                    LOG.warn("Killing filteredApp: " + app.getApplicationId());
                 }
             }
-
-            LOG.warn("Killing filteredApps: " + filteredApps.toArray(new String[0]));
 
             if(filteredApps.size() == 0) {
                 LOG.warn("Kill apps DONE. appName: " + appName + ", specifiedAppId: " + specifiedAppId +", forceKill: " + forceKill + ", excludeAppIds: " + excludeAppIds);
