@@ -125,5 +125,7 @@ object NadxTrafficDWISchema{
     StructField("crid",                              StringType) ::
     StructField("cid",                               StringType) ::
     StructField("adm",                               StringType) ::
+    StructField("tip_type",                          IntegerType) ::
+    StructField("tip_desc",                          StringType) ::
     Nil)
 }
