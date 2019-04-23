@@ -632,3 +632,7 @@ ALTER TABLE nadx_traffic_dwi ADD COLUMNS (cid STRING);
 ALTER TABLE nadx_traffic_dwi ADD COLUMNS (tips STRING);
 ALTER TABLE nadx_traffic_dwi ADD COLUMNS (node STRING);
 --------2019-04-18  lilei end
+
+-- 2019-4-23
+ALTER TABLE nadx_traffic_dwi ADD COLUMNS (tip_type int);
+ALTER TABLE nadx_traffic_dwi ADD COLUMNS (tip_desc STRING);

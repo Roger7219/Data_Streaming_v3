@@ -235,7 +235,7 @@ select
   tDwi.ip as ip,
   tDwi.crid as crid,
   tDwi.cid as cid,
-  tDwi.tips as tips,
+  cast(tDwi.tip_type as STRING) as tips,
   tDwi.node as node,
 
   pDwi.repeated,
@@ -451,7 +451,7 @@ select
   sum(click_revenue)                     as click_revenue,
   sum(conversion_count)                  as conversion_count,
   sum(conversion_price)                  as conversion_price,
-  if(size((split(tips,'\\|')))>2,split(tips,'\\|')[1],null)  as tips,
+  cast(type_type as STRING)              as tips,
   node                                   as node,
 
   from_unixtime(unix_timestamp(),'yyyy-MM-dd 00:00:00') as l_time,
@@ -501,7 +501,7 @@ group by
   size                              ,
   b_date                            ,
   b_time                            ,
-  if(size((split(tips,'\\|')))>2,split(tips,'\\|')[1],null),
+  tip_type,
   node ;
 
 
