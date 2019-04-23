@@ -104,6 +104,7 @@ select
   tDwi.size,
 
   0  AS supply_request_count,
+--   待删
   0  AS supply_invalid_request_count,
   0  AS supply_bid_count,
   0. AS supply_bid_price_cost_currency,
@@ -322,6 +323,7 @@ select
   size                              ,
 
   supply_request_count              ,
+--   待删，冗余
   supply_invalid_request_count      ,
   supply_bid_count                  ,
   supply_bid_price_cost_currency    ,
@@ -422,6 +424,7 @@ select
   size                              ,
 
   sum(supply_request_count)              as supply_request_count,
+--   待删，冗余
   sum(supply_invalid_request_count)      as supply_invalid_request_count,
   sum(supply_bid_count)                  as supply_bid_count,
   sum(supply_bid_price_cost_currency    / IF(bid_price_model = 1, 1000.0, 1.0)) as supply_bid_price_cost_currency,
@@ -502,7 +505,7 @@ group by
   b_date                            ,
   b_time                            ,
   tip_type,
-  node ;
+  node;
 
 
 -- site_app_id,

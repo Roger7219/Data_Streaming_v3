@@ -195,6 +195,7 @@ object BigQueryRefreshUtil {
 
 //    killApp("overall_dwi")
 //    killApp("overall")
+    killApp("nadx_dwi")
 
 //    killApp("quartz_mix")
 //    messageResetToLastest("bq_report_overall_day_v2_bqcer", Array("ssp_report_overall_dm_day_v2_update"))
@@ -300,7 +301,7 @@ object BigQueryRefreshUtil {
   }
 
   def killApp(appName:String): Unit = {
-    messageClient.pushMessage(new MessagePushReq(appName,  "kill_self"))
+    messageClient.pushMessage(new MessagePushReq("kill_self_"+appName,  "kill_self"))
   }
 
 

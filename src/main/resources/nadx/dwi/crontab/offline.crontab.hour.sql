@@ -104,6 +104,7 @@ select
   tDwi.size,
 
   0  AS supply_request_count,
+--   待删
   0  AS supply_invalid_request_count,
   0  AS supply_bid_count,
   0. AS supply_bid_price_cost_currency,
@@ -235,8 +236,13 @@ select
   tDwi.ip as ip,
   tDwi.crid as crid,
   tDwi.cid as cid,
-  tDwi.tips,
-  tDwi.node as node,
+--   待删
+  cast(null as string) as tips,
+  pDwi.node as node,
+  pDwi.tip_type,
+  pDwi.tip_desc,
+  tDwi.adm,
+
   pDwi.repeated,
   from_unixtime(unix_timestamp(),'yyyy-MM-dd HH:00:00') as l_time,
   pDwi.b_date,
@@ -321,6 +327,7 @@ select
   size                              ,
 
   supply_request_count              ,
+--   待删，冗余
   supply_invalid_request_count      ,
   supply_bid_count                  ,
   supply_bid_price_cost_currency    ,
@@ -363,6 +370,9 @@ select
   cid                               ,
   tips                              ,
   node                              ,
+  tip_type                          ,
+  tip_desc                          ,
+  adm                               ,
 
   repeated                          ,
   l_time                            ,
@@ -417,10 +427,11 @@ select
   bid_price_model                   ,
   traffic_type                      ,
   currency                          ,
-  bundle as bundle                    ,
+  bundle as bundle                  ,
   size                              ,
 
   sum(supply_request_count)              as supply_request_count,
+--   待删，冗余
   sum(supply_invalid_request_count)      as supply_invalid_request_count,
   sum(supply_bid_count)                  as supply_bid_count,
   sum(supply_bid_price_cost_currency    / IF(bid_price_model = 1, 1000.0, 1.0)) as supply_bid_price_cost_currency,
@@ -450,8 +461,11 @@ select
   sum(click_revenue)                     as click_revenue,
   sum(conversion_count)                  as conversion_count,
   sum(conversion_price)                  as conversion_price,
-  if(size((split(tips,'\\|')))>2,split(tips,'\\|')[1],null)  as tips,
+
+-- 待删，用tip_type
+  null                                   as tips,
   node                                   as node,
+  tip_type                               as tip_type,
 
   from_unixtime(unix_timestamp(),'yyyy-MM-dd 00:00:00') as l_time,
   b_date,
@@ -500,8 +514,8 @@ group by
   size                              ,
   b_date                            ,
   b_time                            ,
-  if(size((split(tips,'\\|')))>2,split(tips,'\\|')[1],null),
-  node ;
+  tip_type,
+  node;
 
 
 -- site_app_id,

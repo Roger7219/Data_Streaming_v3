@@ -84,6 +84,13 @@ ALTER TABLE nadx_overall_dm_for_select add column node Nullable(String);
 ALTER TABLE nadx_overall_dm_for_select_all add column tips Nullable(String);
 ALTER TABLE nadx_overall_dm_for_select_all add column node Nullable(String);
 
+-- 2019-04-23 新增字段，取代tips
+ALTER TABLE nadx_overall_dm add column tip_type Int32 DEFAULT CAST(0 AS Int32);
+ALTER TABLE nadx_overall_dm_all add column tip_type Int32 DEFAULT CAST(0 AS Int32);
+ALTER TABLE nadx_overall_dm_for_select add column tip_type Int32 DEFAULT CAST(0 AS Int32);
+ALTER TABLE nadx_overall_dm_for_select_all add column tip_type Int32 DEFAULT CAST(0 AS Int32);
+
+
 
 
 ------2019-04-20 新增审核送检数据表

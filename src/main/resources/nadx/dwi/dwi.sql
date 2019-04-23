@@ -633,6 +633,19 @@ ALTER TABLE nadx_traffic_dwi ADD COLUMNS (tips STRING);
 ALTER TABLE nadx_traffic_dwi ADD COLUMNS (node STRING);
 --------2019-04-18  lilei end
 
--- 2019-4-23
+-- 2019-4-23 Tip功能
 ALTER TABLE nadx_traffic_dwi ADD COLUMNS (tip_type int);
 ALTER TABLE nadx_traffic_dwi ADD COLUMNS (tip_desc STRING);
+-- 2019-4-23 geo送检功能涉及
+ALTER TABLE nadx_traffic_dwi ADD COLUMNS (adm STRING);
+
+-- 效果数据表
+-- 2019-4-23
+ALTER TABLE nadx_performance_dwi ADD COLUMNS (node STRING);
+ALTER TABLE nadx_performance_dwi ADD COLUMNS (tip_type int);
+ALTER TABLE nadx_performance_dwi ADD COLUMNS (tip_desc STRING);
+
+-- dwr 表
+-- tip_type
+ALTER TABLE nadx_overall_dwr ADD COLUMNS (tip_type STRING);
+

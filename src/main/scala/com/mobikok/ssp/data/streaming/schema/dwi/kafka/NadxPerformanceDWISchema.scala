@@ -19,6 +19,14 @@ object NadxPerformanceDWISchema{
       StructField("cur", StringType) ::
       StructField("withPrice", BooleanType) ::
       StructField("eventType", IntegerType) ::
+
+      // 2019.4.23
+      StructField("node",                              StringType) ::
+
+      // 2019.4.23 Tip功能新增
+      StructField("tip_type",                          IntegerType) ::
+      StructField("tip_desc",                          StringType) ::
+
       Nil
   )
 

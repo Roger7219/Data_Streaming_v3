@@ -69,6 +69,7 @@ object NadxTrafficDWISchema{
     StructField("size",                              StringType) ::
 
     StructField("supply_request_count",              LongType) ::
+    // 已弃用，待删
     StructField("supply_invalid_request_count",      LongType) ::
     StructField("supply_bid_count",                  LongType) ::
     StructField("supply_bid_price_cost_currency",    DoubleType) ::
@@ -100,20 +101,6 @@ object NadxTrafficDWISchema{
     StructField("conversion_price",                  DoubleType) ::
     StructField("saveCount",                         IntegerType) ::
 
-    // 2019.4.15 TIPS功能新增
-    StructField("supply_valid_request_count",        LongType) ::
-    StructField("demand_invalid_request_count",      LongType) ::
-    StructField("demand_valid_request_count",        LongType) ::
-    StructField("demand_valid_bid_count",            LongType) ::
-
-    StructField("supply_valid_bid_count",            LongType) ::
-    StructField("demand_valid_win_count",            LongType) ::
-    StructField("supply_valid_win_count",            LongType) ::
-
-    // 该数据来源节点
-    StructField("node",                              StringType) ::
-    StructField("tips",                              StringType) ::
-
     StructField("bidfloor",                          DoubleType) ::
     StructField("site_id",                           StringType) ::
     StructField("site_cat",                          StringType) ::
@@ -124,8 +111,14 @@ object NadxTrafficDWISchema{
     StructField("ip",                                StringType) ::
     StructField("crid",                              StringType) ::
     StructField("cid",                               StringType) ::
-    StructField("adm",                               StringType) ::
+      // 该数据来源节点
+    StructField("node",                              StringType) ::
+      // 已弃用，用tip_type代替
+    StructField("tips",                              StringType) ::
+
+    // 2019.4.23 Tip功能新增
     StructField("tip_type",                          IntegerType) ::
     StructField("tip_desc",                          StringType) ::
-    Nil)
+    StructField("adm",                               StringType) ::
+      Nil)
 }
