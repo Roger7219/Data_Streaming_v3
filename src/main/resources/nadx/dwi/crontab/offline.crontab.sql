@@ -236,8 +236,12 @@ select
   tDwi.ip as ip,
   tDwi.crid as crid,
   tDwi.cid as cid,
-  cast(tDwi.tip_type as STRING) as tips,
-  tDwi.node as node,
+--   待删
+  cast(null as string) as tips,
+  pDwi.node as node,
+  pDwi.tip_type,
+  pDwi.tip_desc,
+  tDwi.adm,
 
   pDwi.repeated,
   from_unixtime(unix_timestamp(),'yyyy-MM-dd HH:00:00') as l_time,
@@ -366,6 +370,9 @@ select
   cid                               ,
   tips                              ,
   node                              ,
+  tip_type                          ,
+  tip_desc                          ,
+  adm                               ,
 
   repeated                          ,
   l_time                            ,
@@ -420,7 +427,7 @@ select
   bid_price_model                   ,
   traffic_type                      ,
   currency                          ,
-  bundle as bundle                    ,
+  bundle as bundle                  ,
   size                              ,
 
   sum(supply_request_count)              as supply_request_count,
@@ -454,8 +461,11 @@ select
   sum(click_revenue)                     as click_revenue,
   sum(conversion_count)                  as conversion_count,
   sum(conversion_price)                  as conversion_price,
-  cast(type_type as STRING)              as tips,
+
+-- 待删，用tip_type
+  null                                   as tips,
   node                                   as node,
+  tip_type                               as tip_type,
 
   from_unixtime(unix_timestamp(),'yyyy-MM-dd 00:00:00') as l_time,
   b_date,

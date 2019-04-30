@@ -1,4 +1,1 @@
-spark-sql --master yarn --executor-cores 12 --driver-memory  3g   --executor-memory 3G --num-executors 3 --hivevar start_b_time="`date "+%Y-%m-%d 00:00:00" -d "-1 days"`" --hivevar end_b_time="`date "+%Y-%m-%d 23:00:00" -d "-1 days"`" --hivevar b_date="`date "+%Y-%m-%d" -d "-1 days"`" -f ~/offline.crontab.sql  > ~/offline.log 2>&1
-
-cd ~/offline
-java -cp data-streaming.jar com.mobikok.ssp.data.streaming.CrontabClickhouseRefreshUtil "`date "+%Y-%m-%d" -d "-1 days"`" >>  ~/offline.log
+{"id":"200130353B109506BAF4111556114567907","cur":["USD","USD"],"app":{"id":"303814","name":"Snaptube","bundle":"com.snaptube.premium","ver":""},"device":{"ua":"Mozilla/5.0 (Linux; Android 8.1.0; vivo 1802 Build/O11019; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/70.0.3538.110 Mobile Safari/537.36","geo":{"country":"IND","region":null,"city":null},"ip":"157.33.166.206","os":"Android","osv":"8.1.0","carrier":"Jio","connectiontype":0,"devicetype":4,"ifa":"0aec0817-02a4-49fd-a4c3-
