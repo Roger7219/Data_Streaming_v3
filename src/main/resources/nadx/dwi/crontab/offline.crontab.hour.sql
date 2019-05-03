@@ -243,6 +243,12 @@ select
   pDwi.tip_desc,
   tDwi.adm,
 
+  CASE pDwi.type
+    WHEN 'event' THEN 1
+    ELSE 0 END
+  AS event_count,
+  tDwi.ssp_token,
+
   pDwi.repeated,
   from_unixtime(unix_timestamp(),'yyyy-MM-dd HH:00:00') as l_time,
   pDwi.b_date,
@@ -374,6 +380,10 @@ select
   tip_desc                          ,
   adm                               ,
 
+  event_count                       ,
+  ssp_token                         ,
+
+
   repeated                          ,
   l_time                            ,
   b_date                            ,
@@ -467,6 +477,10 @@ select
   node                                   as node,
   tip_type                               as tip_type,
 
+  tip_desc                               as tip_desc,
+  sum(event_count)                       as event_count,
+  ssp_token                              as ssp_token,
+
   from_unixtime(unix_timestamp(),'yyyy-MM-dd 00:00:00') as l_time,
   b_date,
   b_time,
@@ -514,8 +528,10 @@ group by
   size                              ,
   b_date                            ,
   b_time                            ,
-  tip_type,
-  node;
+  node                              ,
+  tip_type                          ,
+  tip_desc                          ,
+  ssp_token;
 
 
 -- site_app_id,
