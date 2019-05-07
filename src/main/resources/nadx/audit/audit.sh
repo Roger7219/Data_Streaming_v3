@@ -2,8 +2,8 @@ spark-submit \
 --name nadx_audit \
 --class com.mobikok.ssp.data.streaming.OptimizedMixApp \
 --master yarn-cluster \
---driver-memory 7g \
---executor-memory 7g \
+--driver-memory 3g \
+--executor-memory 3g \
 --executor-cores 12 \
 --num-executors 1 \
 --queue default \
@@ -33,7 +33,7 @@ hdfs:/libs/config-1.3.1.jar \
 --conf spark.app.name=nadx_audit \
 --conf spark.yarn.executor.memoryOverhead=2g  \
 /apps/data-streaming/nadx/audit/data-streaming.jar \
-audit.conf buration = 300 kill=true modules = nadx_audit
+audit.conf buration = 300 kill=true modules = nadx_audit offset=latest
 
 
 [program:nadx_audit]
