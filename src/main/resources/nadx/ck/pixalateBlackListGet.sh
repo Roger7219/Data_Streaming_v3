@@ -2,6 +2,7 @@
 echo "script start at " `date "+%Y-%m-%d %H:%M:%S"`
 deviceIdFile="deviceidblacklistv2/DeviceIdBlacklist_"`date -d '1 days ago' "+%Y%m%d".csv`
 IPFile="ipblocklistv2/GenericIPBlacklisting_"`date -d '1 days ago' "+%Y%m%d".csv`
+MESSAGE_URL='http://104.250.136.138:5555/Api/Message'
 HOST='ftp.pixalate.com'
 USER='mobikok'
 PASS='mBkoMobIP01_pixalateFtp'
@@ -41,7 +42,7 @@ sleep 10s
        clickhouse-client  -m  --password $CC_PASS --query="create table blacklist_device_id_raw_select_all as blacklist_device_id_raw"
        clickhouse-client  -m  --password $CC_PASS --query="insert into blacklist_device_id_raw_select_all select * from blacklist_device_id_raw"
        curTime=`date "+%Y-%m-%d %H:%M:%S"`
-       curl 'http://104.250.136.138:5555/Api/Message' --header  "Content-Type: application/json;charset=UTF-8" -d '[{"topic":"blackList_ip_check_topic","key":"'$curTime'","uniqueKey":true,"data":""}]'
+       curl $MESSAGE_URL --header  "Content-Type: application/json;charset=UTF-8" -d '[{"topic":"blackList_ip_check_topic","key":"'$curTime'","uniqueKey":true,"data":""}]'
    fi
 else
   echo "$deviceIdFile is exist"
@@ -65,7 +66,7 @@ sleep 10s
       clickhouse-client  -m  --password $CC_PASS --query="create table blacklist_ip_raw_select_all as blacklist_ip_raw"
       clickhouse-client  -m  --password $CC_PASS --query="insert into  blacklist_ip_raw_select_all select * from blacklist_ip_raw"
       curTime=`date "+%Y-%m-%d %H:%M:%S"`
-      curl 'http://104.250.136.138:5555/Api/Message' --header  "Content-Type: application/json;charset=UTF-8" -d '[{"topic":"blackList_ip_check_topic","key":"'$curTime'","uniqueKey":true,"data":""}]'
+      curl $MESSAGE_URL --header  "Content-Type: application/json;charset=UTF-8" -d '[{"topic":"blackList_ip_check_topic","key":"'$curTime'","uniqueKey":true,"data":""}]'
   fi
 else
   echo "$IPFile is exist"
