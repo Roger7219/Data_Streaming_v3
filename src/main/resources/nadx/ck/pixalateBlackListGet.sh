@@ -26,7 +26,7 @@ pwd
 if [ ! -f $deviceIdFile ]; then
   echo "$deviceIdFile is empty . download DeviceIdBlacklist File..."
    clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_device_id_raw"
-   clickhouse-client  -m  --password $CC_PASS --query="CREATE TABLE blacklist_device_id_raw ( deviceId String, fraudType Nullable(String), os Nullable(String), idType Nullable(String), probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (deviceId)  SETTINGS index_granularity = 8192;"
+   clickhouse-client  -m  --password $CC_PASS --query="CREATE TABLE blacklist_device_id_raw ( device_id String, fraudType Nullable(String), os Nullable(String), idType Nullable(String), probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (device_id)  SETTINGS index_granularity = 8192;"
   lftp << EOF
 open ftp://$USER:$PASS@$HOST
 set ssl:verify-certificate no
@@ -40,10 +40,12 @@ sleep 10s
        clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_device_id_raw_select_all"
        clickhouse-client  -m  --password $CC_PASS --query="create table blacklist_device_id_raw_select_all as blacklist_device_id_raw"
        clickhouse-client  -m  --password $CC_PASS --query="insert into blacklist_device_id_raw_select_all select * from blacklist_device_id_raw"
+       curTime=`date "+%Y-%m-%d %H:%M:%S"`
+       curl 'http://104.250.136.138:5555/Api/Message' --header  "Content-Type: application/json;charset=UTF-8" -d '[{"topic":"blackList_ip_check_topic","key":"'$curTime'","uniqueKey":true,"data":""}]'
    fi
 else
   echo "$deviceIdFile is exist"
-fi 
+fi
 #############################IP 黑名单####################################
 if [ ! -f $IPFile ]; then
   echo "$IPFile is empty . download GenericIPBlacklisting File..."
@@ -62,6 +64,8 @@ sleep 10s
       clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_ip_raw_select_all"
       clickhouse-client  -m  --password $CC_PASS --query="create table blacklist_ip_raw_select_all as blacklist_ip_raw"
       clickhouse-client  -m  --password $CC_PASS --query="insert into  blacklist_ip_raw_select_all select * from blacklist_ip_raw"
+      curTime=`date "+%Y-%m-%d %H:%M:%S"`
+      curl 'http://104.250.136.138:5555/Api/Message' --header  "Content-Type: application/json;charset=UTF-8" -d '[{"topic":"blackList_ip_check_topic","key":"'$curTime'","uniqueKey":true,"data":""}]'
   fi
 else
   echo "$IPFile is exist"
