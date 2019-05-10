@@ -42,7 +42,8 @@ sleep 10s
        clickhouse-client  -m  --password $CC_PASS --query="create table blacklist_device_id_raw_select_all as blacklist_device_id_raw"
        clickhouse-client  -m  --password $CC_PASS --query="insert into blacklist_device_id_raw_select_all select * from blacklist_device_id_raw"
        curTime=`date "+%Y-%m-%d %H:%M:%S"`
-       curl $MESSAGE_URL --header  "Content-Type: application/json;charset=UTF-8" -d '[{"topic":"blackList_ip_check_topic","key":"'$curTime'","uniqueKey":true,"data":""}]'
+       echo  '[{"topic":"blackList_device_id_topic","key":"'$curTime'","uniqueKey":true,"data":""}]'
+       curl $MESSAGE_URL --header  "Content-Type: application/json;charset=UTF-8" -d '[{"topic":"blackList_device_id_topic","key":"'$curTime'","uniqueKey":true,"data":""}]'
    fi
 else
   echo "$deviceIdFile is exist"
@@ -66,6 +67,7 @@ sleep 10s
       clickhouse-client  -m  --password $CC_PASS --query="create table blacklist_ip_raw_select_all as blacklist_ip_raw"
       clickhouse-client  -m  --password $CC_PASS --query="insert into  blacklist_ip_raw_select_all select * from blacklist_ip_raw"
       curTime=`date "+%Y-%m-%d %H:%M:%S"`
+      echo  '[{"topic":"blackList_ip_check_topic","key":"'$curTime'","uniqueKey":true,"data":""}]'
       curl $MESSAGE_URL --header  "Content-Type: application/json;charset=UTF-8" -d '[{"topic":"blackList_ip_check_topic","key":"'$curTime'","uniqueKey":true,"data":""}]'
   fi
 else
