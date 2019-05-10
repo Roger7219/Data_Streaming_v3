@@ -56,7 +56,7 @@ else
     echo $LFILE_TIME
     if [ "$LFILE_TIME" != "$RMFILE_TIME" ]; then
         echo "$deviceIdFile is updated"
-        mv "$deviceIdFile $deviceIdFile".`date "+%Y.%m.%d.%H.%M.%S"`
+        rename $deviceIdFile "$deviceIdFile".`date "+%Y.%m.%d.%H.%M.%S"` $deviceIdFile
     else
         echo "$deviceIdFile is exist"
     fi
@@ -94,7 +94,7 @@ else
     echo $LFILE_TIME
     if [ "$LFILE_TIME" != "$RMFILE_TIME" ]; then
         echo "$IPFile is updated"
-        mv "$IPFile $IPFile".`date "+%Y.%m.%d.%H.%M.%S"`
+        rename $IPFile "$deviceIdFile".`date "+%Y.%m.%d.%H.%M.%S"` $IPFile
     else
         echo "$IPFile is exist"
     fi
