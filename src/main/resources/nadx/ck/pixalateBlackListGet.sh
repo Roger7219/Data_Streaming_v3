@@ -28,6 +28,7 @@ if [ ! -f $deviceIdFile ]; then
   echo "$deviceIdFile is empty . download DeviceIdBlacklist File..."
    clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_device_id_raw"
    clickhouse-client  -m  --password $CC_PASS --query="CREATE TABLE blacklist_device_id_raw ( device_id String, fraudType Nullable(String), os Nullable(String), idType Nullable(String), probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (device_id)  SETTINGS index_granularity = 8192;"
+  loop start_device_id_download
   lftp << EOF
 open ftp://$USER:$PASS@$HOST
 set ssl:verify-certificate no
@@ -46,13 +47,26 @@ sleep 10s
        curl $MESSAGE_URL --header  "Content-Type: application/json;charset=UTF-8" -d '[{"topic":"blackList_device_id_topic","key":"`$curTime`","uniqueKey":true,"data":""}]'
    fi
 else
-  echo "$deviceIdFile is exist"
+    RMFILE=`lftp $USER:$PASS@$HOST -e "set ssl:verify-certificate no;ls $deviceIdFile;exit"`
+    echo $RMFILE
+    RMFILE_TIME="`echo $RMFILE|cut -d ' ' -f 8`"
+    echo $RMFILE_TIME
+    LFILE_TIME="`ls -l --time-style='+%H:%M' $deviceIdFile | cut -d ' ' -f 6`"
+    LFILE_TIME=`date '+%H:%M' -d "$LFILE_TIME -7 hours"`
+    echo $LFILE_TIME
+    if [ "$LFILE_TIME" != "$RMFILE_TIME" ]; then
+        echo "$deviceIdFile is updated"
+        rm -rf $deviceIdFile
+    else
+        echo "$deviceIdFile is exist"
+    fi
 fi
 #############################IP 黑名单####################################
 if [ ! -f $IPFile ]; then
   echo "$IPFile is empty . download GenericIPBlacklisting File..."
    clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_ip_raw"
    clickhouse-client  -m  --password $CC_PASS --query="CREATE TABLE blacklist_ip_raw ( ip String, fraudType Nullable(String), probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (ip)  SETTINGS index_granularity = 8192;"
+  loop start_ip_download
   lftp << EOF
 open ftp://$USER:$PASS@$HOST
 set ssl:verify-certificate no
@@ -71,6 +85,18 @@ sleep 10s
       curl $MESSAGE_URL --header  "Content-Type: application/json;charset=UTF-8" -d '[{"topic":"blackList_ip_check_topic","key":"`$curTime`","uniqueKey":true,"data":""}]'
   fi
 else
-  echo "$IPFile is exist"
+    RMFILE=`lftp $USER:$PASS@$HOST -e "set ssl:verify-certificate no;ls $IPFile;exit"`
+    echo $RMFILE
+    RMFILE_TIME="`echo $RMFILE|cut -d ' ' -f 8`"
+    echo $RMFILE_TIME
+    LFILE_TIME="`ls -l --time-style='+%H:%M' $IPFile | cut -d ' ' -f 6`"
+    LFILE_TIME=`date '+%H:%M' -d "$LFILE_TIME -7 hours"`
+    echo $LFILE_TIME
+    if [ "$LFILE_TIME" != "$RMFILE_TIME" ]; then
+        echo "$IPFile is updated"
+        rm -rf $IPFile
+    else
+        echo "$IPFile is exist"
+    fi
 fi
 echo "script end at " `date "+%Y-%m-%d %H:%M:%S"`
