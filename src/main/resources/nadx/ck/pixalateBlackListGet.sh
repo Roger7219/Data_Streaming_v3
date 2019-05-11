@@ -28,7 +28,6 @@ if [ ! -f $deviceIdFile ]; then
   echo "$deviceIdFile is empty . download DeviceIdBlacklist File..."
    clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_device_id_raw"
    clickhouse-client  -m  --password $CC_PASS --query="CREATE TABLE blacklist_device_id_raw ( device_id String, fraudType Nullable(String), os Nullable(String), idType Nullable(String), probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (device_id)  SETTINGS index_granularity = 8192;"
-  loop start_device_id_download
   lftp << EOF
 open ftp://$USER:$PASS@$HOST
 set ssl:verify-certificate no
@@ -66,7 +65,6 @@ if [ ! -f $IPFile ]; then
   echo "$IPFile is empty . download GenericIPBlacklisting File..."
    clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_ip_raw"
    clickhouse-client  -m  --password $CC_PASS --query="CREATE TABLE blacklist_ip_raw ( ip String, fraudType Nullable(String), probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (ip)  SETTINGS index_granularity = 8192;"
-  loop start_ip_download
   lftp << EOF
 open ftp://$USER:$PASS@$HOST
 set ssl:verify-certificate no
