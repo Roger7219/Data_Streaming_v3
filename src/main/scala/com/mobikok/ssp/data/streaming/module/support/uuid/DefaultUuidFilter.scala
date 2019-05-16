@@ -5,6 +5,7 @@ import java.util
 import java.util.Date
 
 import com.mobikok.ssp.data.streaming.entity.UuidStat
+import com.mobikok.ssp.data.streaming.udf.UserAgentBrowserKernelUDF.StringUtil
 import com.mobikok.ssp.data.streaming.util.{BloomFilterWrapper, CSTTime, OM, RunAgainIfError}
 import org.apache.hadoop.util.bloom.{BloomFilter, Key}
 import org.apache.hadoop.util.hash.Hash
@@ -12,6 +13,7 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
 import org.apache.spark.storage.StorageLevel
+
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
 /**
@@ -41,6 +43,7 @@ class DefaultUuidFilter(dwiBTimeFormat: String = "yyyy-MM-dd HH:00:00") extends 
       .map { x =>
         (x.getAs[String]("b_time"), x.getAs[String](_uuidF) )
       }
+      .filter{x=>StringUtil.notEmpty(x._1)}
       .groupBy(_._1)
       .collect()
 
@@ -135,7 +138,7 @@ class DefaultUuidFilter(dwiBTimeFormat: String = "yyyy-MM-dd HH:00:00") extends 
   def loadUuidsIfNonExists(dwiTable: String, b_dates:Array[(String, String)]): Unit = {
     LOG.warn("BloomFilter try load uuids if not exists start", s"contained b_date: ${OM.toJOSN(uuidBloomFilterMap.keySet())}\ndwi table: $dwiTable\ntry apppend b_dates: ${OM.toJOSN(b_dates)}")
 
-    var bts = neighborBTimes(b_dates.map(_._2))
+    var bts = neighborBTimes(b_dates.map(_._2).filter{x=>StringUtil.notEmpty(x)})
     LOG.warn("BloomFilter try load history uuids neighborBTimes", bts)
 
     bts.foreach{case(b_date, b_time)=>
