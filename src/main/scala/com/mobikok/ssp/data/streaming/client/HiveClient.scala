@@ -459,6 +459,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 //        val parts = sparkPartitionNum("HiveClient read for backup repartition", shufflePartitions, df.rdd.getNumPartitions, df.rdd.getNumPartitions)
         moduleTracer.trace(s"        read for backup repartition rs: ${df.rdd.getNumPartitions}, ps: ${backPs}, fs: $fileNumber")
 
+        // 待优化，文件直接复制
         df.repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
           .write
           .format("orc")

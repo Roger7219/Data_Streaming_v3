@@ -120,5 +120,9 @@ object NadxTrafficDWISchema{
     StructField("tip_type",                          IntegerType) ::
     StructField("tip_desc",                          StringType) ::
     StructField("adm",                               StringType) ::
-      Nil)
+
+    // 2019.5.3 新增
+    StructField("event_count",                       LongType) ::
+    StructField("ssp_token",                         StringType) ::
+    Nil)
 }
