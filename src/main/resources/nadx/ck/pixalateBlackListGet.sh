@@ -97,4 +97,11 @@ else
         echo "$IPFile is exist"
     fi
 fi
+for ((j = 20; j > 5; j--))
+do
+  rmFile="deviceidblacklistv2/DeviceIdBlacklist_`date -d ''$j' days ago' "+%Y%m%d".*`"
+  rm -rf $rmFile
+  rmFile="ipblocklistv2/GenericIPBlacklisting_`date -d ''$j' days ago' "+%Y%m%d".*`"
+  rm -rf $rmFile
+done
 echo "script end at " `date "+%Y-%m-%d %H:%M:%S"`
