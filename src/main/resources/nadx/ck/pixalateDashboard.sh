@@ -29,7 +29,7 @@ if [ "$downloadBundlefilePath" ]; then
     wget $downloadBundlefilePath -O $appIDFileName
     if [ -f $appIDFileName ]; then
        clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_bundle_raw"
-       clickhouse-client  -m  --password $CC_PASS --query="CREATE TABLE blacklist_bundle_raw ( app_id String, probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (app_id)  SETTINGS index_granularity = 8192;"
+       clickhouse-client  -m  --password $CC_PASS --query="CREATE TABLE blacklist_bundle_raw ( bundle String, probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (bundle)  SETTINGS index_granularity = 8192;"
        clickhouse-client  -m  --password $CC_PASS --query="INSERT INTO blacklist_bundle_raw FORMAT CSVWithNames" < $appIDFileName
        clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_bundle_raw_select_all"
        clickhouse-client  -m  --password $CC_PASS --query="create table blacklist_bundle_raw_select_all as blacklist_bundle_raw"
