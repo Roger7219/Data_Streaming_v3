@@ -34,6 +34,9 @@ if [ "$downloadBundlefilePath" ]; then
        clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_bundle_raw_select_all"
        clickhouse-client  -m  --password $CC_PASS --query="create table blacklist_bundle_raw_select_all as blacklist_bundle_raw"
        clickhouse-client  -m  --password $CC_PASS --query="insert into blacklist_bundle_raw_select_all select * from blacklist_bundle_raw"
+       curTime=`date "+%Y-%m-%d %H:%M:%S"`
+       message='[{"topic":"blackList_bundle_check_topic","key":"'$curTime'","uniqueKey":true,"data":""}]'
+       curl $MESSAGE_URL --header  "Content-Type: application/json;charset=UTF-8" -d "$message"
     fi
 fi
 #############################domain 黑名单####################################
@@ -50,6 +53,9 @@ if [ "$downloadDomainfilePath" ]; then
        clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_domain_raw_select_all"
        clickhouse-client  -m  --password $CC_PASS --query="create table blacklist_domain_raw_select_all as blacklist_domain_raw"
        clickhouse-client  -m  --password $CC_PASS --query="insert into blacklist_domain_raw_select_all select * from blacklist_domain_raw"
+       curTime=`date "+%Y-%m-%d %H:%M:%S"`
+       message='[{"topic":"blackList_domain_check_topic","key":"'$curTime'","uniqueKey":true,"data":""}]'
+       curl $MESSAGE_URL --header  "Content-Type: application/json;charset=UTF-8" -d "$message"
     fi
 fi
 for ((j = 20; j > 5; j--))
