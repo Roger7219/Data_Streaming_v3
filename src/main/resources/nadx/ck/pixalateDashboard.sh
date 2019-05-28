@@ -19,8 +19,10 @@ fi
 pwd
 
 #############################APP ID 黑名单####################################
-timeRange=`date -d '2 days ago' "+%Y-%m-%d"`
-wget "http://dashboard.api.pixalate.com/services/2016/Report/getExportUri?username=d4df3f3506e476bdae08d3702910735d&password=7a9df2d4e11b31b80baeb69d641ab3f2&reportId=fraudAppId&timeZone=0&q=kv18%2CgivtSivtRate+WHERE+day>%3D'$timeRange'+AND+day<%3D'$timeRange'+ORDER+BY+givtSivtRate+DESC&start=0&limit=999999&_1558700685545=" -O downloadAppIDfilePath
+timeRangeEnd=`date -d '0 days ago' "+%Y-%m-%d"`
+timeRangeStart=`date -d '2 days ago' "+%Y-%m-%d"`
+echo "http://dashboard.api.pixalate.com/services/2016/Report/getExportUri?username=d4df3f3506e476bdae08d3702910735d&password=7a9df2d4e11b31b80baeb69d641ab3f2&reportId=fraudAppId&timeZone=0&q=kv18%2CgivtSivtRate+WHERE+day>%3D'$timeRangeStart'+AND+day<%3D'$timeRangeEnd'+ORDER+BY+givtSivtRate+DESC&start=0&limit=999999&_1558700685545="
+wget "http://dashboard.api.pixalate.com/services/2016/Report/getExportUri?username=d4df3f3506e476bdae08d3702910735d&password=7a9df2d4e11b31b80baeb69d641ab3f2&reportId=fraudAppId&timeZone=0&q=kv18%2CgivtSivtRate+WHERE+day>%3D'$timeRangeStart'+AND+day<%3D'$timeRangeEnd'+ORDER+BY+givtSivtRate+DESC&start=0&limit=999999&_1558700685545=" -O downloadAppIDfilePath
 downloadAppIDfilePath=`cat downloadAppIDfilePath |sed  s/\"//g`
 appIDFileName="app_id/app_id_"`echo $downloadAppIDfilePath|awk -F/ '{print $9}'`
 wget $downloadAppIDfilePath -O $appIDFileName
@@ -33,8 +35,8 @@ if [ -f $appIDFileName ]; then
    clickhouse-client  -m  --password $CC_PASS --query="insert into blacklist_app_id_raw_select_all select * from blacklist_app_id_raw"
 fi
 #############################domain 黑名单####################################
-timeRange=`date -d '2 days ago' "+%Y-%m-%d"`
-wget "http://dashboard.api.pixalate.com/services/2016/Report/getExportUri?username=d4df3f3506e476bdae08d3702910735d&password=7a9df2d4e11b31b80baeb69d641ab3f2&reportId=fraudDomain&timeZone=0&q=topAdDomain%2CgivtSivtRate+WHERE+day>%3D'$timeRange'+AND+day<%3D'$timeRange'+ORDER+BY+topAdDomain+DESC&start=0&limit=999999&_1558700685545=" -O downloadDomainfilePath
+echo "http://dashboard.api.pixalate.com/services/2016/Report/getExportUri?username=d4df3f3506e476bdae08d3702910735d&password=7a9df2d4e11b31b80baeb69d641ab3f2&reportId=fraudDomain&timeZone=0&q=topAdDomain%2CgivtSivtRate+WHERE+day>%3D'$timeRangeStart'+AND+day<%3D'$timeRangeEnd'+ORDER+BY+topAdDomain+DESC&start=0&limit=999999&_1558700685545="
+wget "http://dashboard.api.pixalate.com/services/2016/Report/getExportUri?username=d4df3f3506e476bdae08d3702910735d&password=7a9df2d4e11b31b80baeb69d641ab3f2&reportId=fraudDomain&timeZone=0&q=topAdDomain%2CgivtSivtRate+WHERE+day>%3D'$timeRangeStart'+AND+day<%3D'$timeRangeEnd'+ORDER+BY+topAdDomain+DESC&start=0&limit=999999&_1558700685545=" -O downloadDomainfilePath
 downloadDomainfilePath=`cat downloadDomainfilePath |sed  s/\"//g`
 domainFileName="domain/domain_"`echo $downloadDomainfilePath|awk -F/ '{print $9}'`
 wget $downloadDomainfilePath -O $domainFileName
