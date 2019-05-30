@@ -34,7 +34,7 @@ file:///apps/data-streaming/libs/hbase-client-1.1.10.jar \
 --conf spark.conf.app.name=nadx_ck \
 --conf spark.yarn.executor.memoryOverhead=2g \
 /apps/data-streaming/nadx/ck/data-streaming.jar ck.conf kill=true buration=60 \
-modules = ck_nadx_overall_dm,ck_nadx_overall_audit_dm
+modules = ck_nadx_overall_dm,ck_nadx_overall_dm_v2,ck_nadx_overall_audit_dm
 
 
 

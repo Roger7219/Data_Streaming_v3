@@ -91,6 +91,20 @@ ALTER TABLE nadx_overall_dm_for_select add column tip_type Int32 DEFAULT CAST(0 
 ALTER TABLE nadx_overall_dm_for_select_all add column tip_type Int32 DEFAULT CAST(0 AS Int32);
 
 
+-- 2019-05-03 新增字段
+ALTER TABLE nadx_overall_dm add column tip_desc Nullable(String);
+ALTER TABLE nadx_overall_dm_all add column tip_desc Nullable(String);
+ALTER TABLE nadx_overall_dm_for_select add column tip_desc Nullable(String);
+ALTER TABLE nadx_overall_dm_for_select_all add column tip_desc Nullable(String);
+ALTER TABLE nadx_overall_dm add column event_count Int64 DEFAULT CAST(0 AS Int64);
+ALTER TABLE nadx_overall_dm_all add column event_count Int64 DEFAULT CAST(0 AS Int64);
+ALTER TABLE nadx_overall_dm_for_select add column event_count Int64 DEFAULT CAST(0 AS Int64);
+ALTER TABLE nadx_overall_dm_for_select_all add column event_count Int64 DEFAULT CAST(0 AS Int64);
+ALTER TABLE nadx_overall_dm add column ssp_token Nullable(String);
+ALTER TABLE nadx_overall_dm_all add column ssp_token Nullable(String);
+ALTER TABLE nadx_overall_dm_for_select add column ssp_token Nullable(String);
+ALTER TABLE nadx_overall_dm_for_select_all add column ssp_token Nullable(String);
+
 
 
 ------2019-04-20 新增审核送检数据表
