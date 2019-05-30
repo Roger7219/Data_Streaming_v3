@@ -33,8 +33,7 @@ hdfs:/libs/config-1.3.1.jar \
 --conf spark.app.name=nadx_overall \
 --conf spark.yarn.executor.memoryOverhead=2g  \
 /apps/data-streaming/nadx/overall/data-streaming.jar \
-overall.conf buration = 300 kill=true modules = overall_traffic,overall_performance
-
+overall.conf buration = 150 kill=true modules = overall_traffic,overall_performance version=2 offset=latest
 
 [program:nadx_overall]
 directory=/apps/data-streaming/nadx/overall

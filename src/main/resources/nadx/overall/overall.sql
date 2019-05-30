@@ -97,15 +97,15 @@ CREATE TABLE nadx_overall_performance_matched_dwi(
   repeats                           int,
   rowkey                            string,
 
-  `type`        string,
-  bidTime       bigint, -- unix timestamp in second
-  supplyid      int,
-  bidid         string,
-  impid         string,
-  price         double,
-  cur           string,
-  withPrice     boolean,
-  eventType     int,
+--   `type`        string,
+--   bidTime       bigint, -- unix timestamp in second
+--   supplyid      int,
+--   bidid         string,
+--   impid         string,
+--   price         double,
+--   cur           string,
+--   withPrice     boolean,
+--   eventType     int,
 
   dataType                          int,
   `timestamp`                       bigint,
@@ -192,8 +192,25 @@ CREATE TABLE nadx_overall_performance_matched_dwi(
   click_revenue                     double,
   conversion_count                  bigint,
   conversion_price                  double,
-  saveCount                         int
+  saveCount                         int,
 
+  bidfloor                          string,
+  site_id                           string,
+  site_cat                          string,
+  site_domain                       string,
+  publisher_id                      string,
+  app_id                            string,
+  tmax                              string,
+  ip                                string,
+  crid                              string,
+  cid                               string,
+  tips                              string,
+  node                              string,
+  tip_type                          int,
+  tip_desc                          string,
+  adm                               string,
+  event_count                       bigint,
+  ssp_token                         string
 )
 PARTITIONED BY (repeated string, l_time STRING, b_date STRING, b_time STRING, b_version STRING)
 STORED AS ORC;
@@ -290,6 +307,11 @@ STORED AS ORC;
 drop view if exists nadx_overall_dm;
 create view nadx_overall_dm as
 select * from nadx_overall_dwr;
+
+
+drop view if exists nadx_overall_dm_v2;
+create view nadx_overall_dm_v2 as
+select * from nadx_overall_dwr_v2;
 
 
 
