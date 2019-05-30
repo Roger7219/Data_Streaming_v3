@@ -1274,11 +1274,6 @@ class PluggableModule(config: Config,
         ms = x
         true
       })
-    }else {
-      //等待master module kill自身app
-      while (true) {
-        Thread.sleep(2000)
-      }
     }
 
     if (ms.nonEmpty) {

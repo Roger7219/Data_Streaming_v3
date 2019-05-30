@@ -999,6 +999,7 @@ class GenericModule (config: Config,
               ): _*),
             aggExprsAlias,
             unionAggExprsAndAlias,
+            Set[String](),
             dwrGroupByExprsAlias ++ dwrGroupbyExtendedFieldsAlias,
             "l_time",
             "b_date"

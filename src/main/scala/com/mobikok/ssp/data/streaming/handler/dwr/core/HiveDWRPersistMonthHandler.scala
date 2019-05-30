@@ -45,6 +45,10 @@ class HiveDWRPersistMonthHandler extends Handler with Persistence{
       x => expr(x.getString("union")).as(x.getString("as"))
     }.toList
 
+    val overwriteAggFields = globalConfig.getConfigList(s"modules.$moduleName.dwr.groupby.aggs").map {
+      x => if(x.hasPath("overwrite") && x.getBoolean("overwrite")) x.getString("as") else null
+    }.filter(_ != null).toSet
+
     val groupByExprsAlias = globalConfig.getConfigList(s"modules.$moduleName.dwr.groupby.fields").map {
       x => x.getString("as")
     }.toArray
@@ -88,6 +92,7 @@ class HiveDWRPersistMonthHandler extends Handler with Persistence{
       persistenceDwr.selectExpr(fields:_*),
       aggExprsAlias,
       unionAggExprsAndAlias,
+      overwriteAggFields,
       groupByExprsAlias,
       partitionFields.head,
       partitionFields.tail:_*

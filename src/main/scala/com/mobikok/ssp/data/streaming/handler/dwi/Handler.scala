@@ -68,7 +68,7 @@ trait Handler extends Transactional with com.mobikok.ssp.data.streaming.handler.
   def handle (newDwi: DataFrame): (DataFrame, Array[TransactionCookie])
 
   def sql(sqlText: String): DataFrame ={
-    LOG.warn("Execute HQL", sqlText)
-    hiveClient.hiveContext.sql(sqlText)
+//    LOG.warn("Execute HQL", sqlText)
+    hiveClient.sql(sqlText)
   }
 }

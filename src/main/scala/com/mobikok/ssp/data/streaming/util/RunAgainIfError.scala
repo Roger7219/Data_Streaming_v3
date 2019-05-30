@@ -20,16 +20,23 @@ object RunAgainIfError {
   def run[T](func: => T, errorCallback: Throwable =>Unit): T = {
     run(func, "", errorCallback)
   }
-
   def run[T](func: => T, errorTip: String, errorCallback: Throwable =>Unit): T = {
+    run(func, errorTip, errorCallback, 20)
+  }
+
+  def run[T](func: => T, errorTip: String, errorCallback: Throwable =>Unit, maxTries: Int): T = {
     var returnVal:T = null.asInstanceOf[T]
     var b = true
+    var tries = 0
+    var throwable: Throwable = null
     while(b) {
 
       try {
+        tries = tries + 1
         returnVal = func
         b = false
-      }catch {case e:Throwable=>
+      }catch {case e: Throwable=>
+        throwable = e;
         if(StringUtil.isEmpty(errorTip)) {
           LOG.warn(s"Will try to run again !!", "Exception", ExceptionUtils.getStackTrace(e))
         }else {
@@ -44,8 +51,13 @@ object RunAgainIfError {
           case t:Throwable=>
             LOG.error("Call errorCallback() fail:", t)
         }
-        Thread.sleep(10*1000)
+        Thread.sleep(60*1000)
       }
+
+      if (tries >= maxTries)
+        throw new RuntimeException("Run again tries " + tries + ", But still failed !!!", throwable)
+
+
     }
     returnVal
   }

@@ -8,7 +8,7 @@ import com.mobikok.ssp.data.streaming.entity.{OffsetRange, TopicPartition}
 import com.mobikok.ssp.data.streaming.exception.{HiveClientException, KafkaClientException, MySQLJDBCClientException}
 import com.mobikok.ssp.data.streaming.client.cookie.{HiveRollbackableTransactionCookie, KafkaNonTransactionCookie, KafkaRollbackableTransactionCookie, TransactionCookie}
 import com.mobikok.ssp.data.streaming.module.support.TransactionalStrategy
-import com.mobikok.ssp.data.streaming.util.{KafkaOffsetTool, Logger, MySqlJDBCClient}
+import com.mobikok.ssp.data.streaming.util.{KafkaOffsetTool, KafkaSender, Logger, MySqlJDBCClient}
 import com.mysql.jdbc.Driver
 import com.typesafe.config.{Config, ConfigException}
 import org.apache.kafka.clients.consumer.ConsumerRecord
@@ -647,21 +647,23 @@ class KafkaClient (moduleName: String, config: Config /*databaseUrl: String, use
     }
   }
 
+  @deprecated
   def sendToKafka (topic: String, messages: String*): Unit = {
     messages.foreach { x =>
       sendToKafka(topic, null, x, true)
     }
     producer.flush()
   }
-
+  @deprecated
   def sendToKafka (topic: String, message: String): Unit = {
     sendToKafka(topic, null, message)
   }
-
+  @deprecated
   def sendToKafka (topic: String, key: String, message: String): Unit = {
     sendToKafka(topic, key, message, producerIsAsync)
   }
 
+  @deprecated
   //defaultProducerIsAsync: 是否异步发送，配置文件里配置了默认值
   def sendToKafka (topic: String, key: String, message: String, defaultProducerIsAsync: Boolean): Unit = {
     try {

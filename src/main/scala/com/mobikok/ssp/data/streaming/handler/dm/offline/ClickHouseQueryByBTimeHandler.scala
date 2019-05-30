@@ -17,18 +17,20 @@ import scala.collection.JavaConversions._
 class ClickHouseQueryByBTimeHandler extends Handler {
 
   //view, consumer, topics
-  private var viewConsumerTopics = null.asInstanceOf[Array[(String, String, Array[String])]]
+  private var viewConsumerTopics = null.asInstanceOf[Array[(String, String, String, String, Array[String])]]
 
   override def init(moduleName: String, bigQueryClient: BigQueryClient, greenplumClient: GreenplumClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext, handlerConfig: Config): Unit = {
     super.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient, kylinClientV2, hbaseClient, hiveContext, handlerConfig)
 
     viewConsumerTopics = handlerConfig.getObjectList("items").map { item =>
       val config = item.toConfig
-      val view = config.getString("view")
+      val hiveView = config.getString("view")
+      val ckTable = if(config.hasPath("ck")) config.getString("ck") else hiveView
+      val minBtExpr = if(config.hasPath("b_time.min")) config.getString("b_time.min") else "'0000-00-01 00:00:00'"
       val consumer = config.getString("message.consumer")
-      val topic = config.getStringList("message.topics").toArray(new Array[String](0))
+      val topics = config.getStringList("message.topics").toArray(new Array[String](0))
 //      LOG.warn("consumer topic", s"($view, $consumer, $topic)")
-      (view, consumer, topic)
+      (hiveView, ckTable, minBtExpr, consumer, topics)
     }.toArray
   }
 
@@ -36,9 +38,9 @@ class ClickHouseQueryByBTimeHandler extends Handler {
 
     LOG.warn("ClickHouseBTimeHandler handler starting")
     RunAgainIfError.run {
-      viewConsumerTopics.foreach { topic =>
+      viewConsumerTopics.foreach { case(hiveView, ckTable, minBtExpr, consumer, topics) =>
         val pageData = messageClient
-          .pullMessage(new MessagePullReq(topic._2, topic._3))
+          .pullMessage(new MessagePullReq(consumer, topics))
           .getPageData
 
         var ms = pageData.map { data =>
@@ -53,13 +55,15 @@ class ClickHouseQueryByBTimeHandler extends Handler {
         // 目前只支持小时过滤
         //ms = filterHistoricalBTime(ms)
 
+        var minBt = sql(s"select $minBtExpr as min_b_time").first().getAs[String]("min_b_time")
+        var filtereMS = ms.filter{x=>x.value >= minBt}
 
-        LOG.warn(s"ClickHouseBTimeHandler update b_time(s), count: ${ms.length}", ms)
+        LOG.warn(s"ClickHouseBTimeHandler update b_time(s), count: ${ms.length}", "all_b_time(s)", ms, "filtered_b_time(s)", filtereMS)
 
-        clickHouseClient.overwriteByBTime(topic._1.replace("_v2", ""), topic._1, ms.map{_.value})
+        clickHouseClient.overwriteByBTime(ckTable.replace("_v2", ""), hiveView, filtereMS.map{_.value})
         messageClient.commitMessageConsumer(
           pageData.map{data =>
-            new MessageConsumerCommitReq(topic._2, data.getTopic, data.getOffset)
+            new MessageConsumerCommitReq(consumer, data.getTopic, data.getOffset)
           }:_*
         )
 
@@ -72,7 +76,7 @@ class ClickHouseQueryByBTimeHandler extends Handler {
 
   def filterHistoricalBTime(partitions: Array[HivePartitionPart]): Array[HivePartitionPart] = {
     val consumerAndTopic = viewConsumerTopics.map{ each =>
-      val topic = each._3.filter{ topic => topic.contains("ck_report_overall")}.head
+      val topic = each._5.filter{ topic => topic.contains("ck_report_overall")}.head
       (each._2, Array(s"${topic}_finished"))
     }.head
 

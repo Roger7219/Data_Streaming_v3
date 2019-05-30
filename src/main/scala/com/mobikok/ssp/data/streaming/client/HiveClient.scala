@@ -158,6 +158,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
                          newDF: DataFrame,
                          aggExprsAlias: List[String],
                          unionAggExprsAndAlias: List[Column],
+                         overwriteAggFields: Set[String],
                          groupByFields: Array[String],
                          partitionField: String,
                          partitionFields: String*): HiveTransactionCookie = {
@@ -174,7 +175,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
       }
     moduleTracer.trace("        count partitions")
 
-    overwriteUnionSum(transactionParentId, table, newDF, aggExprsAlias, unionAggExprsAndAlias, groupByFields, ps, partitionField, partitionFields:_*)
+    overwriteUnionSum(transactionParentId, table, newDF, aggExprsAlias, unionAggExprsAndAlias, overwriteAggFields, groupByFields, ps, partitionField, partitionFields:_*)
   }
 
   def overwriteUnionSum (transactionParentId: String,
@@ -182,6 +183,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
                          newDF: DataFrame,
                          aggExprsAlias: List[String],
                          unionAggExprsAndAlias: List[Column],
+                         overwriteAggFields: Set[String],
                          groupByFields: Array[String],
                          ps: Array[Array[HivePartitionPart]],
                          partitionField: String,
@@ -222,10 +224,14 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 
         var fs = original.schema.fieldNames
         var _newDF = newDF.select(fs.head, fs.tail:_*)
+        //忽略大小写
+        var _overwriteAggFields = overwriteAggFields.map{x=>x.toLowerCase.trim}
+        var os = fs.map{x=>if(_overwriteAggFields.contains(x.toLowerCase())) expr(s"null as $x") else expr(x)};
   //      LOG.warn(s"HiveClient re-ordered field name via hive table _newDF take(2)", _newDF.take(2))
 
         // Sum
         val updated = original
+          .select(os:_*)
           .union(_newDF /*newDF*/)
           .groupBy(gs.head, gs.tail:_*)
           .agg(
@@ -374,9 +380,9 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
         y.name + "=\"" + y.value + "\""
         //y._1 + "=" + y._2
       }.mkString("(", " and ", ")")
-    }.mkString(" or ")
-    if ("".equals(w)) w = "1 = 1"
-    w
+    }.mkString( " or ")
+    if ("".equals(w)) w = "'no_partition_specified' = 'no_partition_specified'"
+    "( " + w + " )"
   }
 
   def partitionsAlterSQL(ps : Array[Array[HivePartitionPart]]): Array[String] = {

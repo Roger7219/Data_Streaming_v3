@@ -245,14 +245,14 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
                 }
 
                 // 验证数据完整性
-                gzFiles.foreach { file =>
-                  val current = file.getLen
-                  val last = lastLengthMap.get(s"$hiveTable^$b_time")
-                  if (last != null && current * 1.5 < last) {
-                    throw new RuntimeException(s"Hive table '$hiveTable' b_time = '$b_time' reading data are incomplete, less than before (before length: $last, current length: $current).")
-                  }
-                  lastLengthMap.put(s"$hiveTable^$b_time", current)
-                }
+//                gzFiles.foreach { file =>
+//                  val current = file.getLen
+//                  val last = lastLengthMap.get(s"$hiveTable^$b_time")
+//                  if (last != null && current * 1.5 < last) {
+//                    throw new RuntimeException(s"Hive table '$hiveTable' b_time = '$b_time' reading data are incomplete, less than before (before length: $last, current length: $current).")
+//                  }
+//                  lastLengthMap.put(s"$hiveTable^$b_time", current)
+//                }
 
               }, {t:Throwable=>
                 if(rows !=null) rows.unpersist()
