@@ -6,7 +6,8 @@
 
 -- beeline -n "" -p ""  -u jdbc:hive2://master:10016/default --outputformat=table --verbose=true
 
-
+-- 强烈建议用Orc格式，避免字段值含分隔符导致数据错位问题！
+set hive.default.fileformat=Orc;
 set hive.exec.dynamic.partition.mode=nonstrict;
 set spark.default.parallelism = 4;
 set spark.sql.shuffle.partitions = 4;
@@ -437,7 +438,7 @@ select
   bid_price_model                   ,
   traffic_type                      ,
   currency                          ,
-  bundle as bundle                  ,
+  null as bundle                  ,
   size                              ,
 
   sum(supply_request_count)              as supply_request_count,
@@ -474,12 +475,12 @@ select
 
 -- 待删，用tip_type
   null                                   as tips,
-  node                                   as node,
+  node                          as node,
   tip_type                               as tip_type,
 
-  tip_desc                               as tip_desc,
+  tip_desc                          as tip_desc,
   sum(event_count)                       as event_count,
-  ssp_token                              as ssp_token,
+  ssp_token                          as ssp_token,
 
   from_unixtime(unix_timestamp(),'yyyy-MM-dd 00:00:00') as l_time,
   b_date,
@@ -524,14 +525,17 @@ group by
   bid_price_model                   ,
   traffic_type                      ,
   currency                          ,
-  bundle                            ,
+--   bundle                            ,
   size                              ,
   b_date                            ,
   b_time                            ,
   node                              ,
-  tip_type                          ,
-  tip_desc                          ,
-  ssp_token;
+  tip_type
+,
+  tip_desc
+,
+  ssp_token
+;
 
 
 -- site_app_id,

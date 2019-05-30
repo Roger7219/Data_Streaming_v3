@@ -1,19 +1,29 @@
 -----------------------------------------------------------------------------------------
 -- 离线统计
 -----------------------------------------------------------------------------------------
--- spark-sql  --driver-memory  8G   --executor-memory 8G
+-- spark-sql --driver-memory  8G   --executor-memory 12G
+-- spark-sql --master yarn --hivevar start_b_time="`date "+%Y-%m-%d 00:00:00" -d "-1 days"`" --hivevar end_b_time="`date "+%Y-%m-%d 23:00:00" -d "-1 days"`" --hivevar b_date="`date "+%Y-%m-%d" -d "-1 days"`" -f ~/offline.crontab.sql  > offline.log 2>&1
+
 -- beeline -n "" -p ""  -u jdbc:hive2://master:10016/default --outputformat=table --verbose=true
 
+
+-- 强烈建议用Orc格式，避免字段值含分隔符导致数据错位问题！
+set hive.default.fileformat=Orc;
 set hive.exec.dynamic.partition.mode=nonstrict;
 set spark.default.parallelism = 4;
 set spark.sql.shuffle.partitions = 4;
-set start_b_time = "2019-03-23 00:00:00";
-set end_b_time   = "2019-03-23 23:00:00";
-set b_date = "2019-03-23";
+set start_b_time = "2019-05-08 19:00:00";
+set end_b_time   = "2019-05-08 19:00:00";
+set b_date = "2019-05-08";
+
+set start_b_time;
+set end_b_time;
+set b_date;
 
 -- set start_b_time = "2019-03-26 00:00:00";
 -- set end_b_time   = "2019-03-26 23:00:00";
 -- set b_date = "2019-03-26";
+
 
 drop table if exists nadx_performance_matched_dwi_tmp;
 create table nadx_performance_matched_dwi_tmp as
@@ -97,6 +107,7 @@ select
   tDwi.size,
 
   0  AS supply_request_count,
+--   待删
   0  AS supply_invalid_request_count,
   0  AS supply_bid_count,
   0. AS supply_bid_price_cost_currency,
@@ -218,6 +229,31 @@ select
 
   0 as saveCount,
 
+  tDwi.bidfloor as bidfloor,
+  tDwi.site_id as site_id,
+  tDwi.site_cat as site_cat,
+  tDwi.site_domain as site_domain,
+  tDwi.publisher_id as publisher_id,
+  tDwi.app_id as app_id,
+  tDwi.tmax as tmax,
+  tDwi.ip as ip,
+  tDwi.crid as crid,
+  tDwi.cid as cid,
+--   待删
+  cast(null as string) as tips,
+  pDwi.node as node,
+  pDwi.tip_type,
+--    pDwi.tip_desc,
+  pDwi.tip_desc,
+  tDwi.adm,
+--   cast(null as string) as adm,
+
+  CASE pDwi.type
+    WHEN 'event' THEN 1
+    ELSE 0 END
+  AS event_count,
+  tDwi.ssp_token,
+
   pDwi.repeated,
   from_unixtime(unix_timestamp(),'yyyy-MM-dd HH:00:00') as l_time,
   pDwi.b_date,
@@ -231,7 +267,7 @@ left join (
   select * from nadx_traffic_dwi where dataType = 4 AND b_time >= ${start_b_time} and b_time <= ${end_b_time}
 ) tDwi ON tDwi.b_time = pDwi.b_time AND pDwi.bidid = tDwi.bidRequestId
 left join (
-  select * from nadx_performance_dwi where repeated = 'N' AND b_time >= ${start_b_time} and b_time <= ${end_b_time} AND type = 'win'
+  select * from nadx_performance_dwi where repeated = 'N' AND b_time >= ${start_b_time} and b_time <= ${end_b_time} AND type = 'win' and 1=1
 ) winDwi ON winDwi.b_time = pDwi.b_time AND winDwi.bidid = pDwi.bidid;
 
 
@@ -302,6 +338,7 @@ select
   size                              ,
 
   supply_request_count              ,
+--   待删，冗余
   supply_invalid_request_count      ,
   supply_bid_count                  ,
   supply_bid_price_cost_currency    ,
@@ -332,6 +369,25 @@ select
   conversion_count                  ,
   conversion_price                  ,
   saveCount                         ,
+  bidfloor                          ,
+  site_id                           ,
+  site_cat                          ,
+  site_domain                       ,
+  publisher_id                      ,
+  app_id                            ,
+  tmax                              ,
+  ip                                ,
+  crid                              ,
+  cid                               ,
+  tips                              ,
+  node                              ,
+  tip_type                          ,
+  tip_desc                          ,
+  adm                               ,
+
+  event_count                       ,
+  ssp_token                         ,
+
 
   repeated                          ,
   l_time                            ,
@@ -352,8 +408,6 @@ where row_num = 1;
 alter table nadx_overall_dwr drop if exists partition(b_date=${b_date});
 -- alter table nadx_overall_dwr drop partition(b_time=${start_b_time});
 
--- 1362339
--- 15914243
 insert overwrite table nadx_overall_dwr
 select
   supply_bd_id                      ,
@@ -362,7 +416,7 @@ select
   supply_protocol                   ,
   request_flag                      ,
   ad_format                         ,
-  null as site_app_id               ,
+  site_app_id as site_app_id        ,
   null as placement_id              ,
   position                          ,
   country                           ,
@@ -388,10 +442,11 @@ select
   bid_price_model                   ,
   traffic_type                      ,
   currency                          ,
-  bundle as bundle                    ,
+  null as bundle                  ,
   size                              ,
 
   sum(supply_request_count)              as supply_request_count,
+--   待删，冗余
   sum(supply_invalid_request_count)      as supply_invalid_request_count,
   sum(supply_bid_count)                  as supply_bid_count,
   sum(supply_bid_price_cost_currency    / IF(bid_price_model = 1, 1000.0, 1.0)) as supply_bid_price_cost_currency,
@@ -422,6 +477,15 @@ select
   sum(conversion_count)                  as conversion_count,
   sum(conversion_price)                  as conversion_price,
 
+-- 待删，用tip_type
+  null                                   as tips,
+  null                          as node,
+  tip_type                               as tip_type,
+
+  null                          as tip_desc,
+  sum(event_count)                       as event_count,
+  null                          as ssp_token,
+
   from_unixtime(unix_timestamp(),'yyyy-MM-dd 00:00:00') as l_time,
   b_date,
   b_time,
@@ -439,7 +503,7 @@ group by
   supply_protocol                   ,
   request_flag                      ,
   ad_format                         ,
---site_app_id                       ,
+  site_app_id                       ,
 --placement_id                      ,
   position                          ,
   country                           ,
@@ -465,10 +529,16 @@ group by
   bid_price_model                   ,
   traffic_type                      ,
   currency                          ,
-  bundle                            ,
+--   bundle                            ,
   size                              ,
   b_date                            ,
-  b_time ;
+  b_time                            ,
+--   node                              ,
+  tip_type
+--   ,
+--   tip_desc                          ,
+--   ssp_token
+;
 
 
 -- site_app_id,
@@ -478,172 +548,4 @@ group by
 -- os_version,
 -- device_brand,
 -- device_model,
-
-
 -- bundle
-
--------------------------------------------------------------------------------------------
--- 验证
--------------------------------------------------------------------------------------------
-select
---   demand_id                         ,
-  supply_id,
-  sum(supply_request_count)              as supply_request_count,
-  sum(supply_invalid_request_count)      as supply_invalid_request_count,
-  sum(supply_bid_count)                  as supply_bid_count,
-  sum(supply_bid_price_cost_currency)    as supply_bid_price_cost_currency,
-  sum(supply_bid_price)                  as supply_bid_price,
-  sum(supply_win_count)                  as supply_win_count,
-  sum(supply_win_price_cost_currency)    as supply_win_price_cost_currency,
-  sum(supply_win_price)                  as supply_win_price,
-
-  sum(demand_request_count)              as demand_request_count,
-  sum(demand_bid_count)                  as demand_bid_count,
-  sum(demand_bid_price_revenue_currency) as demand_bid_price_revenue_currency,
-  sum(demand_bid_price)                  as demand_bid_price,
-  sum(demand_win_count)                  as demand_win_count,
-  sum(demand_win_price_revenue_currency) as demand_win_price_revenue_currency,
-  sum(demand_win_price)                  as demand_win_price,
-  sum(demand_timeout_count)              as demand_timeout_count,
-
-  sum(impression_count)                  as impression_count,
-  sum(impression_cost_currency)          as impression_cost_currency,
-  sum(impression_cost)                   as impression_cost,
-  sum(impression_revenue_currency)       as impression_revenue_currency,
-  sum(impression_revenue)                as impression_revenue,
-  sum(click_count)                       as click_count,
-  sum(click_cost_currency)               as click_cost_currency,
-  sum(click_cost)                        as click_cost,
-  sum(click_revenue_currency)            as click_revenue_currency,
-  sum(click_revenue)                     as click_revenue,
-  sum(conversion_count)                  as conversion_count,
-  sum(conversion_price)                  as conversion_price
-from nadx_overall_dwr
-where supply_id = 31 and b_time = ${start_b_time}
-group by supply_id;
--- where demand_id = 5  and b_time = "2019-03-20 03:00:00"
--- group by demand_id;
-
-------------------------------------------------------------------------
-------------------------------------------------------------------------
-select
---   demand_id                         ,
-  supply_id,
-  sum(supply_request_count)              as supply_request_count,
-  sum(supply_invalid_request_count)      as supply_invalid_request_count,
-  sum(supply_bid_count)                  as supply_bid_count,
-  sum(supply_bid_price_cost_currency)    as supply_bid_price_cost_currency,
-  sum(supply_bid_price)                  as supply_bid_price,
-  sum(supply_win_count)                  as supply_win_count,
-  sum(supply_win_price_cost_currency)    as supply_win_price_cost_currency,
-  sum(supply_win_price)                  as supply_win_price,
-
-  sum(demand_request_count)              as demand_request_count,
-  sum(demand_bid_count)                  as demand_bid_count,
-  sum(demand_bid_price_revenue_currency) as demand_bid_price_revenue_currency,
-  sum(demand_bid_price)                  as demand_bid_price,
-  sum(demand_win_count)                  as demand_win_count,
-  sum(demand_win_price_revenue_currency) as demand_win_price_revenue_currency,
-  sum(demand_win_price)                  as demand_win_price,
-  sum(demand_timeout_count)              as demand_timeout_count,
-
-  sum(impression_count)                  as impression_count,
-  sum(impression_cost_currency)          as impression_cost_currency,
-  sum(impression_cost)                   as impression_cost,
-  sum(impression_revenue_currency)       as impression_revenue_currency,
-  sum(impression_revenue)                as impression_revenue,
-  sum(click_count)                       as click_count,
-  sum(click_cost_currency)               as click_cost_currency,
-  sum(click_cost)                        as click_cost,
-  sum(click_revenue_currency)            as click_revenue_currency,
-  sum(click_revenue)                     as click_revenue,
-  sum(conversion_count)                  as conversion_count,
-  sum(conversion_price)                  as conversion_price
-from nadx_overall_dwr
-where supply_id = 7 and b_time = ${start_b_time}
-group by supply_id;
-
--- where demand_id = 5  and b_time = "2019-03-20 03:00:00"
--- group by demand_id;
-
--------------------------------------------
-
-select
---   demand_id                         ,
-  supply_id,
-  sum(supply_request_count)              as supply_request_count,
-  sum(supply_invalid_request_count)      as supply_invalid_request_count,
-  sum(supply_bid_count)                  as supply_bid_count,
-  sum(supply_bid_price_cost_currency)    as supply_bid_price_cost_currency,
-  sum(supply_bid_price)                  as supply_bid_price,
-  sum(supply_win_count)                  as supply_win_count,
-  sum(supply_win_price_cost_currency)    as supply_win_price_cost_currency,
-  sum(supply_win_price)                  as supply_win_price,
-
-  sum(demand_request_count)              as demand_request_count,
-  sum(demand_bid_count)                  as demand_bid_count,
-  sum(demand_bid_price_revenue_currency) as demand_bid_price_revenue_currency,
-  sum(demand_bid_price)                  as demand_bid_price,
-  sum(demand_win_count)                  as demand_win_count,
-  sum(demand_win_price_revenue_currency) as demand_win_price_revenue_currency,
-  sum(demand_win_price)                  as demand_win_price,
-  sum(demand_timeout_count)              as demand_timeout_count,
-
-  sum(impression_count)                  as impression_count,
-  sum(impression_cost_currency)          as impression_cost_currency,
-  sum(impression_cost)                   as impression_cost,
-  sum(impression_revenue_currency)       as impression_revenue_currency,
-  sum(impression_revenue)                as impression_revenue,
-  sum(click_count)                       as click_count,
-  sum(click_cost_currency)               as click_cost_currency,
-  sum(click_cost)                        as click_cost,
-  sum(click_revenue_currency)            as click_revenue_currency,
-  sum(click_revenue)                     as click_revenue,
-  sum(conversion_count)                  as conversion_count,
-  sum(conversion_price)                  as conversion_price
-from nadx_overall_dwr
-where supply_id = 7 and b_time = "2019-03-25 23:00:00"
-group by supply_id;
--- where demand_id = 5  and b_time = ${start_b_time}
--- where demand_id = 5  and b_time = "2019-03-25 23:00:00"
--- group by demand_id;
-
-
--- set b_time = "2019-03-24 11:00:00";
--- select count(distinct (dataType, bidRequestId)) from nadx_performance_dwi where repeated = 'N' and b_time = ${b_time}
-
--- hadoop fs -ls -R -h /apps/hive/warehouse/nadx_performance_matched_dwi_tmp_unrepeated/
-
--- select * from nadx_overall_dwr  where b_time ='2019-03-24 11:00:00' limit 100;
--- select count(distinct supply_bd_id) from nadx_overall_dwr  where b_time ='2019-03-24 11:00:00';
--- select count(distinct supply_am_id) from nadx_overall_dwr  where b_time ='2019-03-24 11:00:00';
--- select count(distinct supply_id) from nadx_overall_dwr  where b_time ='2019-03-24 11:00:00';
--- select count(distinct supply_protocol) from nadx_overall_dwr  where b_time ='2019-03-24 11:00:00';
--- select count(distinct request_flag) from nadx_overall_dwr  where b_time ='2019-03-24 11:00:00';
--- select count(distinct ad_format) from nadx_overall_dwr  where b_time ='2019-03-24 11:00:00';
--- select count(distinct site_app_id) from nadx_overall_dwr  where b_time ='2019-03-24 11:00:00';
--- select count(distinct placement_id) from nadx_overall_dwr  where b_time ='2019-03-24 11:00:00';
--- select count(distinct position) from nadx_overall_dwr  where b_time ='2019-03-24 11:00:00';
--- select count(distinct country) from nadx_overall_dwr  where b_time ='2019-03-24 11:00:00';
--- select count(distinct state) from nadx_overall_dwr  where b_time ='2019-03-24 11:00:00';
--- select count(distinct city) from nadx_overall_dwr  where b_time ='2019-03-24 11:00:00';
--- select count(distinct carrier) from nadx_overall_dwr  where b_time ='2019-03-24 11:00:00';
--- select count(distinct os) from nadx_overall_dwr  where b_time ='2019-03-24 11:00:00';
--- select count(distinct os_version) from nadx_overall_dwr  where b_time ='2019-03-24 11:00:00';
--- select count(distinct device_type) from nadx_overall_dwr  where b_time ='2019-03-24 11:00:00';
--- select count(distinct device_brand) from nadx_overall_dwr  where b_time ='2019-03-24 11:00:00';
--- select count(distinct device_model) from nadx_overall_dwr  where b_time ='2019-03-24 11:00:00';
--- select count(distinct age) from nadx_overall_dwr  where b_time ='2019-03-24 11:00:00';
--- select count(distinct gender) from nadx_overall_dwr  where b_time ='2019-03-24 11:00:00';
--- select count(distinct cost_currency) from nadx_overall_dwr  where b_time ='2019-03-24 11:00:00';
--- select count(distinct demand_bd_id) from nadx_overall_dwr  where b_time ='2019-03-24 11:00:00';
--- select count(distinct demand_seat_id) from nadx_overall_dwr  where b_time ='2019-03-24 11:00:00';
--- select count(distinct demand_campaign_id) from nadx_overall_dwr  where b_time ='2019-03-24 11:00:00';
--- select count(distinct demand_protocol) from nadx_overall_dwr  where b_time ='2019-03-24 11:00:00';
--- select count(distinct target_site_app_id) from nadx_overall_dwr  where b_time ='2019-03-24 11:00:00';
--- select count(distinct revenue_currency) from nadx_overall_dwr  where b_time ='2019-03-24 11:00:00';
--- select count(distinct bid_price_model) from nadx_overall_dwr  where b_time ='2019-03-24 11:00:00';
--- select count(distinct traffic_type) from nadx_overall_dwr  where b_time ='2019-03-24 11:00:00';
--- select count(distinct currency) from nadx_overall_dwr  where b_time ='2019-03-24 11:00:00';
--- select count(distinct bundle) from nadx_overall_dwr  where b_time ='2019-03-24 11:00:00';
--- select count(distinct size) from nadx_overall_dwr  where b_time ='2019-03-24 11:00:00';
