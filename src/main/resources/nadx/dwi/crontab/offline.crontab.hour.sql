@@ -249,7 +249,10 @@ select
     ELSE 0 END
   AS event_count,
   tDwi.ssp_token,
-
+  tDwi.rtb_version as rtb_version,
+  tDwi.demand_using_time as demand_using_time,
+  tDwi.adx_using_time as adx_using_time,
+  
   pDwi.repeated,
   from_unixtime(unix_timestamp(),'yyyy-MM-dd HH:00:00') as l_time,
   pDwi.b_date,
@@ -383,6 +386,9 @@ select
 
   event_count                       ,
   ssp_token                         ,
+  rtb_version                       ,
+  demand_using_time                 ,
+  adx_using_time                    ,
 
 
   repeated                          ,
@@ -481,6 +487,9 @@ select
   tip_desc                          as tip_desc,
   sum(event_count)                       as event_count,
   ssp_token                          as ssp_token,
+  rtb_version                            as rtb_version,
+  demand_using_time                      as demand_using_time,
+  adx_using_time                         as adx_using_time,
 
   from_unixtime(unix_timestamp(),'yyyy-MM-dd 00:00:00') as l_time,
   b_date,
@@ -530,6 +539,9 @@ group by
   b_date                            ,
   b_time                            ,
   node                              ,
+  rtb_version,
+  demand_using_time,
+  adx_using_time,
   tip_type
 ,
   tip_desc
