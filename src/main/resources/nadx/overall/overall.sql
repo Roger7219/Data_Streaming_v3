@@ -87,7 +87,10 @@ CREATE TABLE nadx_overall_traffic_dwi(
   click_revenue                     double,
   conversion_count                  bigint,
   conversion_price                  double,
-  saveCount                         int
+  saveCount                         int   ,
+  rtb_version                       string,
+  demand_using_time                 string,
+  adx_using_time                    string
   
 )
 PARTITIONED BY (repeated string, l_time STRING, b_date STRING, b_time STRING, b_version STRING)
@@ -210,7 +213,10 @@ CREATE TABLE nadx_overall_performance_matched_dwi(
   tip_desc                          string,
   adm                               string,
   event_count                       bigint,
-  ssp_token                         string
+  ssp_token                         string,
+  rtb_version                       string,
+  demand_using_time                 string,
+  adx_using_time                    string
 )
 PARTITIONED BY (repeated string, l_time STRING, b_date STRING, b_time STRING, b_version STRING)
 STORED AS ORC;

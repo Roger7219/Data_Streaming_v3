@@ -757,5 +757,11 @@ ALTER TABLE nadx_overall_dwr ADD COLUMNS (ssp_token STRING);
 ALTER TABLE nadx_traffic_dwi ADD COLUMNS (rtb_version STRING);
 ALTER TABLE nadx_traffic_dwi ADD COLUMNS (demand_using_time STRING);
 ALTER TABLE nadx_traffic_dwi ADD COLUMNS (adx_using_time STRING);
+ALTER TABLE nadx_overall_dwr ADD COLUMNS (rtb_version STRING);
+ALTER TABLE nadx_overall_dwr ADD COLUMNS (demand_using_time STRING);
+ALTER TABLE nadx_overall_dwr ADD COLUMNS (adx_using_time STRING);
+ALTER TABLE nadx_overall_dwr_v2 ADD COLUMNS (rtb_version STRING);
+ALTER TABLE nadx_overall_dwr_v2 ADD COLUMNS (demand_using_time STRING);
+ALTER TABLE nadx_overall_dwr_v2 ADD COLUMNS (adx_using_time STRING);
 
 
