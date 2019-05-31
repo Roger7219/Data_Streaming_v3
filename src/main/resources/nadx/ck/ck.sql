@@ -104,6 +104,19 @@ ALTER TABLE nadx_overall_dm add column ssp_token Nullable(String);
 ALTER TABLE nadx_overall_dm_all add column ssp_token Nullable(String);
 ALTER TABLE nadx_overall_dm_for_select add column ssp_token Nullable(String);
 ALTER TABLE nadx_overall_dm_for_select_all add column ssp_token Nullable(String);
+-- 2019-06-01 新增字段
+ALTER TABLE nadx_overall_dm add column rtb_version Nullable(String);
+ALTER TABLE nadx_overall_dm_all add column rtb_version Nullable(String);
+ALTER TABLE nadx_overall_dm_for_select add column rtb_version Nullable(String);
+ALTER TABLE nadx_overall_dm_for_select_all add column rtb_version Nullable(String);
+ALTER TABLE nadx_overall_dm add column demand_using_time Int32 DEFAULT CAST(0 AS Int32);
+ALTER TABLE nadx_overall_dm_all add column demand_using_time Int32 DEFAULT CAST(0 AS Int32);
+ALTER TABLE nadx_overall_dm_for_select add column demand_using_time Int32 DEFAULT CAST(0 AS Int32);
+ALTER TABLE nadx_overall_dm_for_select_all add column demand_using_time Int32 DEFAULT CAST(0 AS Int32);
+ALTER TABLE nadx_overall_dm add column adx_using_time Int32 DEFAULT CAST(0 AS Int32);
+ALTER TABLE nadx_overall_dm_all add column adx_using_time Int32 DEFAULT CAST(0 AS Int32);
+ALTER TABLE nadx_overall_dm_for_select add column adx_using_time Int32 DEFAULT CAST(0 AS Int32);
+ALTER TABLE nadx_overall_dm_for_select_all add column adx_using_time Int32 DEFAULT CAST(0 AS Int32);
 
 
 
