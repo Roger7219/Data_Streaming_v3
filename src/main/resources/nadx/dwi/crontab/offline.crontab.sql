@@ -487,7 +487,6 @@ select
   null                          as tip_desc,
   sum(event_count)                       as event_count,
   null                          as ssp_token,
-  node                                   as node,
   rtb_version                            as rtb_version,
   demand_using_time                      as demand_using_time,
   adx_using_time                         as adx_using_time,
