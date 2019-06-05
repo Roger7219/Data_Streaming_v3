@@ -124,5 +124,8 @@ object NadxTrafficDWISchema{
     // 2019.5.3 新增
     StructField("event_count",                       LongType) ::
     StructField("ssp_token",                         StringType) ::
+    StructField("rtb_version",                       StringType) ::
+    StructField("demand_using_time",                 IntegerType) ::
+    StructField("adx_using_time",                    IntegerType) ::
     Nil)
 }

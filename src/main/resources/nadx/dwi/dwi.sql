@@ -179,8 +179,11 @@ node                              string,
 tip_type                          int   ,
 tip_desc                          string,
 adm                               string,
-event_count           site_app_id            bigint,
-ssp_token                         string
+event_count                       bigint,
+ssp_token                         string,
+rtb_version                       string,
+demand_using_time                 int,
+adx_using_time                    int
 )
 PARTITIONED BY (repeated string, l_time STRING, b_date STRING, b_time STRING, b_version STRING)
 STORED AS PARQUET;
@@ -750,5 +753,15 @@ ALTER TABLE nadx_traffic_dwi ADD COLUMNS (ssp_token STRING);
 ALTER TABLE nadx_overall_dwr ADD COLUMNS (tip_desc STRING);
 ALTER TABLE nadx_overall_dwr ADD COLUMNS (event_count bigint);
 ALTER TABLE nadx_overall_dwr ADD COLUMNS (ssp_token STRING);
+-- 2019-6-1
+ALTER TABLE nadx_traffic_dwi ADD COLUMNS (rtb_version STRING);
+ALTER TABLE nadx_traffic_dwi ADD COLUMNS (demand_using_time STRING);
+ALTER TABLE nadx_traffic_dwi ADD COLUMNS (adx_using_time STRING);
+ALTER TABLE nadx_overall_dwr ADD COLUMNS (rtb_version STRING);
+ALTER TABLE nadx_overall_dwr ADD COLUMNS (demand_using_time STRING);
+ALTER TABLE nadx_overall_dwr ADD COLUMNS (adx_using_time STRING);
+ALTER TABLE nadx_overall_dwr_v2 ADD COLUMNS (rtb_version STRING);
+ALTER TABLE nadx_overall_dwr_v2 ADD COLUMNS (demand_using_time STRING);
+ALTER TABLE nadx_overall_dwr_v2 ADD COLUMNS (adx_using_time STRING);
 
 
