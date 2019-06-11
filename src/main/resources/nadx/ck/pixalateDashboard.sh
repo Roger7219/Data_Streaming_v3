@@ -70,7 +70,7 @@ if [ "$downloadPublisherfilePath" ]; then
     wget $downloadPublisherfilePath -O $publisherFileName
     if [ -f $publisherfileName ]; then
        clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_publisher_raw"
-       clickhouse-client  -m  --password $CC_PASS --query="CREATE TABLE blacklist_publisher_raw ( publisherId String, probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (publisherId)  SETTINGS index_granularity = 8192;"
+       clickhouse-client  -m  --password $CC_PASS --query="CREATE TABLE blacklist_publisher_raw ( publisher_id String, probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (publisher_id)  SETTINGS index_granularity = 8192;"
        clickhouse-client  -m  --password $CC_PASS --query="INSERT INTO blacklist_publisher_raw FORMAT CSVWithNames" < $publisherFileName
        clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_publisher_raw_select_all"
        clickhouse-client  -m  --password $CC_PASS --query="create table blacklist_publisher_raw_select_all as blacklist_publisher_raw"
