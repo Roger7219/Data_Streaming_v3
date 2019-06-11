@@ -76,7 +76,7 @@ if [ "$downloadPublisherfilePath" ]; then
        clickhouse-client  -m  --password $CC_PASS --query="create table blacklist_publisher_raw_select_all as blacklist_publisher_raw"
        clickhouse-client  -m  --password $CC_PASS --query="insert into blacklist_publisher_raw_select_all select * from blacklist_publisher_raw"
        curTime=`date "+%Y-%m-%d %H:%M:%S"`
-       message='[{"topic":"blackList_publisher_check_topic","key":"'$curTime'","uniqueKey":true,"data":""}]'
+       message='[{"topic":"blackList_publisher_topic","key":"'$curTime'","uniqueKey":true,"data":""}]'
        curl $MESSAGE_URL --header  "Content-Type: application/json;charset=UTF-8" -d "$message"
     fi
 fi
