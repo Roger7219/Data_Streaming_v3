@@ -16,6 +16,9 @@ fi
 if [ ! -d domain ]; then
   mkdir domain
 fi
+if [ ! -d publisher ]; then
+  mkdir publisher
+fi
 pwd
 
 #############################APP ID 黑名单####################################
@@ -58,11 +61,32 @@ if [ "$downloadDomainfilePath" ]; then
        curl $MESSAGE_URL --header  "Content-Type: application/json;charset=UTF-8" -d "$message"
     fi
 fi
+#############################publisher 黑名单####################################
+echo "http://dashboard.api.pixalate.com/services/2016/Report/getExportUri?username=d4df3f3506e476bdae08d3702910735d&password=7a9df2d4e11b31b80baeb69d641ab3f2&reportId=fraudPublisher&timeZone=0&q=publisherId%2CgivtSivtRate+WHERE+day>%3D'$timeRangeStart'+AND+day<%3D'$timeRangeEnd'+ORDER+BY+publisherId+DESC&start=0&limit=999999&_1558700685545="
+wget "http://dashboard.api.pixalate.com/services/2016/Report/getExportUri?username=d4df3f3506e476bdae08d3702910735d&password=7a9df2d4e11b31b80baeb69d641ab3f2&reportId=fraudPublisher&timeZone=0&q=publisherId%2CgivtSivtRate+WHERE+day>%3D'$timeRangeStart'+AND+day<%3D'$timeRangeEnd'+ORDER+BY+publisherId+DESC&start=0&limit=999999&_1558700685545=" -O downloadPublisherfilePath
+downloadPublisherfilePath=`cat downloadPublisherfilePath |sed  s/\"//g`
+if [ "$downloadPublisherfilePath" ]; then
+    publisherFileName="publisher/publisher_"`echo $downloadPublisherfilePath|awk -F/ '{print $9}'`
+    wget $downloadPublisherfilePath -O $publisherFileName
+    if [ -f $publisherfileName ]; then
+       clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_publisher_raw"
+       clickhouse-client  -m  --password $CC_PASS --query="CREATE TABLE blacklist_publisher_raw ( publisherId String, probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (publisherId)  SETTINGS index_granularity = 8192;"
+       clickhouse-client  -m  --password $CC_PASS --query="INSERT INTO blacklist_publisher_raw FORMAT CSVWithNames" < $publisherFileName
+       clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_publisher_raw_select_all"
+       clickhouse-client  -m  --password $CC_PASS --query="create table blacklist_publisher_raw_select_all as blacklist_publisher_raw"
+       clickhouse-client  -m  --password $CC_PASS --query="insert into blacklist_publisher_raw_select_all select * from blacklist_publisher_raw"
+       curTime=`date "+%Y-%m-%d %H:%M:%S"`
+       message='[{"topic":"blackList_publisher_check_topic","key":"'$curTime'","uniqueKey":true,"data":""}]'
+       curl $MESSAGE_URL --header  "Content-Type: application/json;charset=UTF-8" -d "$message"
+    fi
+fi
 for ((j = 20; j > 5; j--))
 do
   rmFile="domain/domain_Report_from_*`date -d ''$j' days ago' "+%Y-%m-%d".*`"
   rm -rf $rmFile
   rmFile="bundle/bundle_Report_from_*`date -d ''$j' days ago' "+%Y-%m-%d".*`"
+  rm -rf  $rmFile
+  rmFile="bundle/publisher_Report_from_*`date -d ''$j' days ago' "+%Y-%m-%d".*`"
   rm -rf  $rmFile
 done
 echo "script end at " `date "+%Y-%m-%d %H:%M:%S"`
