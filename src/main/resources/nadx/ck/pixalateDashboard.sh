@@ -24,15 +24,15 @@ pwd
 #############################APP ID 黑名单####################################
 timeRangeEnd=`date -d '0 days ago' "+%Y-%m-%d"`
 timeRangeStart=`date -d '2 days ago' "+%Y-%m-%d"`
-echo "http://dashboard.api.pixalate.com/services/2016/Report/getExportUri?username=d4df3f3506e476bdae08d3702910735d&password=7a9df2d4e11b31b80baeb69d641ab3f2&reportId=fraudAppId&timeZone=0&q=kv18%2CgivtSivtRate+WHERE+day>%3D'$timeRangeStart'+AND+day<%3D'$timeRangeEnd'+ORDER+BY+givtSivtRate+DESC&start=0&limit=999999&_1558700685545="
-wget "http://dashboard.api.pixalate.com/services/2016/Report/getExportUri?username=d4df3f3506e476bdae08d3702910735d&password=7a9df2d4e11b31b80baeb69d641ab3f2&reportId=fraudAppId&timeZone=0&q=kv18%2CgivtSivtRate+WHERE+day>%3D'$timeRangeStart'+AND+day<%3D'$timeRangeEnd'+ORDER+BY+givtSivtRate+DESC&start=0&limit=999999&_1558700685545=" -O downloadBundlefilePath
+echo "http://dashboard.api.pixalate.com/services/2016/Report/getExportUri?username=d4df3f3506e476bdae08d3702910735d&password=7a9df2d4e11b31b80baeb69d641ab3f2&reportId=fraudAppId&timeZone=0&q=kv18%2CgivtSivtRate+WHERE+day>%3D'$timeRangeStart'+AND+day<%3D'$timeRangeEnd'+AND+givtSivtRate>0+ORDER+BY+givtSivtRate+DESC&start=0&limit=999999&_1558700685545="
+wget "http://dashboard.api.pixalate.com/services/2016/Report/getExportUri?username=d4df3f3506e476bdae08d3702910735d&password=7a9df2d4e11b31b80baeb69d641ab3f2&reportId=fraudAppId&timeZone=0&q=kv18%2CgivtSivtRate+WHERE+day>%3D'$timeRangeStart'+AND+day<%3D'$timeRangeEnd'+AND+givtSivtRate>0+ORDER+BY+givtSivtRate+DESC&start=0&limit=999999&_1558700685545=" -O downloadBundlefilePath
 downloadBundlefilePath=`cat downloadBundlefilePath |sed  s/\"//g`
 if [ "$downloadBundlefilePath" ]; then
     appIDFileName="bundle/bundle_"`echo $downloadBundlefilePath|awk -F/ '{print $9}'`
     wget $downloadBundlefilePath -O $appIDFileName
     if [ -f $appIDFileName ]; then
-       clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_bundle_raw"
-       clickhouse-client  -m  --password $CC_PASS --query="CREATE TABLE blacklist_bundle_raw ( bundle String, probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (bundle)  SETTINGS index_granularity = 8192;"
+#       clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_bundle_raw"
+#       clickhouse-client  -m  --password $CC_PASS --query="CREATE TABLE blacklist_bundle_raw ( bundle String, probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (bundle)  SETTINGS index_granularity = 8192;"
        clickhouse-client  -m  --password $CC_PASS --query="INSERT INTO blacklist_bundle_raw FORMAT CSVWithNames" < $appIDFileName
        clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_bundle_raw_select_all"
        clickhouse-client  -m  --password $CC_PASS --query="create table blacklist_bundle_raw_select_all as blacklist_bundle_raw"
@@ -43,15 +43,15 @@ if [ "$downloadBundlefilePath" ]; then
     fi
 fi
 #############################domain 黑名单####################################
-echo "http://dashboard.api.pixalate.com/services/2016/Report/getExportUri?username=d4df3f3506e476bdae08d3702910735d&password=7a9df2d4e11b31b80baeb69d641ab3f2&reportId=fraudDomain&timeZone=0&q=topAdDomain%2CgivtSivtRate+WHERE+day>%3D'$timeRangeStart'+AND+day<%3D'$timeRangeEnd'+ORDER+BY+topAdDomain+DESC&start=0&limit=999999&_1558700685545="
-wget "http://dashboard.api.pixalate.com/services/2016/Report/getExportUri?username=d4df3f3506e476bdae08d3702910735d&password=7a9df2d4e11b31b80baeb69d641ab3f2&reportId=fraudDomain&timeZone=0&q=topAdDomain%2CgivtSivtRate+WHERE+day>%3D'$timeRangeStart'+AND+day<%3D'$timeRangeEnd'+ORDER+BY+topAdDomain+DESC&start=0&limit=999999&_1558700685545=" -O downloadDomainfilePath
+echo "http://dashboard.api.pixalate.com/services/2016/Report/getExportUri?username=d4df3f3506e476bdae08d3702910735d&password=7a9df2d4e11b31b80baeb69d641ab3f2&reportId=fraudDomain&timeZone=0&q=topAdDomain%2CgivtSivtRate+WHERE+day>%3D'$timeRangeStart'+AND+day<%3D'$timeRangeEnd'+AND+givtSivtRate>0+ORDER+BY+topAdDomain+DESC&start=0&limit=999999&_1558700685545="
+wget "http://dashboard.api.pixalate.com/services/2016/Report/getExportUri?username=d4df3f3506e476bdae08d3702910735d&password=7a9df2d4e11b31b80baeb69d641ab3f2&reportId=fraudDomain&timeZone=0&q=topAdDomain%2CgivtSivtRate+WHERE+day>%3D'$timeRangeStart'+AND+day<%3D'$timeRangeEnd'+AND+givtSivtRate>0+ORDER+BY+topAdDomain+DESC&start=0&limit=999999&_1558700685545=" -O downloadDomainfilePath
 downloadDomainfilePath=`cat downloadDomainfilePath |sed  s/\"//g`
 if [ "$downloadDomainfilePath" ]; then
     domainFileName="domain/domain_"`echo $downloadDomainfilePath|awk -F/ '{print $9}'`
     wget $downloadDomainfilePath -O $domainFileName
     if [ -f $domainfileName ]; then
-       clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_domain_raw"
-       clickhouse-client  -m  --password $CC_PASS --query="CREATE TABLE blacklist_domain_raw ( domain String, probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (domain)  SETTINGS index_granularity = 8192;"
+#       clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_domain_raw"
+#       clickhouse-client  -m  --password $CC_PASS --query="CREATE TABLE blacklist_domain_raw ( domain String, probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (domain)  SETTINGS index_granularity = 8192;"
        clickhouse-client  -m  --password $CC_PASS --query="INSERT INTO blacklist_domain_raw FORMAT CSVWithNames" < $domainFileName
        clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_domain_raw_select_all"
        clickhouse-client  -m  --password $CC_PASS --query="create table blacklist_domain_raw_select_all as blacklist_domain_raw"
@@ -62,15 +62,15 @@ if [ "$downloadDomainfilePath" ]; then
     fi
 fi
 #############################publisher 黑名单####################################
-echo "http://dashboard.api.pixalate.com/services/2016/Report/getExportUri?username=d4df3f3506e476bdae08d3702910735d&password=7a9df2d4e11b31b80baeb69d641ab3f2&reportId=fraudPublisher&timeZone=0&q=publisherId%2CgivtSivtRate+WHERE+day>%3D'$timeRangeStart'+AND+day<%3D'$timeRangeEnd'+ORDER+BY+publisherId+DESC&start=0&limit=999999&_1558700685545="
-wget "http://dashboard.api.pixalate.com/services/2016/Report/getExportUri?username=d4df3f3506e476bdae08d3702910735d&password=7a9df2d4e11b31b80baeb69d641ab3f2&reportId=fraudPublisher&timeZone=0&q=publisherId%2CgivtSivtRate+WHERE+day>%3D'$timeRangeStart'+AND+day<%3D'$timeRangeEnd'+ORDER+BY+publisherId+DESC&start=0&limit=999999&_1558700685545=" -O downloadPublisherfilePath
+echo "http://dashboard.api.pixalate.com/services/2016/Report/getExportUri?username=d4df3f3506e476bdae08d3702910735d&password=7a9df2d4e11b31b80baeb69d641ab3f2&reportId=fraudPublisher&timeZone=0&q=publisherId%2CgivtSivtRate+WHERE+day>%3D'$timeRangeStart'+AND+day<%3D'$timeRangeEnd'+AND+givtSivtRate>0+ORDER+BY+publisherId+DESC&start=0&limit=999999&_1558700685545="
+wget "http://dashboard.api.pixalate.com/services/2016/Report/getExportUri?username=d4df3f3506e476bdae08d3702910735d&password=7a9df2d4e11b31b80baeb69d641ab3f2&reportId=fraudPublisher&timeZone=0&q=publisherId%2CgivtSivtRate+WHERE+day>%3D'$timeRangeStart'+AND+day<%3D'$timeRangeEnd'+AND+givtSivtRate>0+ORDER+BY+publisherId+DESC&start=0&limit=999999&_1558700685545=" -O downloadPublisherfilePath
 downloadPublisherfilePath=`cat downloadPublisherfilePath |sed  s/\"//g`
 if [ "$downloadPublisherfilePath" ]; then
     publisherFileName="publisher/publisher_"`echo $downloadPublisherfilePath|awk -F/ '{print $9}'`
     wget $downloadPublisherfilePath -O $publisherFileName
     if [ -f $publisherfileName ]; then
-       clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_publisher_raw"
-       clickhouse-client  -m  --password $CC_PASS --query="CREATE TABLE blacklist_publisher_raw ( publisher_id String, probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (publisher_id)  SETTINGS index_granularity = 8192;"
+#       clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_publisher_raw"
+#       clickhouse-client  -m  --password $CC_PASS --query="CREATE TABLE blacklist_publisher_raw ( publisher_id String, probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (publisher_id)  SETTINGS index_granularity = 8192;"
        clickhouse-client  -m  --password $CC_PASS --query="INSERT INTO blacklist_publisher_raw FORMAT CSVWithNames" < $publisherFileName
        clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_publisher_raw_select_all"
        clickhouse-client  -m  --password $CC_PASS --query="create table blacklist_publisher_raw_select_all as blacklist_publisher_raw"
