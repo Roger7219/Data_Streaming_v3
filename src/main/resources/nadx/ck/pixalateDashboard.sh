@@ -32,9 +32,10 @@ if [ "$downloadBundlefilePath" ]; then
     wget $downloadBundlefilePath -O $appIDFileName
     if [ -f $appIDFileName ]; then
        #awk -F, '!a[$1]++' bundle/* > bundle/clickhouse.csv
+       awk -F, '{if($1!="")print}' $appIDFileName > bundle/clickhouse.csv
        clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_bundle_raw"
        clickhouse-client  -m  --password $CC_PASS --query="CREATE TABLE blacklist_bundle_raw ( bundle String, probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (bundle)  SETTINGS index_granularity = 8192;"
-       clickhouse-client  -m  --password $CC_PASS --query="INSERT INTO blacklist_bundle_raw FORMAT CSVWithNames" < $appIDFileName
+       clickhouse-client  -m  --password $CC_PASS --query="INSERT INTO blacklist_bundle_raw FORMAT CSVWithNames" < bundle/clickhouse.csv
        clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_bundle_raw_select_all"
        clickhouse-client  -m  --password $CC_PASS --query="create table blacklist_bundle_raw_select_all as blacklist_bundle_raw"
        clickhouse-client  -m  --password $CC_PASS --query="insert into blacklist_bundle_raw_select_all select * from blacklist_bundle_raw"
@@ -52,9 +53,10 @@ if [ "$downloadDomainfilePath" ]; then
     wget $downloadDomainfilePath -O $domainFileName
     if [ -f $domainFileName ]; then
        #awk -F, '!a[$1]++' domain/* > domain/clickhouse.csv
+       awk -F, '{if($1!="")print}' $domainFileName > domain/clickhouse.csv
        clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_domain_raw"
        clickhouse-client  -m  --password $CC_PASS --query="CREATE TABLE blacklist_domain_raw ( domain String, probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (domain)  SETTINGS index_granularity = 8192;"
-       clickhouse-client  -m  --password $CC_PASS --query="INSERT INTO blacklist_domain_raw FORMAT CSVWithNames" < $domainFileName
+       clickhouse-client  -m  --password $CC_PASS --query="INSERT INTO blacklist_domain_raw FORMAT CSVWithNames" < domain/clickhouse.csv
        clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_domain_raw_select_all"
        clickhouse-client  -m  --password $CC_PASS --query="create table blacklist_domain_raw_select_all as blacklist_domain_raw"
        clickhouse-client  -m  --password $CC_PASS --query="insert into blacklist_domain_raw_select_all select * from blacklist_domain_raw"
@@ -72,9 +74,10 @@ if [ "$downloadPublisherfilePath" ]; then
     wget $downloadPublisherfilePath -O $publisherFileName
     if [ -f $publisherFileName ]; then
        #awk -F, '!a[$1]++' publisher/* > publisher/clickhouse.csv
+       awk -F, '{if($1!="")print}' $publisherFileName > publisher/clickhouse.csv
        clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_publisher_raw"
        clickhouse-client  -m  --password $CC_PASS --query="CREATE TABLE blacklist_publisher_raw ( publisher_id String, probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (publisher_id)  SETTINGS index_granularity = 8192;"
-       clickhouse-client  -m  --password $CC_PASS --query="INSERT INTO blacklist_publisher_raw FORMAT CSVWithNames" < $publisherFileName
+       clickhouse-client  -m  --password $CC_PASS --query="INSERT INTO blacklist_publisher_raw FORMAT CSVWithNames" < publisher/clickhouse.csv
        clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_publisher_raw_select_all"
        clickhouse-client  -m  --password $CC_PASS --query="create table blacklist_publisher_raw_select_all as blacklist_publisher_raw"
        clickhouse-client  -m  --password $CC_PASS --query="insert into blacklist_publisher_raw_select_all select * from blacklist_publisher_raw"
