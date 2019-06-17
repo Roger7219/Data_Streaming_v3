@@ -139,3 +139,14 @@ CREATE TABLE nadx_overall_audit_dm_all AS nadx_overall_audit_dm ENGINE = Distrib
 
 CREATE TABLE nadx_overall_audit_dm_for_select AS nadx_overall_audit_dm;
 CREATE TABLE nadx_overall_audit_dm_for_select_all AS nadx_overall_audit_dm_for_select ENGINE = Distributed(bip_ck_cluster, default, nadx_overall_audit_dm_for_select, rand());
+
+-- 2019-06-12  v9
+CREATE TABLE nadx_overall_dm_v9 AS nadx_overall_dm;
+CREATE TABLE nadx_overall_dm_v9_all AS nadx_overall_dm_v9 ENGINE = Distributed(bip_ck_cluster, default, nadx_overall_dm_v9, rand());
+CREATE TABLE nadx_overall_dm_v9_for_select AS nadx_overall_dm_v9;
+CREATE TABLE nadx_overall_dm_v9_for_select_all AS nadx_overall_dm_v9_for_select ENGINE = Distributed(bip_ck_cluster, default, nadx_overall_dm_v9_for_select, rand());
+
+CREATE TABLE nadx_overall_dm_v8 AS nadx_overall_dm;
+CREATE TABLE nadx_overall_dm_v8_all AS nadx_overall_dm_v8 ENGINE = Distributed(bip_ck_cluster, default, nadx_overall_dm_v8, rand());
+CREATE TABLE nadx_overall_dm_v8_for_select AS nadx_overall_dm_v8;
+CREATE TABLE nadx_overall_dm_v8_for_select_all AS nadx_overall_dm_v8_for_select ENGINE = Distributed(bip_ck_cluster, default, nadx_overall_dm_v8_for_select, rand());

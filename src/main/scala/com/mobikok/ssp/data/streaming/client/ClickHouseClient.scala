@@ -297,7 +297,9 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
     countDownLatch.await()
     //    countDownLatch.await(5, TimeUnit.MINUTES)
   }
-
+  def createTableIfNotExists(table: String, like: String): Unit = {
+    sql(s"create table if not exists $table as $like")
+  }
   // TODO 临时用于写进月表里
   def hiveWriteToClickHouse(clickHouseTable: String, hiveTable: String, hivePartitionBTime: Array[String]): Unit = {
     LOG.warn(s"clickHouseTable: $clickHouseTable, hiveTable: $hiveTable, hivePartitionBTimes: ${OM.toJOSN(hivePartitionBTime)}")

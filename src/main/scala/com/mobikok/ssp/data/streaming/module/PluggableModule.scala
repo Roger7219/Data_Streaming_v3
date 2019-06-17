@@ -1291,8 +1291,14 @@ class PluggableModule(config: Config,
     if(!ArgsConfig.Value.VERSION_DEFAULT.equals(v)) {
       val vSuffix = s"_v${v}"
       LOG.warn("Version", v)
-      if(StringUtil.notEmpty(dwiTable)) hiveClient.createTableIfNotExists(dwiTable, dwiTable.substring(0, dwiTable.length - vSuffix.length))
-      if(StringUtil.notEmpty(dwrTable) && isMaster) hiveClient.createTableIfNotExists(dwrTable, dwrTable.substring(0, dwrTable.length - vSuffix.length))
+      if(StringUtil.notEmpty(dwiTable)) {
+        hiveClient.createTableIfNotExists(dwiTable, dwiTable.substring(0, dwiTable.length - vSuffix.length))
+        clickHouseClient.createTableIfNotExists(dwiTable, dwiTable.substring(0, dwiTable.length - vSuffix.length))
+      }
+      if(StringUtil.notEmpty(dwrTable) && isMaster){
+        hiveClient.createTableIfNotExists(dwrTable, dwrTable.substring(0, dwrTable.length - vSuffix.length))
+        clickHouseClient.createTableIfNotExists(dwiTable, dwiTable.substring(0, dwiTable.length - vSuffix.length))
+      }
     }
   }
 
