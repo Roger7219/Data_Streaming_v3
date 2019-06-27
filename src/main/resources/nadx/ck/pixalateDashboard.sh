@@ -92,7 +92,7 @@ do
   rm -rf $rmFile
   rmFile="bundle/bundle_Report_from_*`date -d ''$j' days ago' "+%Y-%m-%d".*`"
   rm -rf  $rmFile
-  rmFile="bundle/publisher_Report_from_*`date -d ''$j' days ago' "+%Y-%m-%d".*`"
+  rmFile="publisher/publisher_Report_from_*`date -d ''$j' days ago' "+%Y-%m-%d".*`"
   rm -rf  $rmFile
 done
 echo "script end at " `date "+%Y-%m-%d %H:%M:%S"`
