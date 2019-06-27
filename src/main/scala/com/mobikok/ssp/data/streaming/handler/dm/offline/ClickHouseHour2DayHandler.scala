@@ -1,10 +1,8 @@
 package com.mobikok.ssp.data.streaming.handler.dm.offline
 
-import java.util
-
 import com.fasterxml.jackson.core.`type`.TypeReference
-import com.mobikok.message.{MessageConsumerCommitReq, MessagePullReq, MessagePushReq}
 import com.mobikok.message.client.MessageClient
+import com.mobikok.message.{MessageConsumerCommitReq, MessagePullReq, MessagePushReq}
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.RDBConfig
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
@@ -14,7 +12,7 @@ import org.apache.spark.sql.hive.HiveContext
 
 import scala.collection.JavaConversions._
 
-class ClickHouseQueryByBTimeHandler extends Handler {
+class ClickHouseHour2DayHandler extends Handler {
 
   //view, consumer, topics
   private var viewConsumerTopics = null.asInstanceOf[Array[(String, String, String, String, Array[String])]]
@@ -36,7 +34,7 @@ class ClickHouseQueryByBTimeHandler extends Handler {
 
   override def handle(): Unit = {
 
-    LOG.warn("ClickHouseBTimeHandler handler starting")
+    LOG.warn("ClickHouseHour2DayHandler handler starting")
     RunAgainIfError.run {
       viewConsumerTopics.foreach { case(hiveView, ckTable, minBtExpr, consumer, topics) =>
         val pageData = messageClient
@@ -58,44 +56,20 @@ class ClickHouseQueryByBTimeHandler extends Handler {
         var minBt = sql(s"select $minBtExpr as min_b_time").first().getAs[String]("min_b_time")
         var filtereMS = ms.filter{x=>x.value >= minBt}
 
-        LOG.warn(s"ClickHouseBTimeHandler update b_time(s), count: ${ms.length}", "all_b_time(s)", ms, "filtered_b_time(s)", filtereMS)
+        LOG.warn(s"ClickHouseHour2DayHandler update b_time(s), count: ${ms.length}", "all_b_time(s)", ms, "filtered_b_time(s)", filtereMS)
 
-        clickHouseClient.overwriteByBTime(ckTable.replace("_v2", ""), hiveView, filtereMS.map{_.value})
+//        clickHouseClient.overwriteByBTime(ckTable.replace("_v2", ""), hiveView, filtereMS.map{_.value})
+//        messageClient
         messageClient.commitMessageConsumer(
           pageData.map{data =>
             new MessageConsumerCommitReq(consumer, data.getTopic, data.getOffset)
           }:_*
         )
 
-        //通知天粒度modole 聚合天粒度数据
-        messageClient.pushMessage(new MessagePushReq(hiveView, ""))
-
       }
 
-      LOG.warn("ClickHouseQueryBTimeHandler handler done")
+      LOG.warn("ClickHouseHour2DayHandler handler done")
     }
 
-  }
-
-  def filterHistoricalBTime(partitions: Array[HivePartitionPart]): Array[HivePartitionPart] = {
-    val consumerAndTopic = viewConsumerTopics.map{ each =>
-      val topic = each._5.filter{ topic => topic.contains("ck_report_overall")}.head
-      (each._2, Array(s"${topic}_finished"))
-    }.head
-
-    // 距离当前一个小时的任务不会被过滤
-    val neighborBTime = CSTTime.neighborTimes(CSTTime.now.time(), 1.0, 1)
-
-    val finishedBTime = messageClient
-      .pullMessage(new MessagePullReq(consumerAndTopic._1, consumerAndTopic._2))
-      .getPageData
-      .map{ data => OM.toBean(data.getKeyBody, new TypeReference[Array[Array[HivePartitionPart]]] {})}
-      .flatMap{ data => data }
-      .flatMap{ data => data }
-      .filter{ partition => "b_time".equals(partition.name) && !neighborBTime.contains(partition.value) }
-      .map{ partition => partition.value }
-      .distinct
-
-    partitions.filter{ partition => !finishedBTime.contains(partition.value)}
   }
 }

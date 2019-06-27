@@ -300,6 +300,9 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
   def createTableIfNotExists(table: String, like: String): Unit = {
     sql(s"create table if not exists $table as $like")
   }
+  def createTableWithEngineIfNotExists(table: String, like: String): Unit = {
+    sql(s"create table if not exists $table as $like ENGINE = Distributed(bip_ck_cluster, default, $like, rand())")
+  }
   // TODO 临时用于写进月表里
   def hiveWriteToClickHouse(clickHouseTable: String, hiveTable: String, hivePartitionBTime: Array[String]): Unit = {
     LOG.warn(s"clickHouseTable: $clickHouseTable, hiveTable: $hiveTable, hivePartitionBTimes: ${OM.toJOSN(hivePartitionBTime)}")
