@@ -67,12 +67,6 @@ class ClickHouseQueryByBTimeHandler extends Handler {
           }:_*
         )
 
-        //通知天粒度modole 聚合天粒度数据
-        var ms = pageData.map { data =>
-          messageClient.pushMessage(new MessagePushReq(hiveView, data.getKeyBody))
-        }
-
-
       }
 
       LOG.warn("ClickHouseQueryBTimeHandler handler done")
