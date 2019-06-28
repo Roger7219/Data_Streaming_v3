@@ -55,7 +55,7 @@ class FasterModule(config: Config,
   val appName = ssc.sparkContext.getConf.get("spark.app.name")
   val ksc = Class.forName(config.getString(s"modules.$moduleName.dwi.kafka.schema"))
   val dwiStructType = ksc.getMethod("structType").invoke(ksc.newInstance()).asInstanceOf[StructType]
-
+  var moduleConfig = config.getConfig(s"modules.$moduleName")
   val dwiUuidFieldsSeparator = "^"
 
   //moduleName, transactionCookies
@@ -115,7 +115,11 @@ class FasterModule(config: Config,
   } catch {
     case e: Throwable =>
       //兼容历史代码
-      businessTimeExtractBy = config.getString(s"modules.$moduleName.business.date.extract.by")
+      try{
+        businessTimeExtractBy = config.getString(s"modules.$moduleName.business.date.extract.by")
+      }catch {case e:Throwable=>
+        businessTimeExtractBy = config.getString(s"modules.$moduleName.b_time.input")
+      }
   }
 
   var isFastPollingEnable = false
@@ -495,7 +499,7 @@ class FasterModule(config: Config,
 
   def initDwiHandlers(): Unit = {
     val uuidFilterHandler = new UUIDFilterDwiHandler(uuidFilter, businessTimeExtractBy, isEnableDwiUuid, dwiBTimeFormat, argsConfig)
-    uuidFilterHandler.init(moduleName, mixTransactionManager, rDBConfig, hbaseClient, hiveClient, null, config, config, "null", Array[String]())
+    uuidFilterHandler.init(moduleName, mixTransactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, null, config, "null", Array[String]())
 
     if (config.hasPath(s"modules.$moduleName.dwi.handler")) {
       dwiHandlers = config.getConfigList(s"modules.$moduleName.dwi.handler").map { x =>
@@ -516,7 +520,7 @@ class FasterModule(config: Config,
           case ex: Throwable =>
         }
 
-        h.init(moduleName, mixTransactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, hc, config, col /*x.getString("expr")*/ , as.toArray(Array[String]()))
+        h.init(moduleName, mixTransactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, hc, config, col /*x.getString("expr")*/ , as.toArray(Array[String]()))
         LOG.warn("init dwi handler", h.getClass.getName)
         (as, expr(col), h)
       }.toList
@@ -755,8 +759,8 @@ class FasterModule(config: Config,
                 //-----------------------------------------------------------------------------------------------------------------
                 var parentTid = mixTransactionManager.beginTransaction(moduleName, groupName)
 
-                var dwiLTimeExpr = s"'${mixTransactionManager.dwiLoadTime()}'"
-                var dwrLTimeExpr = s"'${mixTransactionManager.dwrLoadTime()}'"
+                var dwiLTimeExpr = s"'${mixTransactionManager.dwiLoadTime(moduleConfig)}'"
+                var dwrLTimeExpr = s"'${mixTransactionManager.dwrLoadTime(moduleConfig)}'"
                 LOG.warn("dwiLTimeExpr, dwrLTimeExpr", s"$dwiLTimeExpr, $dwrLTimeExpr")
 
                 // 待删

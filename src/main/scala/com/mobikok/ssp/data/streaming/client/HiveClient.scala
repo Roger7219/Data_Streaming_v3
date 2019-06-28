@@ -1,6 +1,6 @@
 package com.mobikok.ssp.data.streaming.client
 
-import java.net.URLDecoder
+import java.net.{URLDecoder, URLEncoder}
 import java.text.SimpleDateFormat
 import java.util
 import java.util.concurrent.ExecutorService
@@ -88,6 +88,8 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
       val fileNumber = aHivePartitionRecommendedFileNumber("HiveClient into repartition", shufflePartitions, df.rdd.getNumPartitions, ps.length)
 //      val parts = sparkPartitionNum("HiveClient into repartition", shufflePartitions, df.rdd.getNumPartitions, ps.length)
       moduleTracer.trace(s"        into repartition rs: ${df.rdd.getNumPartitions}, ps: ${ps.length}, fs: $fileNumber")
+      moduleTracer.trace(s"${makeShowPartition(ps).mkString("\n", "\n", "")}")
+      LOG.warn("Into partitions", makeShowPartition(ps).mkString("\n"))
 
       if(!transactionManager.needTransactionalAction()) {
 
@@ -97,7 +99,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
           .format("orc")
           .mode(SaveMode.Append)
           .insertInto(table)
-        return new HiveNonTransactionCookie(transactionParentId, tid, table, ps)
+        return new HiveNonTransactionCookie(transactionParentId, tid, table, SaveMode.Append, ps)
       }
 
       val tt = table + transactionalTmpTableSign + tid
@@ -201,9 +203,17 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 
       val ts = Array(partitionField)  ++ partitionFields // l_time, b_date and b_time
 
-      var w = partitionsWhereSQL(ps) // (l_time="2018-xx-xx xx:00:00" and b_date="2018-xx-xx" and b_time="2018-xx-xx xx:00:00")
+      // 不读取OVERWIRTE_FIXED_L_TIME中的数据
+      var rps = ps.filter{x=>
+          x.filter{y=>
+            "l_time".equals(y.name) && HiveClient.OVERWIRTE_FIXED_L_TIME.equals(y.value)
+          }.isEmpty
+        }
 
-      LOG.warn(s"HiveClient overwriteUnionSum overwrite partitions where", w)
+      var w = partitionsWhereSQL(ps)   // (l_time="2018-xx-xx xx:00:00" and b_date="2018-xx-xx" and b_time="2018-xx-xx xx:00:00")
+      var rw = partitionsWhereSQL(rps) // 不含l_time=0001-01-01 00:00:00的分区
+
+      LOG.warn(s"HiveClient overwriteUnionSum", "overwrite partitions", w, "read original partitions", rw)
 
       val isE = newDF.take(1).isEmpty
 
@@ -215,7 +225,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
         val original = hiveContext
           .read
           .table(table)
-          .where(w)
+          .where(rw)
 
         moduleTracer.trace("        read hive data for union")
 
@@ -224,10 +234,12 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 
         var fs = original.schema.fieldNames
         var _newDF = newDF.select(fs.head, fs.tail:_*)
+
         //忽略大小写
-        var _overwriteAggFields = overwriteAggFields.map{x=>x.toLowerCase.trim}
-        var os = fs.map{x=>if(_overwriteAggFields.contains(x.toLowerCase())) expr(s"null as $x") else expr(x)};
-  //      LOG.warn(s"HiveClient re-ordered field name via hive table _newDF take(2)", _newDF.take(2))
+//        var _overwriteAggFields = overwriteAggFields.map{x=>x.toLowerCase.trim}
+//        var os = fs.map{x=>if(_overwriteAggFields.contains(x.toLowerCase())) expr(s"null as $x") else expr(x)};
+          var os = fs.map{x=>expr(s"`$x`")}
+        //      LOG.warn(s"HiveClient re-ordered field name via hive table _newDF take(2)", _newDF.take(2))
 
         // Sum
         val updated = original
@@ -244,6 +256,9 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
         val fileNumber = aHivePartitionRecommendedFileNumber("HiveClient unionSum repartition", shufflePartitions, updated.rdd.getNumPartitions, ps.length)
   //      val parts = sparkPartitionNum("HiveClient unionSum repartition", shufflePartitions, updated.rdd.getNumPartitions, ps.length)
         moduleTracer.trace(s"        union sum repartition rs: ${updated.rdd.getNumPartitions}, ps: ${ps.length}, fs: ${fileNumber}")
+        moduleTracer.trace(s"${makeShowPartition(ps).mkString("\n", "\n", "")}")
+        LOG.warn("Union sum partitions", makeShowPartition(ps).mkString("\n"))
+
 
         if(transactionManager.needTransactionalAction()) {
           //支持事务，先写入临时表，commit()时在写入目标表
@@ -288,7 +303,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
           isE
         )
       } else {
-        return new HiveNonTransactionCookie(transactionParentId, tid, table, ps)
+        return new HiveNonTransactionCookie(transactionParentId, tid, table, SaveMode.Overwrite, ps)
       }
 
     } catch {
@@ -298,7 +313,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
     }
   }
 
-  def overwrite(transactionParentId: String, table: String, df: DataFrame, partitionField: String, partitionFields: String*): HiveTransactionCookie = {
+  def overwrite(transactionParentId: String, table: String, isOverwirteFixedLTime: Boolean, df: DataFrame, partitionField: String, partitionFields: String*): HiveTransactionCookie = {
 
     val ts = partitionFields :+ partitionField
 
@@ -312,27 +327,39 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
       }
       .collect()
 
-    overwrite(transactionParentId, table, df, ps)
+    overwrite(transactionParentId, table, isOverwirteFixedLTime, df, ps)
   }
 
-  def overwrite(transactionParentId: String, table: String, df: DataFrame, ps: Array[Array[HivePartitionPart]]): HiveTransactionCookie = {
+  def overwrite(transactionParentId: String, table: String, isOverwirteFixedLTime: Boolean, df: DataFrame, ps: Array[Array[HivePartitionPart]]): HiveTransactionCookie = {
 
     var tid: String = null
     try {
 
+      // Check l_time=00001-01-01 00:00:00 if isOverwirteFixedLTime=true
+      if(isOverwirteFixedLTime) {
+        ps.foreach{x=>
+          x.foreach { y =>
+            if("l_time".equals(y.name) && !HiveClient.OVERWIRTE_FIXED_L_TIME.equals(y.value)){
+              throw new RuntimeException(s"l_time must be: ${HiveClient.OVERWIRTE_FIXED_L_TIME} if module config: overwrite=true"  )
+            }
+          }
+        }
+      }
+
       tid = transactionManager.generateTransactionId(transactionParentId)
 
       val fileNumber = aHivePartitionRecommendedFileNumber("HiveClient overwrite repartition", shufflePartitions, df.rdd.getNumPartitions, ps.length)
-//      val parts = sparkPartitionNum("HiveClient overwrite repartition", shufflePartitions, df.rdd.getNumPartitions, ps.length)
       moduleTracer.trace(s"        overwrite repartition fs: $fileNumber, rs: ${df.rdd.getNumPartitions}, ps: ${ps.length}")
+      moduleTracer.trace(s"            ${makeShowPartition(ps).mkString("\n", "\n", "")}")
+      LOG.warn("Overwrite partitions", makeShowPartition(ps).mkString("\n"))
 
       if(!transactionManager.needTransactionalAction()) {
         df.repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
           .write
           .format("orc")
-          .mode(SaveMode.Append)
+          .mode(SaveMode.Overwrite)
           .insertInto(table)
-        return new HiveNonTransactionCookie(transactionParentId, tid, table, ps)
+        return new HiveNonTransactionCookie(transactionParentId, tid, table, SaveMode.Overwrite, ps)
       }
 
       val tt = table + transactionalTmpTableSign + tid
@@ -381,7 +408,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
         //y._1 + "=" + y._2
       }.mkString("(", " and ", ")")
     }.mkString( " or ")
-    if ("".equals(w)) w = "'no_partition_specified' = 'no_partition_specified'"
+    if ("".equals(w)) w = "'no_partition_specified' <> 'no_partition_specified'"
     "( " + w + " )"
   }
 
@@ -406,6 +433,8 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 
 
   override def commit(cookie: TransactionCookie): Unit = {
+
+    // 之前的写入非真正的事务操作，是直接写入了目标表，跳过
     if(cookie.isInstanceOf[HiveNonTransactionCookie]) {
       return
     }
@@ -422,35 +451,31 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
         //Back up legacy data for possible rollback
         createTableIfNotExists(c.transactionalProgressingBackupTable, c.targetTable)
 
-        var bw = c.partitions.map{x=>x.filter(y=>"l_time".equals(y.name))}
+        var lts = c.partitions.map{x=>x.filter(y=>"l_time".equals(y.name) && !y.value.equals(HiveClient.OVERWIRTE_FIXED_L_TIME) )}.filter{x=>x.nonEmpty}
 
         //正常情况下只会有一个l_time值
-        val flatBw = bw.flatMap{x=>x}.toSet
-        if(flatBw.size != 1){
-          throw new HiveClientException(s"l_time must be only one value for backup, But has ${flatBw.size} values: ${flatBw} !")
+        val lt = lts.flatMap{x=>x}.toSet
+        if(lt.size > 1){
+          throw new HiveClientException(s"l_time must be only one value for backup, But has ${lt.size} values: ${lt} !")
         }
 
-        var w  = partitionsWhereSQL(bw)//partitionsWhereSQL(c.partitions)
-  //      var w = c
-  //        .partitions
-  //        .map { x =>
-  //          x.map { y =>
-  //            y.name + "=\"" + y.value + "\""
-  //            //y._1 + "=" + y._2
-  //          }.mkString("(", " and ", ")")
-  //        }
-  //        .mkString(" or ")
-  //
-  //      if ("".equals(w)) w = "1 = 1"
+        var w  = partitionsWhereSQL(lts)//partitionsWhereSQL(c.partitions)
 
-        LOG.warn(s"Hive before commit backup table ${c.targetTable} where: ", bw)
+        LOG.warn(s"Hive before commit backup table ${c.targetTable} where: ", lts)
 
         //For transactional rollback overwrite original empty partitions
         partitionsAlterSQL(c.partitions).foreach{x=>
           sql(s"alter table ${c.transactionalProgressingBackupTable} add partition($x)")
         }
 
-        val backPs = sql(s"show partitions ${c.targetTable} partition(${flatBw.head.name}='${flatBw.head.value}')").count().toInt
+        var backPs = if(lt.isEmpty) {
+          Array[String]()
+        }else {
+          sql(s"show partitions ${c.targetTable} partition(${lt.head.name}='${lt.head.value}')")
+              .collect()
+              .map{x=>x.getAs[String]("partition")}
+        }
+        val backPss = backPs.length
 
         val df = hiveContext
           .read
@@ -461,9 +486,11 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
         moduleTracer.trace(s"        read for backup repartition start")
 
         //hivePartitions不一定是df.rdd.getNumPartitions, 待优化
-        val fileNumber = aHivePartitionRecommendedFileNumber("HiveClient read for backup repartition", shufflePartitions, df.rdd.getNumPartitions, backPs)
+        val fileNumber = aHivePartitionRecommendedFileNumber("HiveClient read for backup repartition", shufflePartitions, df.rdd.getNumPartitions, backPss)
 //        val parts = sparkPartitionNum("HiveClient read for backup repartition", shufflePartitions, df.rdd.getNumPartitions, df.rdd.getNumPartitions)
-        moduleTracer.trace(s"        read for backup repartition rs: ${df.rdd.getNumPartitions}, ps: ${backPs}, fs: $fileNumber")
+        moduleTracer.trace(s"        read for backup rs: ${df.rdd.getNumPartitions}, ps: ${backPss}, fs: $fileNumber")
+        moduleTracer.trace(s"            ${backPs.mkString("\n")}")
+        LOG.warn("Read for backup partitions", backPs.mkString("\n"))
 
         // 待优化，文件直接复制
         df.repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
@@ -475,16 +502,17 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
         moduleTracer.trace("        insert into progressing backup table")
         sql(s"alter table ${c.transactionalProgressingBackupTable} rename to ${c.transactionalCompletedBackupTable}")
         moduleTracer.trace("        rename to completed backup table")
-  //      hiveContext.sql(s"alter table ${c.transactionalProgressingBackupTable} rename to ${c.transactionalCompletedBackupTable}")
 
         //Commit critical code
         val df2 = hiveContext
           .read
           .table(c.transactionalTmpTable)
 
-        val fileNumber2 = aHivePartitionRecommendedFileNumber("HiveClient read pluggable table repartition", shufflePartitions, df2.rdd.getNumPartitions, c.partitions.length)
+        val fileNumber2 = aHivePartitionRecommendedFileNumber("HiveClient read table repartition", shufflePartitions, df2.rdd.getNumPartitions, c.partitions.length)
 //        val parts2 = sparkPartitionNum("HiveClient read pluggable table repartition", shufflePartitions, df2.rdd.getNumPartitions, c.partitions.length)
-        moduleTracer.trace(s"        read current batch repartition rs: ${df2.rdd.getNumPartitions}, ps: ${c.partitions.length}, fs: $fileNumber2")
+        moduleTracer.trace(s"        read transactional tmp table rs: ${df2.rdd.getNumPartitions}, ps: ${c.partitions.length}, fs: $fileNumber2")
+        moduleTracer.trace(s"            ${makeShowPartition(c.partitions).mkString("\n", "\n", "")}")
+        LOG.warn(s"Read transactional tmp table partitions", makeShowPartition(c.partitions).mkString("\n"))
 
         df2
           .repartition(fileNumber2*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber2}) ) )"))
@@ -709,6 +737,13 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 
   }
 
+  def makeShowPartition(ps : Array[Array[HivePartitionPart]]): Array[String] = {
+    ps.map{x=>
+      x.map{y=>
+        s"${/*URLEncoder.encode(*/String.valueOf(y.name)/*, "utf-8")*/}=${/*URLEncoder.encode(*/String.valueOf(y.value)/*, "utf-8")*/}"
+      }.mkString("/")
+    }
+  }
   //pasrse sql like: repeated=N/l_time=2017-07-24 21%3A00%3A00/b_date=2017-07-24
   def parseShowPartition (partition: String): Array[HivePartitionPart] = {
     partition
@@ -1042,6 +1077,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 
 object HiveClient{
 
+  val OVERWIRTE_FIXED_L_TIME = "0001-01-01 00:00:00"
   private var  lock = new Object()
   private var executorService = ExecutorServiceUtil.createdExecutorService(1)// must is 1
 

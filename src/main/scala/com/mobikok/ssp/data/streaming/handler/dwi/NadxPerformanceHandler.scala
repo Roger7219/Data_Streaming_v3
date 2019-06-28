@@ -4,7 +4,7 @@ import java.util
 
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.client.cookie.TransactionCookie
-import com.mobikok.ssp.data.streaming.config.RDBConfig
+import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
 import com.mobikok.ssp.data.streaming.util._
 import com.typesafe.config.Config
@@ -25,8 +25,8 @@ class NadxPerformanceHandler extends Handler {
   var joinedDF: DataFrame = null
   var unMatchedPerformanceDf: DataFrame = null
 
-  override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, handlerConfig: Config, globalConfig: Config, expr: String, as: Array[String]): Unit = {
-    super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, handlerConfig, globalConfig, expr, as)
+  override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, argsConfig: ArgsConfig, handlerConfig: Config, globalConfig: Config, expr: String, as: Array[String]): Unit = {
+    super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, handlerConfig, globalConfig, expr, as)
   }
 
   override def handle(newDwi: DataFrame): (DataFrame, Array[TransactionCookie]) = {
@@ -457,7 +457,7 @@ class NadxPerformanceHandler extends Handler {
          |      0 as saveCount,
          |
          |      pDwi.repeated,
-         |      '${transactionManager.asInstanceOf[MixTransactionManager].dwiLoadTime()}' as l_time,
+         |      '${transactionManager.asInstanceOf[MixTransactionManager].dwiLoadTime(moduleConfig)}' as l_time,
          |      pDwi.b_date,
          |      pDwi.b_time,
          |      pDwi.b_version as b_version

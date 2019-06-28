@@ -139,3 +139,7 @@ CREATE TABLE nadx_overall_audit_dm_all AS nadx_overall_audit_dm ENGINE = Distrib
 
 CREATE TABLE nadx_overall_audit_dm_for_select AS nadx_overall_audit_dm;
 CREATE TABLE nadx_overall_audit_dm_for_select_all AS nadx_overall_audit_dm_for_select ENGINE = Distributed(bip_ck_cluster, default, nadx_overall_audit_dm_for_select, rand());
+
+
+
+group by b_time

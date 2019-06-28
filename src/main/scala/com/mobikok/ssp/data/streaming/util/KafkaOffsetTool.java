@@ -10,10 +10,7 @@ import kafka.javaapi.consumer.SimpleConsumer;
 import kafka.utils.ZKGroupTopicDirs;
 import org.I0Itec.zkclient.ZkClient;
 
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class KafkaOffsetTool {
 
@@ -30,12 +27,16 @@ public class KafkaOffsetTool {
     return getOffsetRunAgainIfError(brokerList, topics, clientId, kafka.api.OffsetRequest.EarliestTime());
   }
 
+  public static Set<TopicAndPartition> getTopicPartitions(String brokerList, List<String> topics){
+    return getOffsetRunAgainIfError(brokerList, topics, "for_get_TopicPartitions_clientId", kafka.api.OffsetRequest.EarliestTime()).keySet();
+  }
+
   private static Map<TopicAndPartition, Long> getOffsetRunAgainIfError(String brokerList, List<String> topics, String clientId, long whichTime) {
     while (true){
       try {
         return getOffset0(brokerList, topics, clientId, whichTime);
       }catch (Throwable e) {
-        LOG.error("Get kafka last offset fail, will try again!! exception:" , e);
+        LOG.error("Get kafka last offset fail, will try again, brokerList: " + brokerList + ", topics: " + OM.toJOSN(topics) + ", clientId: " + clientId +", whichTime: " + whichTime, e);
         try {
           Thread.sleep(1000*10);
         } catch (Throwable ex) { }
@@ -56,7 +57,12 @@ public class KafkaOffsetTool {
       try {
         BrokerEndPoint leaderBroker = topicAndPartitionBrokerEntry.getValue();
 
-        simpleConsumer = new SimpleConsumer(leaderBroker.host(), leaderBroker.port(), TIMEOUT, BUFFERSIZE, clientId);
+        simpleConsumer = new SimpleConsumer(
+                leaderBroker.host(),
+                leaderBroker.port(),
+                TIMEOUT,
+                BUFFERSIZE,
+                clientId);
 
         long readOffset = getTopicAndPartitionLastOffset(simpleConsumer, topicAndPartitionBrokerEntry.getKey(), clientId, whichTime);
 

@@ -26,6 +26,7 @@ import org.apache.spark.streaming.StreamingContext
 import scala.collection.JavaConversions._
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
+import scala.collection.JavaConverters._
 
 class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext,
                        messageClient: MessageClient, transactionManager: TransactionManager,
@@ -35,8 +36,9 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
   private val conf = new HdfsConfiguration()
   private val fileSystem = FileSystem.get(conf)
 
+  val OVERWIRTE_FIXED_L_TIME = "0001-01-01 00:00:00"
 //  private val hosts = config.getStringList("clickhouse.hosts")
-  private val hosts = List("master.ck")
+  private val hosts = if(config.hasPath("clickhouse.hosts")) config.getStringList("clickhouse.hosts").asScala else List("master.ck")
   private var aggFields: List[String] = _
   try {
     aggFields = config.getConfigList(s"modules.$moduleName.dwr.groupby.aggs").map{ c =>
@@ -1123,11 +1125,11 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
       } else {
         sql(s"CREATE TABLE IF NOT EXISTS ${c.transactionalProgressingBackupTable} AS ${c.targetTable}_for_select", tryAgainWhenError = true)
 
-        val bw = c.partitions.map { x => x.filter(y => "l_time".equals(y.name)) }
+        val bw = c.partitions.map { x => x.filter(y => "l_time".equals(y.name) && !y.value.equals(OVERWIRTE_FIXED_L_TIME)) }
 
         //正常情况下只会有一个l_time值
         val flatBw = bw.flatMap { x => x }.toSet
-        if (flatBw.size != 1) {
+        if (flatBw.size > 1) {
           throw new ClickHouseClientException(s"l_time must be only one value for backup, But has ${flatBw.size} values: $flatBw !")
         }
 
@@ -1203,8 +1205,8 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
         //y._1 + "=" + y._2
       }.mkString("(", " and ", ")")
     }.mkString(" or ")
-    if ("".equals(w)) w = "1 = 1"
-    w
+    if ("".equals(w)) w = "'no_partition_specified' <> 'no_partition_specified'"
+    "( " + w + " )"
   }
 
   override def clean(cookies: TransactionCookie*): Unit = {
@@ -1268,7 +1270,7 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
 
         override def failed(responseStatus: String, responseError: String, ex: Exception): Unit = {
           LOG.warn(ex.getLocalizedMessage)
-          throw new ClickHouseClientException(s"sql may be failed:\n$sql")
+          throw new ClickHouseClientException(s"sql may be failed:\n$sql", ex)
         }
 
         override def completed(responseStatus: String, response: String): Unit = {

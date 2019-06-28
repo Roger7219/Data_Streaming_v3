@@ -116,12 +116,12 @@ class MixTransactionManager (config: Config, transactionalStrategy: Transactiona
   //    res
   //  }
 
-  def dwiLoadTime():String ={
-    transactionalStrategy.dwiLoadTime()
+  def dwiLoadTime(moduleConfig: Config):String ={
+    if(moduleConfig.hasPath("overwrite") && moduleConfig.getBoolean("overwrite")) HiveClient.OVERWIRTE_FIXED_L_TIME else transactionalStrategy.dwiLoadTime()
   }
 
-  def dwrLoadTime():String={
-    transactionalStrategy.dwrLoadTime()
+  def dwrLoadTime(moduleConfig: Config):String={
+    if(moduleConfig.hasPath("overwrite") && moduleConfig.getBoolean("overwrite")) HiveClient.OVERWIRTE_FIXED_L_TIME else transactionalStrategy.dwrLoadTime()
   }
 
   def dwiLoadTimeDateFormat(): SimpleDateFormat = transactionalStrategy.dwiLoadTimeDateFormat

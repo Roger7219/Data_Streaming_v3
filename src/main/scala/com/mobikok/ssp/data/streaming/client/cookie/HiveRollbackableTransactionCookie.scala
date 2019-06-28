@@ -17,10 +17,9 @@ class HiveRollbackableTransactionCookie (_parentId: String,
                                          _transactionalProgressingBackupTable: String,
                                          _transactionalCompletedBackupTable: String,
                                          _isEmptyData: Boolean
-                                        ) extends HiveTransactionCookie(_parentId, _id, _targetTable, _partitions){
+                                        ) extends HiveTransactionCookie(_parentId, _id, _targetTable, _saveMode, _partitions){
 
   @BeanProperty var transactionalTmpTable: String = _transactionalTmpTable
-  @BeanProperty var saveMode: SaveMode = _saveMode
   @BeanProperty var transactionalProgressingBackupTable: String = _transactionalProgressingBackupTable
   @BeanProperty var transactionalCompletedBackupTable: String = _transactionalCompletedBackupTable
   @BeanProperty var isEmptyData: Boolean = _isEmptyData

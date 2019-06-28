@@ -561,7 +561,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
         //正常情况下只会有一个l_time值
         val flatBw = bw.flatMap{x=>x}.toSet
         if(flatBw.size != 1){
-          throw new HiveClientException(s"l_time must be only one value for backup, But has ${flatBw.size} values: ${flatBw} !")
+          //throw new HiveClientException(s"l_time must be only one value for backup, But has ${flatBw.size} values: ${flatBw} !")
         }
 
         var w  = partitionsWhereSQL(bw)//partitionsWhereSQL(c.partitions)

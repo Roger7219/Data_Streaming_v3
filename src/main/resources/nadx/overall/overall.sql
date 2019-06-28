@@ -319,6 +319,10 @@ drop view if exists nadx_overall_dm_v2;
 create view nadx_overall_dm_v2 as
 select * from nadx_overall_dwr_v2;
 
+drop view if exists nadx_overall_dm_v6;
+create view nadx_overall_dm_v6 as
+select * from nadx_overall_dwr_v6;
+
 
 
 

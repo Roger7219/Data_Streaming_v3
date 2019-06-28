@@ -11,9 +11,11 @@ import scala.beans.BeanProperty
 class HiveTransactionCookie (_parentId: String,
                              _id: String,
                              _targetTable: String,
+                             _saveMode: SaveMode,
                              _partitions : Array[Array[HivePartitionPart]] //Array[Seq[(String, String)]],
                             ) extends TransactionCookie(_parentId, _id){
 
+  @BeanProperty var saveMode = _saveMode
   @BeanProperty var targetTable = _targetTable
   @BeanProperty var partitions = _partitions
 

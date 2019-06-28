@@ -2,7 +2,7 @@ package com.mobikok.ssp.data.streaming.handler.dwi
 
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.client.cookie.TransactionCookie
-import com.mobikok.ssp.data.streaming.config.RDBConfig
+import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.AggTrafficDWI
 import com.typesafe.config.Config
 import org.apache.spark.sql.DataFrame
@@ -22,8 +22,8 @@ class JoinPhoenixHandler extends Handler {
   @volatile var subIncrTid:Int = 7
 
 
-  override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, handlerConfig: Config, globalConfig: Config, expr: String, as: Array[String]): Unit = {
-    super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, handlerConfig, globalConfig, expr, as)
+  override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, argsConfig: ArgsConfig, handlerConfig: Config, globalConfig: Config, expr: String, as: Array[String]): Unit = {
+    super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, handlerConfig, globalConfig, expr, as)
 
     unjoinDataTable = handlerConfig.getString("table.unjoin")
 
@@ -96,6 +96,7 @@ class JoinPhoenixHandler extends Handler {
 //      tid,
       partentTid,
       unjoinDataTable,
+      false,
       res
         .filter("appId is null")
         .selectExpr(

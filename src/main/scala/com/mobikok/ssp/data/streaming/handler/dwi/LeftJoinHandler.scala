@@ -2,7 +2,7 @@ package com.mobikok.ssp.data.streaming.handler.dwi
 
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.client.cookie.TransactionCookie
-import com.mobikok.ssp.data.streaming.config.RDBConfig
+import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.typesafe.config.Config
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
@@ -14,8 +14,8 @@ class LeftJoinHandler extends Handler {
   //  table = "app", on = "app.id  = dwi.appid", select = "app.publisherId"
   var dwiLeftJoin: List[(String, String, String)] = _
 
-  override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, handlerConfig: Config, globalConfig: Config, expr: String, as: Array[String]): Unit = {
-    super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, handlerConfig, globalConfig, expr, as)
+  override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, argsConfig: ArgsConfig, handlerConfig: Config, globalConfig: Config, expr: String, as: Array[String]): Unit = {
+    super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, handlerConfig, globalConfig, expr, as)
 
     dwiLeftJoin = handlerConfig.getConfigList("join.left").map{ x =>
       (x.getString("table"), x.getString("on"), x.getString("select"))

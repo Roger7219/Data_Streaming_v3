@@ -2,9 +2,9 @@ package com.mobikok.ssp.data.streaming.handler.dwi
 
 import java.util.Date
 
-import com.mobikok.ssp.data.streaming.client.cookie.TransactionCookie
 import com.mobikok.ssp.data.streaming.client._
-import com.mobikok.ssp.data.streaming.config.RDBConfig
+import com.mobikok.ssp.data.streaming.client.cookie.TransactionCookie
+import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.util.Logger
 import com.typesafe.config.Config
 import org.apache.spark.sql.DataFrame
@@ -21,9 +21,13 @@ trait Handler extends Transactional with com.mobikok.ssp.data.streaming.handler.
   var hiveClient: HiveClient = _
   var kafkaClient: KafkaClient = _
   var hiveContext: HiveContext = _
+  var argsConfig: ArgsConfig = _
   var handlerConfig: Config = _
   var globalConfig: Config = _
   var rDBConfig: RDBConfig = _
+  var version: String = _
+  var moduleConfig: Config = _
+  var isOverwriteFixedLTime: Boolean = _
 
   var transactionManager: TransactionManager = _
   var exprStr: String = _
@@ -39,6 +43,7 @@ trait Handler extends Transactional with com.mobikok.ssp.data.streaming.handler.
             hbaseClient: HBaseClient,
             hiveClient: HiveClient,
             kafkaClient: KafkaClient,
+            argsConfig: ArgsConfig,
             handlerConfig: Config,
             globalConfig: Config,
             expr: String,
@@ -53,10 +58,14 @@ trait Handler extends Transactional with com.mobikok.ssp.data.streaming.handler.
     this.hiveClient = hiveClient
     this.kafkaClient = kafkaClient
     this.hiveContext = hiveClient.hiveContext
+    this.argsConfig = argsConfig
     this.handlerConfig = handlerConfig
     this.globalConfig = globalConfig
     this.exprStr = expr
     this.as = as
+    this.version = argsConfig.get(ArgsConfig.VERSION, ArgsConfig.Value.VERSION_DEFAULT)
+    this.moduleConfig = globalConfig.getConfig(s"modules.$moduleName")
+    this.isOverwriteFixedLTime = if(moduleConfig.hasPath("overwrite")) moduleConfig.getBoolean("overwrite") else false
 
     try {
       isAsynchronous = handlerConfig.getBoolean("isAsynchronous")
