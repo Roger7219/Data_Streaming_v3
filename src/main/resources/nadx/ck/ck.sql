@@ -150,3 +150,8 @@ CREATE TABLE nadx_overall_dm_v8 AS nadx_overall_dm;
 CREATE TABLE nadx_overall_dm_v8_all AS nadx_overall_dm_v8 ENGINE = Distributed(bip_ck_cluster, default, nadx_overall_dm_v8, rand());
 CREATE TABLE nadx_overall_dm_v8_for_select AS nadx_overall_dm_v8;
 CREATE TABLE nadx_overall_dm_v8_for_select_all AS nadx_overall_dm_v8_for_select ENGINE = Distributed(bip_ck_cluster, default, nadx_overall_dm_v8_for_select, rand());
+
+CREATE TABLE nadx_overall_dm_day AS nadx_overall_dm;
+CREATE TABLE nadx_overall_dm_day_all AS nadx_overall_dm_day ENGINE = Distributed(bip_ck_cluster, default, nadx_overall_dm_day, rand());
+CREATE TABLE nadx_overall_dm_day_for_select AS nadx_overall_dm_day;
+CREATE TABLE nadx_overall_dm_day_for_select_all AS nadx_overall_dm_day_for_select ENGINE = Distributed(bip_ck_cluster, default, nadx_overall_dm_day_for_select, rand());
