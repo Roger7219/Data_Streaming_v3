@@ -1,15 +1,14 @@
-CREATE TABLE nadx_overall_dm (
-  supply_bd_id                      Int32 DEFAULT CAST(0 AS Int32),
-  supply_am_id                      Int32 DEFAULT CAST(0 AS Int32),
+CREATE TABLE ndsp_overall_dm (
   supply_id                         Int32 DEFAULT CAST(0 AS Int32),
   supply_protocol                   Int32 DEFAULT CAST(0 AS Int32),
   request_flag                      Int32 DEFAULT CAST(0 AS Int32),
+  request_status                    Nullable(String),
   ad_format                         Int32 DEFAULT CAST(0 AS Int32),
   site_app_id                       Int32 DEFAULT CAST(0 AS Int32),
   placement_id                      Int32 DEFAULT CAST(0 AS Int32),
   position                          Int32 DEFAULT CAST(0 AS Int32),
   country                           Nullable(String),
-  state                             Nullable(String),
+  region                            Nullable(String),
   city                              Nullable(String),
   carrier                           Nullable(String),
   os                                Nullable(String),
@@ -20,36 +19,25 @@ CREATE TABLE nadx_overall_dm (
   age                               Nullable(String),
   gender                            Nullable(String),
   cost_currency                     Nullable(String),
-  demand_bd_id                      Int32 DEFAULT CAST(0 AS Int32),
-  demand_am_id                      Int32 DEFAULT CAST(0 AS Int32),
-  demand_id                         Int32 DEFAULT CAST(0 AS Int32),
-  demand_seat_id                    Nullable(String),
-  demand_campaign_id                Nullable(String),
-  demand_protocol                   Int32 DEFAULT CAST(0 AS Int32),
-  target_site_app_id                Nullable(String),
+  proxy_id                          Int32 DEFAULT CAST(0 AS Int32),
+  mediabuy_id                       Int32 DEFAULT CAST(0 AS Int32),
+  bd_id                             Int32 DEFAULT CAST(0 AS Int32),
+  am_id                             Int32 DEFAULT CAST(0 AS Int32),
+  campaign_id                       Int32 DEFAULT CAST(0 AS Int32),
+  ad_id                             Int32 DEFAULT CAST(0 AS Int32),
   revenue_currency                  Nullable(String),
   bid_price_model                   Int32 DEFAULT CAST(0 AS Int32),
   traffic_type                      Int32 DEFAULT CAST(0 AS Int32),
   currency                          Nullable(String),
   bundle                            Nullable(String),
   size                              Nullable(String),
-
   supply_request_count              Int64 DEFAULT CAST(0 AS Int64),
-  supply_invalid_request_count      Int64 DEFAULT CAST(0 AS Int64),
   supply_bid_count                  Int64 DEFAULT CAST(0 AS Int64),
   supply_bid_price_cost_currency    Float64 DEFAULT CAST(0. AS Float64),
   supply_bid_price                  Float64 DEFAULT CAST(0. AS Float64),
   supply_win_count                  Int64 DEFAULT CAST(0 AS Int64),
   supply_win_price_cost_currency    Float64 DEFAULT CAST(0. AS Float64),
   supply_win_price                  Float64 DEFAULT CAST(0. AS Float64),
-  demand_request_count              Int64 DEFAULT CAST(0 AS Int64),
-  demand_bid_count                  Int64 DEFAULT CAST(0 AS Int64),
-  demand_bid_price_revenue_currency Float64 DEFAULT CAST(0. AS Float64),
-  demand_bid_price                  Float64 DEFAULT CAST(0. AS Float64),
-  demand_win_count                  Int64 DEFAULT CAST(0 AS Int64),
-  demand_win_price_revenue_currency Float64 DEFAULT CAST(0. AS Float64),
-  demand_win_price                  Float64 DEFAULT CAST(0. AS Float64),
-  demand_timeout_count              Int64 DEFAULT CAST(0 AS Int64),
   impression_count                  Int64 DEFAULT CAST(0 AS Int64),
   impression_cost_currency          Float64 DEFAULT CAST(0. AS Float64),
   impression_cost                   Float64 DEFAULT CAST(0. AS Float64),
@@ -62,17 +50,18 @@ CREATE TABLE nadx_overall_dm (
   click_revenue                     Float64 DEFAULT CAST(0. AS Float64),
   conversion_count                  Int64 DEFAULT CAST(0 AS Int64),
   conversion_price                  Float64 DEFAULT CAST(0. AS Float64),
+  event_count                       Int64 DEFAULT CAST(0 AS Int64),
   l_time                            DateTime,
   b_date                            Date,
   b_time                            DateTime,
   b_version                         Nullable(String)
 )
 ENGINE = MergeTree PARTITION BY (b_date, b_time) ORDER BY (b_date, b_time) SETTINGS index_granularity = 8192;
+CREATE TABLE ndsp_overall_dm_all AS ndsp_overall_dm ENGINE = Distributed(bip_ck_cluster, default, ndsp_overall_dm, rand());
+CREATE TABLE ndsp_overall_dm_for_select AS ndsp_overall_dm;
+CREATE TABLE ndsp_overall_dm_for_select_all AS ndsp_overall_dm_for_select ENGINE = Distributed(bip_ck_cluster, default, ndsp_overall_dm_for_select, rand());
 
-CREATE TABLE nadx_overall_dm_all AS nadx_overall_dm ENGINE = Distributed(bip_ck_cluster, default, nadx_overall_dm, rand());
 
-CREATE TABLE nadx_overall_dm_for_select AS nadx_overall_dm;
-CREATE TABLE nadx_overall_dm_for_select_all AS nadx_overall_dm_for_select ENGINE = Distributed(bip_ck_cluster, default, nadx_overall_dm_for_select, rand());
 
 ------2019-04-19 新增字段
 ALTER TABLE nadx_overall_dm add column tips Nullable(String);
@@ -139,19 +128,3 @@ CREATE TABLE nadx_overall_audit_dm_all AS nadx_overall_audit_dm ENGINE = Distrib
 
 CREATE TABLE nadx_overall_audit_dm_for_select AS nadx_overall_audit_dm;
 CREATE TABLE nadx_overall_audit_dm_for_select_all AS nadx_overall_audit_dm_for_select ENGINE = Distributed(bip_ck_cluster, default, nadx_overall_audit_dm_for_select, rand());
-
--- 2019-06-12  v9
-CREATE TABLE nadx_overall_dm_v9 AS nadx_overall_dm;
-CREATE TABLE nadx_overall_dm_v9_all AS nadx_overall_dm_v9 ENGINE = Distributed(bip_ck_cluster, default, nadx_overall_dm_v9, rand());
-CREATE TABLE nadx_overall_dm_v9_for_select AS nadx_overall_dm_v9;
-CREATE TABLE nadx_overall_dm_v9_for_select_all AS nadx_overall_dm_v9_for_select ENGINE = Distributed(bip_ck_cluster, default, nadx_overall_dm_v9_for_select, rand());
-
-CREATE TABLE nadx_overall_dm_v8 AS nadx_overall_dm;
-CREATE TABLE nadx_overall_dm_v8_all AS nadx_overall_dm_v8 ENGINE = Distributed(bip_ck_cluster, default, nadx_overall_dm_v8, rand());
-CREATE TABLE nadx_overall_dm_v8_for_select AS nadx_overall_dm_v8;
-CREATE TABLE nadx_overall_dm_v8_for_select_all AS nadx_overall_dm_v8_for_select ENGINE = Distributed(bip_ck_cluster, default, nadx_overall_dm_v8_for_select, rand());
-
-CREATE TABLE nadx_overall_dm_day AS nadx_overall_dm;
-CREATE TABLE nadx_overall_dm_day_all AS nadx_overall_dm_day ENGINE = Distributed(bip_ck_cluster, default, nadx_overall_dm_day, rand());
-CREATE TABLE nadx_overall_dm_day_for_select AS nadx_overall_dm_day;
-CREATE TABLE nadx_overall_dm_day_for_select_all AS nadx_overall_dm_day_for_select ENGINE = Distributed(bip_ck_cluster, default, nadx_overall_dm_day_for_select, rand());
