@@ -335,7 +335,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
     var tid: String = null
     try {
 
-      // Check l_time=00001-01-01 00:00:00 if isOverwirteFixedLTime=true
+      // Ensure l_time=0001-01-01 00:00:00 if isOverwirteFixedLTime=true
       if(isOverwirteFixedLTime) {
         ps.foreach{x=>
           x.foreach { y =>
