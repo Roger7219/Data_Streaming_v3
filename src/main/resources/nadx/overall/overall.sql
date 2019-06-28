@@ -385,10 +385,6 @@ sum(click_revenue_currency),
 sum(click_revenue),
 sum(conversion_count),
 sum(conversion_price),
-b_date as l_time,
-b_date,
-b_date as b_time,
-b_version,
 tips,
 node,
 tip_type,
@@ -397,9 +393,12 @@ event_count,
 ssp_token,
 rtb_version,
 demand_using_time,
-adx_using_time
-from nadx_overall_dm group by
+adx_using_time,
+date_format(l_time, 'yyyy-MM-dd 00:00:00') as l_time,
 b_date,
+date_format(b_time, 'yyyy-MM-dd 00:00:00') as b_time,
+b_version
+from nadx_overall_dm group by
 supply_bd_id,
 supply_am_id,
 supply_id,
@@ -434,7 +433,6 @@ traffic_type,
 currency,
 bundle,
 size,
-b_version,
 tips,
 node,
 tip_type,
@@ -443,8 +441,11 @@ event_count,
 ssp_token,
 rtb_version,
 demand_using_time,
-adx_using_time
-;
+adx_using_time,
+date_format(l_time, 'yyyy-MM-dd 00:00:00'),
+b_date,
+date_format(b_time, 'yyyy-MM-dd 00:00:00'),
+b_version;
 
 
 
