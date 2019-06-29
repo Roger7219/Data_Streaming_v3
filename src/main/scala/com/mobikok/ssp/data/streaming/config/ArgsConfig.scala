@@ -12,6 +12,7 @@ import collection.JavaConversions._
 class ArgsConfig {
 
   private var argsMap: Map[String, String] = Map[String, String]()
+//  private var defautArgsMap: Map[String, String] = Map[String, String]((ArgsConfig.VERSION, ArgsConfig.VERSION_DEFAULT))
 
   def init(args: Array[String]): ArgsConfig = {
     if(args == null || args.length == 0) {

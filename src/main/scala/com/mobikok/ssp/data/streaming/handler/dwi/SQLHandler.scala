@@ -2,10 +2,12 @@ package com.mobikok.ssp.data.streaming.handler.dwi
 
 import java.util
 
+import com.mobikok.ssp.data.streaming.OptimizedMixApp.{argsConfig, version}
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.client.cookie.TransactionCookie
-import com.mobikok.ssp.data.streaming.config.RDBConfig
+import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
+import com.mobikok.ssp.data.streaming.s
 import com.mobikok.ssp.data.streaming.udf.UserAgentBrowserKernelUDF.StringUtil
 import com.mobikok.ssp.data.streaming.util.{MC, OM, RunAgainIfError}
 import com.typesafe.config.Config
@@ -46,11 +48,11 @@ class SQLHandler extends Handler {
   var messageTopics: Array[String] = null
   var messageConsumer: String = null
 
-  override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, handlerConfig: Config, globalConfig: Config, expr: String, as: Array[String]): Unit = {
-    super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, handlerConfig, globalConfig, expr, as)
+  override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, argsConfig: ArgsConfig, handlerConfig: Config, globalConfig: Config, expr: String, as: Array[String]): Unit = {
+    super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, handlerConfig, globalConfig, expr, as)
 
     messageTopics = handlerConfig.getStringList("message.topics").toArray(new Array[String](0))
-    messageConsumer = handlerConfig.getString("message.consumer")
+    messageConsumer = versionFeaturesKafkaCer(version, handlerConfig.getString("message.consumer"))
 
     plainSql = handlerConfig.getString("sql")
     sqlSegments = plainSql
@@ -122,5 +124,12 @@ class SQLHandler extends Handler {
 //      batchTransactionCookiesCache.removeAll(needCleans)
 //    }
 //    hiveClient.clean(result:_*)
+  }
+
+  private def versionFeaturesKafkaCer(version: String, kafkaCer: String): String = {
+    return if(ArgsConfig.Value.VERSION_DEFAULT.equals(version)) kafkaCer else s"${kafkaCer}_v${version}".trim
+  }
+  private def versionFeaturesKafkaTopic(version: String, kafkaTopic: String): String = {
+    return if(ArgsConfig.Value.VERSION_DEFAULT.equals(version)) kafkaTopic else s"${kafkaTopic}_v${version}".trim
   }
 }

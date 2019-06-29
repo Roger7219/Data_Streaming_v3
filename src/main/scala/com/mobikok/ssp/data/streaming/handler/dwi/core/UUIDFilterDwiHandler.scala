@@ -25,8 +25,8 @@ class UUIDFilterDwiHandler extends Handler {
   var isEnableDwiUuid: Boolean = _
 
   var dwiBTimeFormat:String =_
-  var argsConfig: ArgsConfig = _
-  var version:String = "0"
+//  var argsConfig: ArgsConfig = _
+//  var version:String = "0"
 
   def this(uuidFilter: UuidFilter, businessTimeExtractBy: String, isEnableDwiUuid: Boolean, dwiBTimeFormat:String, argsConfig: ArgsConfig) {
     this()
@@ -37,14 +37,14 @@ class UUIDFilterDwiHandler extends Handler {
 //    this.version = argsConfig.getOrDefault(ArgsConfig.VERSION, ArgsConfig.Value.VERSION_DEFAULT);
   }
 
-  override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, handlerConfig: Config, globalConfig: Config, expr: String, as: Array[String]): Unit = {
-    super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, handlerConfig, globalConfig, expr, as)
+  override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, argsConfig: ArgsConfig, handlerConfig: Config, globalConfig: Config, expr: String, as: Array[String]): Unit = {
+    super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, handlerConfig, globalConfig, expr, as)
   }
 
   override def handle(newDwi: DataFrame): (DataFrame, Array[TransactionCookie]) = {
     LOG.warn("uuid handler dwi schema", newDwi.schema.fieldNames)
 
-    val dwiLTimeExpr = transactionManager.asInstanceOf[MixTransactionManager].dwiLoadTime()
+    val dwiLTimeExpr = transactionManager.asInstanceOf[MixTransactionManager].dwiLoadTime(moduleConfig)
 
     var uuidDwi = null.asInstanceOf[DataFrame]
     if (isEnableDwiUuid) {

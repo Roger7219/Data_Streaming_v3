@@ -27,7 +27,7 @@ class MySQLClient(moduleName: String, sc: SparkContext, config: Config, messageC
   val LOG = new Logger(moduleName, getClass.getName, System.currentTimeMillis())
 
   var mySqlJDBCClient: MySqlJDBCClientV2 = _
-
+  val OVERWIRTE_FIXED_L_TIME = "0001-01-01 00:00:00"
   private val transactionalTmpTableSign = s"_m_${moduleName}_trans_"
   private val transactionalLegacyDataBackupProgressingTableSign = s"_m_${moduleName}_bp_prog_"
   private val transactionalLegacyDataBackupCompletedTableSign = s"_m_${moduleName}_bp_comp_"
@@ -179,8 +179,8 @@ class MySQLClient(moduleName: String, sc: SparkContext, config: Config, messageC
         //y._1 + "=" + y._2
       }.mkString("(", " and ", ")")
     }.mkString(" or ")
-    if ("".equals(w)) w = "1 = 1"
-    w
+    if ("".equals(w)) w = "'no_partition_specified' <> 'no_partition_specified'"
+    "( " + w + " )"
   }
 
   override def commit(cookie: TransactionCookie): Unit = {
@@ -197,7 +197,7 @@ class MySQLClient(moduleName: String, sc: SparkContext, config: Config, messageC
       } else {
         createTableIfNotExist(c.transactionalProgressingBackupTable, c.targetTable)
 
-        var bw = c.partitions.map { x => x.filter(y => "l_time".equals(y.name)) }
+        var bw = c.partitions.map { x => x.filter(y => "l_time".equals(y.name) && !y.value.equals(OVERWIRTE_FIXED_L_TIME)) }
 
         val flatBw = bw.flatMap { x => x }.toSet
         LOG.warn(s"flatBw: \n$flatBw")

@@ -218,7 +218,7 @@ class GenericModule (config: Config,
           col = x.getString("expr")
         }
       } catch {case ex:Exception=>}
-      h.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, hc, config, col/*x.getString("expr")*/, x.getStringList("as").toArray( Array[String]() ))
+      h.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, hc, config, col/*x.getString("expr")*/, x.getStringList("as").toArray( Array[String]() ))
         (
           x.getStringList("as"),
           expr(col),

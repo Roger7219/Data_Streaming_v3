@@ -4,7 +4,7 @@ import java.util
 
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.client.cookie.{HiveTransactionCookie, TransactionCookie}
-import com.mobikok.ssp.data.streaming.config.RDBConfig
+import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
 import com.mobikok.ssp.data.streaming.handler.dwi.Handler
 import com.mobikok.ssp.data.streaming.util.{MC, OM, PushReq, ThreadPool}
@@ -23,9 +23,9 @@ class HiveDWIPersistHandler extends Handler {
 
   val batchTransactionCookiesCache = new util.ArrayList[TransactionCookie]()
 
-  override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, handlerConfig: Config, globalConfig: Config, expr: String, as: Array[String]): Unit = {
+  override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, argsConfig: ArgsConfig, handlerConfig: Config, globalConfig: Config, expr: String, as: Array[String]): Unit = {
     isAsynchronous = true
-    super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, handlerConfig, globalConfig, expr, as)
+    super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, handlerConfig, globalConfig, expr, as)
     table = globalConfig.getString(s"modules.$moduleName.dwi.table")
   }
 
@@ -46,17 +46,27 @@ class HiveDWIPersistHandler extends Handler {
 //          HivePartitionPart(y, x.getAs[String](y))
 //        }.toArray
 //      }
-    cookie = hiveClient.into(
-      transactionManager.asInstanceOf[MixTransactionManager].getCurrentTransactionParentId(),
-      table,
-      newDwi,
-      partitionFields.head,
-      partitionFields.tail:_*
-    )
+
+    if(isOverwriteFixedLTime) {
+      cookie = hiveClient.overwrite(
+        transactionManager.asInstanceOf[MixTransactionManager].getCurrentTransactionParentId(),
+        table,
+        isOverwriteFixedLTime,
+        newDwi,
+        partitionFields.head,
+        partitionFields.tail:_*)
+    } else {
+      cookie = hiveClient.into(
+        transactionManager.asInstanceOf[MixTransactionManager].getCurrentTransactionParentId(),
+        table,
+        newDwi,
+        partitionFields.head,
+        partitionFields.tail:_*)
+    }
 
     batchTransactionCookiesCache.add(cookie)
 
-    LOG.warn("hiveClient.into dwiTable completed", cookie)
+    LOG.warn("hiveClient write dwiTable completed", cookie)
     (newDwi, Array(cookie))
   }
 

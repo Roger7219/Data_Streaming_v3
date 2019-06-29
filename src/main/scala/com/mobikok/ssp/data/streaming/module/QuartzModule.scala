@@ -217,7 +217,11 @@ class QuartzModule(config: Config,
     businessTimeExtractBy = config.getString(s"modules.$moduleName.business.time.extract.by")
   }catch {case e:Throwable=>
     //兼容历史代码
-    businessTimeExtractBy = config.getString(s"modules.$moduleName.business.date.extract.by")
+    try{
+      businessTimeExtractBy = config.getString(s"modules.$moduleName.business.date.extract.by")
+    }catch {case e:Throwable=>
+      businessTimeExtractBy = config.getString(s"modules.$moduleName.b_time.input")
+    }
   }
 
   val topics = config.getConfigList(s"modules.$moduleName.kafka.consumer.partitoins").map { x => x.getString("topic") }.toArray[String]
@@ -464,7 +468,7 @@ class QuartzModule(config: Config,
           as =  x.getStringList("as")
         }catch {case ex:Throwable=>}
 
-        h.init(moduleName, mixTransactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, hc, config, col/*x.getString("expr")*/, as.toArray( Array[String]() ))
+        h.init(moduleName, mixTransactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, hc, config, col/*x.getString("expr")*/, as.toArray( Array[String]() ))
         (as, expr(col), h)
       }.toList
     }

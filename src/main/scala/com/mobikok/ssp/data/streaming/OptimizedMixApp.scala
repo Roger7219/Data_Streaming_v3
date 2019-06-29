@@ -68,6 +68,8 @@ object OptimizedMixApp {
         argsConfig = new ArgsConfig().init(args.tail)
         version = argsConfig.get(ArgsConfig.VERSION, ArgsConfig.Value.VERSION_DEFAULT)
 
+        if(!ArgsConfig.Value.VERSION_DEFAULT.equals(version) && !appName.endsWith(s"v$version")) throw new IllegalArgumentException(s"App name suffix must be: v$version, App name suggests: ${appName}_v${version}")
+
         LOG.warn("\nParsed ArgsConfig: \n" + argsConfig.toString)
 
       }else {
@@ -320,24 +322,59 @@ object OptimizedMixApp {
     }catch {case e:Exception=>}
     if(ms != null) {
       ms.root().foreach{x=>
+        val name = x._1
+        val vName = versionFeaturesModuleName(version, name)
+
         if(!ArgsConfig.Value.VERSION_DEFAULT.equals(version)) {
-        // 给module nmae加上对应version信息
-          val newM = versionFeaturesModuleName(version, x._1)
-          allModulesConfig = allModulesConfig.withValue(s"modules.${newM}", x._2)
+
+          // 给module nmae加上对应version信息
+          allModulesConfig = allModulesConfig.withValue(s"modules.${vName}", x._2)
 
           if(allModulesConfig.hasPath(s"modules.${x._1}.dwi.table"))
             allModulesConfig = allModulesConfig.withValue(
-              s"modules.${newM}.dwi.table",
+              s"modules.${vName}.dwi.table",
               ConfigValueFactory.fromAnyRef(versionFeaturesTableName(version,  allModulesConfig.getValue(s"modules.${x._1}.dwi.table").unwrapped().toString)))
 
           if(allModulesConfig.hasPath(s"modules.${x._1}.dwr.table"))
             allModulesConfig = allModulesConfig.withValue(
-              s"modules.${newM}.dwr.table",
+              s"modules.${vName}.dwr.table",
               ConfigValueFactory.fromAnyRef(versionFeaturesTableName(version,  allModulesConfig.getValue(s"modules.${x._1}.dwr.table").unwrapped().toString)))
 
+          // 给kafka partitions中的topic加上对应的version信息
+          var vTps = allModulesConfig
+            .getConfigList(s"modules.${vName}.kafka.consumer.partitoins")
+            .map{y=>
+              var tp = new java.util.HashMap[String, Any]()
+              tp.put("topic", versionFeaturesKafkaTopicName(version, y.getString("topic")))
+              if(y.hasPath("partition")) tp.put("partition", y.getInt("partition"))
+              tp
+            }
+          allModulesConfig = allModulesConfig.withValue(s"modules.${vName}.kafka.consumer.partitoins", ConfigValueFactory.fromIterable(vTps))
+
           // 清理
-          allModulesConfig = allModulesConfig.withoutPath(s"modules.${x._1}")
+          allModulesConfig = allModulesConfig.withoutPath(s"modules.${name}")
         }
+
+        // 读取kafka服务器，获取tipic对应的partition并补全配置
+        var tps = allModulesConfig
+          .getConfigList(s"modules.${vName}.kafka.consumer.partitoins")
+          .filter{y=> !y.hasPath("partition")}
+          .map{y=> y.getString("topic")}
+          .map{y=> KafkaOffsetTool.getTopicPartitions(allModulesConfig.getString("kafka.consumer.set.bootstrap.servers"), java.util.Collections.singletonList(y))}
+          .flatMap{y=> y}
+          .map{y=> y.asTuple}
+          .union(allModulesConfig.getConfigList(s"modules.${vName}.kafka.consumer.partitoins")
+            .filter{y=> y.hasPath("partition")}
+            .map{y=> (y.getString("topic"), y.getInt("partition"))})
+          .distinct
+          .map{y=>
+            var tp = new java.util.HashMap[String, Any]()
+            tp.put("topic", y._1)
+            tp.put("partition", y._2)
+            tp
+          }
+        allModulesConfig = allModulesConfig.withValue(s"modules.${vName}.kafka.consumer.partitoins", ConfigValueFactory.fromIterable(tps))
+
       }
     }
 
@@ -345,7 +382,7 @@ object OptimizedMixApp {
       refs = allModulesConfig.getStringList("ref.modules")
     }catch {
       case e:Exception =>
-        LOG.warn("No ref modules config")
+        LOG.warn("No ref modules config ")
     }
     if(refs != null) {
       refs.foreach{x=>
@@ -476,6 +513,10 @@ object OptimizedMixApp {
 
   def versionFeaturesTableName(version: String, table: String): String = {
     return if(ArgsConfig.Value.VERSION_DEFAULT.equals(version)) table else s"${table}_v${version}".trim
+  }
+
+  def versionFeaturesKafkaTopicName(version: String, kafkaTopic: String): String = {
+    return if(ArgsConfig.Value.VERSION_DEFAULT.equals(version)) kafkaTopic else s"${kafkaTopic}_v${version}".trim
   }
 
  //hasSparkStreaming

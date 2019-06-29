@@ -2,7 +2,7 @@ package com.mobikok.ssp.data.streaming.handler.dwi
 
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.client.cookie.TransactionCookie
-import com.mobikok.ssp.data.streaming.config.RDBConfig
+import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.SspUserIdHistory
 import com.mobikok.ssp.data.streaming.util.{CSTTime, MC, OM, PushReq}
 import com.typesafe.config.Config
@@ -18,8 +18,8 @@ class SspUserCountHandler extends Handler {
   val SSPUSERCOUNT_DROP_EXCEEDTABLE_CER = "sspUserCount_dropExceedTable_cer"
   val SSPUSERCOUNT_DROP_EXCEEDTABLE_TOPIC = "sspUserCount_dropExceedTable_topic"
 
-  override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, handlerConfig: Config, globalConfig: Config, expr: String, as: Array[String]): Unit = {
-    super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, handlerConfig, globalConfig, expr, as)
+  override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, argsConfig: ArgsConfig, handlerConfig: Config, globalConfig: Config, expr: String, as: Array[String]): Unit = {
+    super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, handlerConfig, globalConfig, expr, as)
 
     userIdHistoryTable = handlerConfig.getString("uid.history.table")
   }

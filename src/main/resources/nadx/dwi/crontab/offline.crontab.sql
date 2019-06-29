@@ -150,9 +150,26 @@ select
   0  as demand_bid_count,
   0. as demand_bid_price_revenue_currency,
   0. as demand_bid_price,
-  0  as demand_win_count,
-  0. as demand_win_price_revenue_currency,
-  0. as demand_win_price,
+--   0  as demand_win_count,
+--   0. as demand_win_price_revenue_currency,
+--   0. as demand_win_price,
+
+  CASE pDwi.type
+    WHEN 'win' THEN 1
+    ELSE 0 END
+  AS demand_win_count,
+
+  CASE pDwi.type
+    WHEN 'win' THEN tDwi.demand_win_price_revenue_currency
+    ELSE 0. END
+  AS demand_win_price_revenue_currency,
+
+  CASE pDwi.type
+    WHEN 'win' THEN tDwi.demand_win_price
+    ELSE 0. END
+  AS demand_win_price,
+
+-- 待删
   0  as demand_timeout_count,
 
   CASE pDwi.type
@@ -263,7 +280,7 @@ from (
   select * from nadx_performance_dwi where repeated = 'N' AND b_time >= ${start_b_time} and b_time <= ${end_b_time}
 ) pDwi
 left join (
-  select * from nadx_traffic_dwi where dataType = 4 AND b_time >= ${start_b_time} and b_time <= ${end_b_time}
+  select * from nadx_traffic_dwi_40000 where dataType = 4 AND b_time >= ${start_b_time} and b_time <= ${end_b_time}
 ) tDwi ON tDwi.b_time = pDwi.b_time AND pDwi.bidid = tDwi.bidRequestId
 left join (
   select * from nadx_performance_dwi where repeated = 'N' AND b_time >= ${start_b_time} and b_time <= ${end_b_time} AND type = 'win'
