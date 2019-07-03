@@ -402,7 +402,7 @@ date_format(l_time, 'yyyy-MM-dd 00:00:00') as l_time,
 b_date,
 date_format(b_time, 'yyyy-MM-dd 00:00:00') as b_time,
 b_version
-from nadx_overall_dm group by
+from nadx_overall_dm_v6 group by
 supply_bd_id,
 supply_am_id,
 supply_id,
