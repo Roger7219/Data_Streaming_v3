@@ -34,11 +34,40 @@ if [ "$downloadBundlefilePath" ]; then
        #awk -F, '!a[$1]++' bundle/* > bundle/clickhouse.csv
        awk -F, '{if($1!="")print}' $appIDFileName > bundle/clickhouse.csv
        clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_bundle_raw"
+       ssh ck001 "clickhouse-client  -m  --password $CC_PASS --query='drop table if EXISTS blacklist_bundle_raw'"
+       ssh ck002 "clickhouse-client  -m  --password $CC_PASS --query='drop table if EXISTS blacklist_bundle_raw'"
+
+       clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_bundle_raw_all"
+       ssh ck001 "clickhouse-client  -m  --password $CC_PASS --query='drop table if EXISTS blacklist_bundle_raw_all'"
+       ssh ck002 "clickhouse-client  -m  --password $CC_PASS --query='drop table if EXISTS blacklist_bundle_raw_all'"
+
        clickhouse-client  -m  --password $CC_PASS --query="CREATE TABLE blacklist_bundle_raw ( bundle String, probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (bundle)  SETTINGS index_granularity = 8192;"
-       clickhouse-client  -m  --password $CC_PASS --query="INSERT INTO blacklist_bundle_raw FORMAT CSVWithNames" < bundle/clickhouse.csv
+       ssh ck001 "clickhouse-client  -m  --password $CC_PASS --query='CREATE TABLE blacklist_bundle_raw ( bundle String, probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (bundle)  SETTINGS index_granularity = 8192;'"
+       ssh ck002 "clickhouse-client  -m  --password $CC_PASS --query='CREATE TABLE blacklist_bundle_raw ( bundle String, probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (bundle)  SETTINGS index_granularity = 8192;'"
+
+       clickhouse-client  -m  --password $CC_PASS --query="create table blacklist_bundle_raw_all as blacklist_bundle_raw ENGINE = Distributed(bip_ck_cluster, default, blacklist_bundle_raw, rand())"
+       ssh ck001 "clickhouse-client  -m  --password $CC_PASS --query='create table blacklist_bundle_raw_all as blacklist_bundle_raw ENGINE = Distributed(bip_ck_cluster, default, blacklist_bundle_raw, rand())'"
+       ssh ck002 "clickhouse-client  -m  --password $CC_PASS --query='create table blacklist_bundle_raw_all as blacklist_bundle_raw ENGINE = Distributed(bip_ck_cluster, default, blacklist_bundle_raw, rand())'"
+
+       clickhouse-client  -m  --password $CC_PASS --query="INSERT INTO blacklist_bundle_raw_all FORMAT CSVWithNames" < bundle/clickhouse.csv
+
+       clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_bundle_raw_for_select"
+       ssh ck001 "clickhouse-client  -m  --password $CC_PASS --query='drop table if EXISTS blacklist_bundle_raw_for_select'"
+       ssh ck002 "clickhouse-client  -m  --password $CC_PASS --query='drop table if EXISTS blacklist_bundle_raw_for_select'"
+
+       clickhouse-client  -m  --password $CC_PASS --query="CREATE TABLE blacklist_bundle_raw_for_select ( bundle String, probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (bundle)  SETTINGS index_granularity = 8192;"
+       ssh ck001 "clickhouse-client  -m  --password $CC_PASS --query='CREATE TABLE blacklist_bundle_raw_for_select ( bundle String, probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (bundle)  SETTINGS index_granularity = 8192;'"
+       ssh ck002 "clickhouse-client  -m  --password $CC_PASS --query='CREATE TABLE blacklist_bundle_raw_for_select ( bundle String, probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (bundle)  SETTINGS index_granularity = 8192;'"
+
        clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_bundle_raw_select_all"
-       clickhouse-client  -m  --password $CC_PASS --query="create table blacklist_bundle_raw_select_all as blacklist_bundle_raw ENGINE = Distributed(bip_ck_cluster, default, blacklist_bundle_raw, rand())"
-       clickhouse-client  -m  --password $CC_PASS --query="insert into blacklist_bundle_raw_select_all select * from blacklist_bundle_raw"
+       ssh ck001 "clickhouse-client  -m  --password $CC_PASS --query='drop table if EXISTS blacklist_bundle_raw_select_all'"
+       ssh ck002 "clickhouse-client  -m  --password $CC_PASS --query='drop table if EXISTS blacklist_bundle_raw_select_all'"
+
+       clickhouse-client  -m  --password $CC_PASS --query="create table if not EXISTS blacklist_bundle_raw_select_all as blacklist_bundle_raw_for_select ENGINE = Distributed(bip_ck_cluster, default, blacklist_bundle_raw_for_select, rand())"
+       ssh ck001 "clickhouse-client  -m  --password $CC_PASS --query='create table if not EXISTS blacklist_bundle_raw_select_all as blacklist_bundle_raw_for_select ENGINE = Distributed(bip_ck_cluster, default, blacklist_bundle_raw_for_select, rand())'"
+       ssh ck002 "clickhouse-client  -m  --password $CC_PASS --query='create table if not EXISTS blacklist_bundle_raw_select_all as blacklist_bundle_raw_for_select ENGINE = Distributed(bip_ck_cluster, default, blacklist_bundle_raw_for_select, rand())'"
+
+       clickhouse-client  -m  --password $CC_PASS --query="insert into blacklist_bundle_raw_select_all select * from blacklist_bundle_raw_all"
        curTime=`date "+%Y-%m-%d %H:%M:%S"`
        message='[{"topic":"blackList_bundle_check_topic","key":"'$curTime'","uniqueKey":true,"data":""}]'
        curl $MESSAGE_URL --header  "Content-Type: application/json;charset=UTF-8" -d "$message"
@@ -55,11 +84,40 @@ if [ "$downloadDomainfilePath" ]; then
        #awk -F, '!a[$1]++' domain/* > domain/clickhouse.csv
        awk -F, '{if($1!="")print}' $domainFileName > domain/clickhouse.csv
        clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_domain_raw"
+       ssh ck001 "clickhouse-client  -m  --password $CC_PASS --query='drop table if EXISTS blacklist_domain_raw'"
+       ssh ck002 "clickhouse-client  -m  --password $CC_PASS --query='drop table if EXISTS blacklist_domain_raw'"
+
+       clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_domain_raw_all"
+       ssh ck001 "clickhouse-client  -m  --password $CC_PASS --query='drop table if EXISTS blacklist_domain_raw_all'"
+       ssh ck002 "clickhouse-client  -m  --password $CC_PASS --query='drop table if EXISTS blacklist_domain_raw_all'"
+
        clickhouse-client  -m  --password $CC_PASS --query="CREATE TABLE blacklist_domain_raw ( domain String, probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (domain)  SETTINGS index_granularity = 8192;"
-       clickhouse-client  -m  --password $CC_PASS --query="INSERT INTO blacklist_domain_raw FORMAT CSVWithNames" < domain/clickhouse.csv
+       ssh ck001 "clickhouse-client  -m  --password $CC_PASS --query='CREATE TABLE blacklist_domain_raw ( domain String, probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (domain)  SETTINGS index_granularity = 8192;'"
+       ssh ck002 "clickhouse-client  -m  --password $CC_PASS --query='CREATE TABLE blacklist_domain_raw ( domain String, probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (domain)  SETTINGS index_granularity = 8192;'"
+
+       clickhouse-client  -m  --password $CC_PASS --query="create table blacklist_domain_raw_all as blacklist_domain_raw ENGINE = Distributed(bip_ck_cluster, default, blacklist_domain_raw, rand())"
+       ssh ck001 "clickhouse-client  -m  --password $CC_PASS --query='create table blacklist_domain_raw_all as blacklist_domain_raw ENGINE = Distributed(bip_ck_cluster, default, blacklist_domain_raw, rand())'"
+       ssh ck002 "clickhouse-client  -m  --password $CC_PASS --query='create table blacklist_domain_raw_all as blacklist_domain_raw ENGINE = Distributed(bip_ck_cluster, default, blacklist_domain_raw, rand())'"
+
+       clickhouse-client  -m  --password $CC_PASS --query="INSERT INTO blacklist_domain_raw_all FORMAT CSVWithNames" < domain/clickhouse.csv
+
+       clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_domain_raw_for_select"
+       ssh ck001 "clickhouse-client  -m  --password $CC_PASS --query='drop table if EXISTS blacklist_domain_raw_for_select'"
+       ssh ck002 "clickhouse-client  -m  --password $CC_PASS --query='drop table if EXISTS blacklist_domain_raw_for_select'"
+
+       clickhouse-client  -m  --password $CC_PASS --query="CREATE TABLE blacklist_domain_raw_for_select ( domain String, probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (domain)  SETTINGS index_granularity = 8192;"
+       ssh ck001 "clickhouse-client  -m  --password $CC_PASS --query='CREATE TABLE blacklist_domain_raw_for_select ( domain String, probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (domain)  SETTINGS index_granularity = 8192;'"
+       ssh ck002 "clickhouse-client  -m  --password $CC_PASS --query='CREATE TABLE blacklist_domain_raw_for_select ( domain String, probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (domain)  SETTINGS index_granularity = 8192;'"
+
        clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_domain_raw_select_all"
-       clickhouse-client  -m  --password $CC_PASS --query="create table blacklist_domain_raw_select_all as blacklist_domain_raw ENGINE = Distributed(bip_ck_cluster, default, blacklist_domain_raw, rand())"
-       clickhouse-client  -m  --password $CC_PASS --query="insert into blacklist_domain_raw_select_all select * from blacklist_domain_raw"
+       ssh ck001 "clickhouse-client  -m  --password $CC_PASS --query='drop table if EXISTS blacklist_domain_raw_select_all'"
+       ssh ck002 "clickhouse-client  -m  --password $CC_PASS --query='drop table if EXISTS blacklist_domain_raw_select_all'"
+
+       clickhouse-client  -m  --password $CC_PASS --query="create table if not EXISTS blacklist_domain_raw_select_all as blacklist_domain_raw_for_select ENGINE = Distributed(bip_ck_cluster, default, blacklist_domain_raw_for_select, rand())"
+       ssh ck001 "clickhouse-client  -m  --password $CC_PASS --query='create table if not EXISTS blacklist_domain_raw_select_all as blacklist_domain_raw_for_select ENGINE = Distributed(bip_ck_cluster, default, blacklist_domain_raw_for_select, rand())'"
+       ssh ck002 "clickhouse-client  -m  --password $CC_PASS --query='create table if not EXISTS blacklist_domain_raw_select_all as blacklist_domain_raw_for_select ENGINE = Distributed(bip_ck_cluster, default, blacklist_domain_raw_for_select, rand())'"
+
+       clickhouse-client  -m  --password $CC_PASS --query="insert into blacklist_domain_raw_select_all select * from blacklist_domain_raw_all"
        curTime=`date "+%Y-%m-%d %H:%M:%S"`
        message='[{"topic":"blackList_domain_check_topic","key":"'$curTime'","uniqueKey":true,"data":""}]'
        curl $MESSAGE_URL --header  "Content-Type: application/json;charset=UTF-8" -d "$message"
@@ -76,11 +134,40 @@ if [ "$downloadPublisherfilePath" ]; then
        #awk -F, '!a[$1]++' publisher/* > publisher/clickhouse.csv
        awk -F, '{if($1!="")print}' $publisherFileName > publisher/clickhouse.csv
        clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_publisher_raw"
+       ssh ck001 "clickhouse-client  -m  --password $CC_PASS --query='drop table if EXISTS blacklist_publisher_raw'"
+       ssh ck002 "clickhouse-client  -m  --password $CC_PASS --query='drop table if EXISTS blacklist_publisher_raw'"
+
+       clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_publisher_raw_all"
+       ssh ck001 "clickhouse-client  -m  --password $CC_PASS --query='drop table if EXISTS blacklist_publisher_raw_all'"
+       ssh ck002 "clickhouse-client  -m  --password $CC_PASS --query='drop table if EXISTS blacklist_publisher_raw_all'"
+
        clickhouse-client  -m  --password $CC_PASS --query="CREATE TABLE blacklist_publisher_raw ( publisher_id String, probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (publisher_id)  SETTINGS index_granularity = 8192;"
-       clickhouse-client  -m  --password $CC_PASS --query="INSERT INTO blacklist_publisher_raw FORMAT CSVWithNames" < publisher/clickhouse.csv
+       ssh ck001 "clickhouse-client  -m  --password $CC_PASS --query='CREATE TABLE blacklist_publisher_raw ( publisher_id String, probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (publisher_id)  SETTINGS index_granularity = 8192;'"
+       ssh ck002 "clickhouse-client  -m  --password $CC_PASS --query='CREATE TABLE blacklist_publisher_raw ( publisher_id String, probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (publisher_id)  SETTINGS index_granularity = 8192;'"
+
+       clickhouse-client  -m  --password $CC_PASS --query="create table blacklist_publisher_raw_all as blacklist_publisher_raw ENGINE = Distributed(bip_ck_cluster, default, blacklist_publisher_raw, rand())"
+       ssh ck001 "clickhouse-client  -m  --password $CC_PASS --query='create table blacklist_publisher_raw_all as blacklist_publisher_raw ENGINE = Distributed(bip_ck_cluster, default, blacklist_publisher_raw, rand())'"
+       ssh ck002 "clickhouse-client  -m  --password $CC_PASS --query='create table blacklist_publisher_raw_all as blacklist_publisher_raw ENGINE = Distributed(bip_ck_cluster, default, blacklist_publisher_raw, rand())'"
+
+       clickhouse-client  -m  --password $CC_PASS --query="INSERT INTO blacklist_publisher_raw_all FORMAT CSVWithNames" < publisher/clickhouse.csv
+
+       clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_publisher_raw_for_select"
+       ssh ck001 "clickhouse-client  -m  --password $CC_PASS --query='drop table if EXISTS blacklist_publisher_raw_for_select'"
+       ssh ck002 "clickhouse-client  -m  --password $CC_PASS --query='drop table if EXISTS blacklist_publisher_raw_for_select'"
+
+       clickhouse-client  -m  --password $CC_PASS --query="CREATE TABLE blacklist_publisher_raw_for_select ( publisher_id String, probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (publisher_id)  SETTINGS index_granularity = 8192;"
+       ssh ck001 "clickhouse-client  -m  --password $CC_PASS --query='CREATE TABLE blacklist_publisher_raw_for_select ( publisher_id String, probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (publisher_id)  SETTINGS index_granularity = 8192;'"
+       ssh ck002 "clickhouse-client  -m  --password $CC_PASS --query='CREATE TABLE blacklist_publisher_raw_for_select ( publisher_id String, probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (publisher_id)  SETTINGS index_granularity = 8192;'"
+
        clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_publisher_raw_select_all"
-       clickhouse-client  -m  --password $CC_PASS --query="create table blacklist_publisher_raw_select_all as blacklist_publisher_raw ENGINE = Distributed(bip_ck_cluster, default, blacklist_publisher_raw, rand())"
-       clickhouse-client  -m  --password $CC_PASS --query="insert into blacklist_publisher_raw_select_all select * from blacklist_publisher_raw"
+       ssh ck001 "clickhouse-client  -m  --password $CC_PASS --query='drop table if EXISTS blacklist_publisher_raw_select_all'"
+       ssh ck002 "clickhouse-client  -m  --password $CC_PASS --query='drop table if EXISTS blacklist_publisher_raw_select_all'"
+
+       clickhouse-client  -m  --password $CC_PASS --query="create table if not EXISTS blacklist_publisher_raw_select_all as blacklist_publisher_raw_for_select ENGINE = Distributed(bip_ck_cluster, default, blacklist_publisher_raw_for_select, rand())"
+       ssh ck001 "clickhouse-client  -m  --password $CC_PASS --query='create table if not EXISTS blacklist_publisher_raw_select_all as blacklist_publisher_raw_for_select ENGINE = Distributed(bip_ck_cluster, default, blacklist_publisher_raw_for_select, rand())'"
+       ssh ck002 "clickhouse-client  -m  --password $CC_PASS --query='create table if not EXISTS blacklist_publisher_raw_select_all as blacklist_publisher_raw_for_select ENGINE = Distributed(bip_ck_cluster, default, blacklist_publisher_raw_for_select, rand())'"
+
+       clickhouse-client  -m  --password $CC_PASS --query="insert into blacklist_publisher_raw_select_all select * from blacklist_publisher_raw_all"
        curTime=`date "+%Y-%m-%d %H:%M:%S"`
        message='[{"topic":"blackList_publisher_topic","key":"'$curTime'","uniqueKey":true,"data":""}]'
        curl $MESSAGE_URL --header  "Content-Type: application/json;charset=UTF-8" -d "$message"

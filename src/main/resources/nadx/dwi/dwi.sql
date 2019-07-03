@@ -763,5 +763,17 @@ ALTER TABLE nadx_overall_dwr ADD COLUMNS (adx_using_time STRING);
 ALTER TABLE nadx_overall_dwr_v2 ADD COLUMNS (rtb_version STRING);
 ALTER TABLE nadx_overall_dwr_v2 ADD COLUMNS (demand_using_time STRING);
 ALTER TABLE nadx_overall_dwr_v2 ADD COLUMNS (adx_using_time STRING);
+//2019-07-02
+ALTER TABLE nadx_overall_performance_matched_dwi ADD COLUMNS (rtb_version STRING);
+ALTER TABLE nadx_overall_performance_matched_dwi ADD COLUMNS (demand_using_time STRING);
+ALTER TABLE nadx_overall_performance_matched_dwi ADD COLUMNS (adx_using_time STRING);
 
+ALTER TABLE nadx_overall_performance_matched_dwi DROP COLUMNS rtb_version;
+ALTER TABLE nadx_overall_performance_matched_dwi DROP COLUMNS demand_using_time;
+ALTER TABLE nadx_overall_performance_matched_dwi DROP COLUMNS adx_using_time;
+//2019-07-02
+ALTER TABLE nadx_overall_dwr ADD COLUMNS (site_domain STRING);
+ALTER TABLE nadx_overall_dwr_v9 ADD COLUMNS (site_domain STRING);
+ALTER TABLE nadx_overall_dwr ADD COLUMNS (publisher_id STRING);
+ALTER TABLE nadx_overall_dwr_v9 ADD COLUMNS (publisher_id STRING);
 
