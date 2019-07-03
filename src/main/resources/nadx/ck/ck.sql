@@ -117,6 +117,15 @@ ALTER TABLE nadx_overall_dm add column adx_using_time Int32 DEFAULT CAST(0 AS In
 ALTER TABLE nadx_overall_dm_all add column adx_using_time Int32 DEFAULT CAST(0 AS Int32);
 ALTER TABLE nadx_overall_dm_for_select add column adx_using_time Int32 DEFAULT CAST(0 AS Int32);
 ALTER TABLE nadx_overall_dm_for_select_all add column adx_using_time Int32 DEFAULT CAST(0 AS Int32);
+-- 2019-07-02 新增字段
+ALTER TABLE nadx_overall_dm_v9 add column site_domain Nullable(String);
+ALTER TABLE nadx_overall_dm_v9_all add column site_domain Nullable(String);
+ALTER TABLE nadx_overall_dm_v9_for_select add column site_domain Nullable(String);
+ALTER TABLE nadx_overall_dm_v9_for_select_all add column site_domain Nullable(String);
+ALTER TABLE nadx_overall_dm_v9 add column publisher_id Nullable(String);
+ALTER TABLE nadx_overall_dm_v9_all add column publisher_id Nullable(String);
+ALTER TABLE nadx_overall_dm_v9_for_select add column publisher_id Nullable(String);
+ALTER TABLE nadx_overall_dm_v9_for_select_all add column publisher_id Nullable(String);
 
 
 
