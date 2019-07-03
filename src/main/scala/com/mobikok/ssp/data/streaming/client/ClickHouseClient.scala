@@ -526,7 +526,7 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
   }
 
   def dropPartition(clickHouseTable: String, b_date: String, b_time: String): Unit = {
-    LOG.warn(s"Start drop partition in table:$clickHouseTable")
+    LOG.warn(s"Drop partition at all host start", "table", clickHouseTable, "b_time", b_time, "hosts", hosts)
     hosts.foreach { host =>
       RunAgainIfError.run {
         val request = new Requests(1)
@@ -547,6 +547,7 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
         LOG.warn(this.getClass.getSimpleName, s"DROP PARTITION($b_date, $b_time) at $host")
       }
     }
+    LOG.warn(s"Drop partition all host done", "table", clickHouseTable, "b_time", b_time, "hosts", hosts)
   }
 
   def dropPartition(clickHouseTable: String, partition: String, hosts: String*): Unit = {
@@ -663,7 +664,7 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
 
         override def completed(responseStatus: String, response: String): Unit = {
           if (response != null) {
-            LOG.warn(s"response = $response")
+            LOG.warn(s"Exec sql result", response)
             try {
               val realImportCount = response.trim.toInt
               importCount = realImportCount
@@ -764,7 +765,7 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
                     // Date or DateTime(一般不会是这个)
                     selects.append(s"""now() as ${targetFieldSchema(i)._1}""")
                   }
-                }
+                }h
               }
 
               val batchCount = sql(s"select count(1) from $cookieTable", tryAgainWhenError = true).trim.toInt
