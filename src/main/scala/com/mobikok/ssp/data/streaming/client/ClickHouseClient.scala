@@ -224,7 +224,7 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
                 dataCount = rows.count()
                 dataCountMap.put(Thread.currentThread().getName, dataCount)
 
-                rows.coalesce(1)
+                rows.repartition(1)//coalesce(1)
                   .write
                   .mode(SaveMode.Overwrite)
                   .format("json")
@@ -765,7 +765,7 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
                     // Date or DateTime(一般不会是这个)
                     selects.append(s"""now() as ${targetFieldSchema(i)._1}""")
                   }
-                }h
+                }
               }
 
               val batchCount = sql(s"select count(1) from $cookieTable", tryAgainWhenError = true).trim.toInt

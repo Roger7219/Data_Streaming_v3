@@ -17,7 +17,7 @@ import scala.collection.JavaConversions._
 class ClickHouseQueryByBTimeHandler extends Handler {
 
   //view, consumer, topics
-  private var viewConsumerTopics = null.asInstanceOf[Array[(String, String, String, String, Array[String])]]
+  private var viewConsumerTopics = null.asInstanceOf[Array[(String, String, String, String, Array[String],Boolean)]]
 
   override def init(moduleName: String, bigQueryClient: BigQueryClient, greenplumClient: GreenplumClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext, handlerConfig: Config): Unit = {
     super.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient, kylinClientV2, hbaseClient, hiveContext, handlerConfig)
@@ -28,9 +28,10 @@ class ClickHouseQueryByBTimeHandler extends Handler {
       val ckTable = if(config.hasPath("ck")) config.getString("ck") else hiveView
       val minBtExpr = if(config.hasPath("b_time.min")) config.getString("b_time.min") else "'0000-00-01 00:00:00'"
       val consumer = config.getString("message.consumer")
+      val isDay = if(config.hasPath("day")) config.getBoolean("day") else false
       val topics = config.getStringList("message.topics").toArray(new Array[String](0))
 //      LOG.warn("consumer topic", s"($view, $consumer, $topic)")
-      (hiveView, ckTable, minBtExpr, consumer, topics)
+      (hiveView, ckTable, minBtExpr, consumer, topics,isDay)
     }.toArray
   }
 
@@ -38,7 +39,7 @@ class ClickHouseQueryByBTimeHandler extends Handler {
 
     LOG.warn("ClickHouseBTimeHandler handler starting")
     RunAgainIfError.run {
-      viewConsumerTopics.foreach { case(hiveView, ckTable, minBtExpr, consumer, topics) =>
+      viewConsumerTopics.foreach { case(hiveView, ckTable, minBtExpr, consumer, topics, isDay) =>
         val pageData = messageClient
           .pullMessage(new MessagePullReq(consumer, topics))
           .getPageData
@@ -57,10 +58,15 @@ class ClickHouseQueryByBTimeHandler extends Handler {
 
         var minBt = sql(s"select $minBtExpr as min_b_time").first().getAs[String]("min_b_time")
         var filtereMS = ms.filter{x=>x.value >= minBt}
+        var finalMS = filtereMS.map{
+          x=> if(isDay){
+                  x.value = x.value.split(" ")(0) + " 00:00:00"
+              };
+              HivePartitionPart(x.name, x.value)
+        }
+        LOG.warn(s"ClickHouseBTimeHandler update b_time(s), count: ${ms.length}", "all_b_time(s)", ms, "filtered_b_time(s)", filtereMS, "finalMS", finalMS)
 
-        LOG.warn(s"ClickHouseBTimeHandler update b_time(s), count: ${ms.length}", "all_b_time(s)", ms, "filtered_b_time(s)", filtereMS)
-
-        clickHouseClient.overwriteByBTime(ckTable.replace("_v2", ""), hiveView, filtereMS.map{_.value})
+        clickHouseClient.overwriteByBTime(ckTable.replace("_v2", ""), hiveView, finalMS.map{_.value})
         messageClient.commitMessageConsumer(
           pageData.map{data =>
             new MessageConsumerCommitReq(consumer, data.getTopic, data.getOffset)
