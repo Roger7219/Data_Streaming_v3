@@ -23,7 +23,7 @@ pwd
 
 #############################APP ID 黑名单####################################
 timeRangeEnd=`date -d '0 days ago' "+%Y-%m-%d"`
-timeRangeStart=`date -d '29 days ago' "+%Y-%m-%d"`
+timeRangeStart=`date -d '7 days ago' "+%Y-%m-%d"`
 echo "http://dashboard.api.pixalate.com/services/2016/Report/getExportUri?username=d4df3f3506e476bdae08d3702910735d&password=7a9df2d4e11b31b80baeb69d641ab3f2&reportId=fraudAppId&timeZone=0&q=kv18%2CgivtSivtRate+WHERE+day>%3D'$timeRangeStart'+AND+day<%3D'$timeRangeEnd'+AND+givtSivtRate>0+ORDER+BY+givtSivtRate+DESC&start=0&limit=999999&_1558700685545="
 wget "http://dashboard.api.pixalate.com/services/2016/Report/getExportUri?username=d4df3f3506e476bdae08d3702910735d&password=7a9df2d4e11b31b80baeb69d641ab3f2&reportId=fraudAppId&timeZone=0&q=kv18%2CgivtSivtRate+WHERE+day>%3D'$timeRangeStart'+AND+day<%3D'$timeRangeEnd'+AND+givtSivtRate>0+ORDER+BY+givtSivtRate+DESC&start=0&limit=999999&_1558700685545=" -O downloadBundlefilePath
 downloadBundlefilePath=`cat downloadBundlefilePath |sed  s/\"//g`
