@@ -1309,17 +1309,17 @@ class PluggableModule(globalConfig: Config,
       LOG.warn("Version", v)
       if(StringUtil.notEmpty(dwiTable)) {
         hiveClient.createTableIfNotExists(dwiTable, dwiTable.substring(0, dwiTable.length - vSuffix.length))
-        clickHouseClient.createTableIfNotExists(dwiTable, dwiTable.substring(0, dwiTable.length - vSuffix.length))
-        clickHouseClient.createTableWithEngineIfNotExists(dwiTable + "_all", dwiTable)
-        clickHouseClient.createTableIfNotExists(dwiTable + "_for_select", dwiTable)
-        clickHouseClient.createTableWithEngineIfNotExists(dwiTable + "_for_select_all", dwiTable + "_for_select")
+//        clickHouseClient.createTableIfNotExists(dwiTable, dwiTable.substring(0, dwiTable.length - vSuffix.length))
+//        clickHouseClient.createTableWithEngineIfNotExists(dwiTable + "_all", dwiTable)
+//        clickHouseClient.createTableIfNotExists(dwiTable + "_for_select", dwiTable)
+//        clickHouseClient.createTableWithEngineIfNotExists(dwiTable + "_for_select_all", dwiTable + "_for_select")
       }
       if(StringUtil.notEmpty(dwrTable) && isMaster){
         hiveClient.createTableIfNotExists(dwrTable, dwrTable.substring(0, dwrTable.length - vSuffix.length))
-        clickHouseClient.createTableIfNotExists(dwiTable, dwiTable.substring(0, dwiTable.length - vSuffix.length))
-        clickHouseClient.createTableWithEngineIfNotExists(dwiTable + "_all", dwiTable)
-        clickHouseClient.createTableIfNotExists(dwiTable + "_for_select", dwiTable)
-        clickHouseClient.createTableWithEngineIfNotExists(dwiTable + "_for_select_all", dwiTable + "_for_select")
+//        clickHouseClient.createTableIfNotExists(dwiTable, dwiTable.substring(0, dwiTable.length - vSuffix.length))
+//        clickHouseClient.createTableWithEngineIfNotExists(dwiTable + "_all", dwiTable)
+//        clickHouseClient.createTableIfNotExists(dwiTable + "_for_select", dwiTable)
+//        clickHouseClient.createTableWithEngineIfNotExists(dwiTable + "_for_select_all", dwiTable + "_for_select")
       }
     }
   }
