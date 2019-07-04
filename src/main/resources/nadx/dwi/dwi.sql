@@ -779,26 +779,31 @@ ALTER TABLE nadx_overall_dwr_v9 ADD COLUMNS (publisher_id STRING);
 
 
 //2019-07-04
-ALTER TABLE nadx_overall_dwr ADD COLUMNS (raterType STRING);
-ALTER TABLE nadx_overall_dwr ADD COLUMNS (raterId STRING);
+ALTER TABLE nadx_overall_dwr ADD COLUMNS (rater_type STRING);
+ALTER TABLE nadx_overall_dwr ADD COLUMNS (rater_id STRING);
 ALTER TABLE nadx_overall_dwr ADD COLUMNS (adomain STRING);
 ALTER TABLE nadx_overall_dwr ADD COLUMNS (crid STRING);
 ALTER TABLE nadx_overall_dwr ADD COLUMNS (bidfloor STRING);
-ALTER TABLE nadx_overall_dwr_v9 ADD COLUMNS (raterType STRING);
-ALTER TABLE nadx_overall_dwr_v9 ADD COLUMNS (raterId STRING);
+ALTER TABLE nadx_overall_dwr_v9 ADD COLUMNS (rater_type STRING);
+ALTER TABLE nadx_overall_dwr_v9 ADD COLUMNS (rater_id STRING);
 ALTER TABLE nadx_overall_dwr_v9 ADD COLUMNS (adomain STRING);
 ALTER TABLE nadx_overall_dwr_v9 ADD COLUMNS (crid STRING);
 ALTER TABLE nadx_overall_dwr_v9 ADD COLUMNS (bidfloor STRING);
 
-ALTER TABLE nadx_overall_traffic_dwi ADD COLUMNS (raterType STRING);
-ALTER TABLE nadx_overall_traffic_dwi ADD COLUMNS (raterId STRING);
+ALTER TABLE nadx_overall_traffic_dwi ADD COLUMNS (rater_type STRING);
+ALTER TABLE nadx_overall_traffic_dwi ADD COLUMNS (rater_id STRING);
 ALTER TABLE nadx_overall_traffic_dwi ADD COLUMNS (adomain STRING);
+ALTER TABLE nadx_overall_traffic_dwi_v9 ADD COLUMNS (rater_type STRING);
+ALTER TABLE nadx_overall_traffic_dwi_v9 ADD COLUMNS (rater_id STRING);
 
-ALTER TABLE nadx_traffic_dwi_40000 ADD COLUMNS (raterType STRING);
-ALTER TABLE nadx_traffic_dwi_40000 ADD COLUMNS (raterId STRING);
+ALTER TABLE nadx_traffic_dwi_40000 ADD COLUMNS (rater_type STRING);
+ALTER TABLE nadx_traffic_dwi_40000 ADD COLUMNS (rater_id STRING);
 ALTER TABLE nadx_traffic_dwi_40000 ADD COLUMNS (adomain STRING);
 
+ALTER TABLE nadx_traffic_dwi_40000 DROP  raterType;
+ALTER TABLE nadx_traffic_dwi_40000 DROP  raterId;
 
-ALTER TABLE nadx_overall_performance_matched_dwi_v9 ADD COLUMNS (raterType STRING);
-ALTER TABLE nadx_overall_performance_matched_dwi_v9 ADD COLUMNS (raterId STRING);
+ALTER TABLE nadx_overall_performance_matched_dwi_v9 ADD COLUMNS (rater_type STRING);
+ALTER TABLE nadx_overall_performance_matched_dwi_v9 ADD COLUMNS (rater_id STRING);
 ALTER TABLE nadx_overall_performance_matched_dwi_v9 ADD COLUMNS (adomain STRING);
+
