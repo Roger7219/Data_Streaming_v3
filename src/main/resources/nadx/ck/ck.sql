@@ -128,14 +128,15 @@ ALTER TABLE nadx_overall_dm_v9_for_select add column publisher_id Nullable(Strin
 ALTER TABLE nadx_overall_dm_v9_for_select_all add column publisher_id Nullable(String);
 -- 2019-07-04 新增字段
 
-ALTER TABLE nadx_overall_dm_v9 add column raterType Nullable(String);
-ALTER TABLE nadx_overall_dm_v9_all add column raterType Nullable(String);
-ALTER TABLE nadx_overall_dm_v9_for_select add column raterType Nullable(String);
-ALTER TABLE nadx_overall_dm_v9_for_select_all add column raterType Nullable(String);
-ALTER TABLE nadx_overall_dm_v9 add column raterId Nullable(String);
-ALTER TABLE nadx_overall_dm_v9_all add column raterId Nullable(String);
-ALTER TABLE nadx_overall_dm_v9_for_select add column raterId Nullable(String);
-ALTER TABLE nadx_overall_dm_v9_for_select_all add column raterId Nullable(String);
+ALTER TABLE nadx_overall_dm_v9 add column rater_type Nullable(String);
+ALTER TABLE nadx_overall_dm_v9_all add column rater_type Nullable(String);
+ALTER TABLE nadx_overall_dm_v9_for_select add column rater_type Nullable(String);
+ALTER TABLE nadx_overall_dm_v9_for_select_all add column rater_type Nullable(String);
+ALTER TABLE nadx_overall_dm_v9 add column rater_id Nullable(String);
+ALTER TABLE nadx_overall_dm_v9_all add column rater_id Nullable(String);
+ALTER TABLE nadx_overall_dm_v9_for_select add column rater_id Nullable(String);
+ALTER TABLE nadx_overall_dm_v9_for_select_all add column rater_id Nullable(String);
+
 ALTER TABLE nadx_overall_dm_v9 add column adomain Nullable(String);
 ALTER TABLE nadx_overall_dm_v9_all add column adomain Nullable(String);
 ALTER TABLE nadx_overall_dm_v9_for_select add column adomain Nullable(String);
