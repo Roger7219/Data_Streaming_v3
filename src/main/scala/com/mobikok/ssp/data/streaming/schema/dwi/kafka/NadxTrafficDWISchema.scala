@@ -132,6 +132,7 @@ object NadxTrafficDWISchema{
     StructField("raterType",                         StringType) ::
     StructField("raterId",                           StringType) ::
     StructField("adomain",                           StringType) ::
+    StructField("media_type",                       StringType) ::
 
     Nil)
 }

@@ -150,7 +150,11 @@ ALTER TABLE nadx_overall_dm_v9_all add column bidfloor Nullable(String);
 ALTER TABLE nadx_overall_dm_v9_for_select add column bidfloor Nullable(String);
 ALTER TABLE nadx_overall_dm_v9_for_select_all add column bidfloor Nullable(String);
 
-
+-- 2019-07-05
+ALTER TABLE nadx_overall_dm_v9 add column media_type Nullable(String);
+ALTER TABLE nadx_overall_dm_v9_all add column media_type Nullable(String);
+ALTER TABLE nadx_overall_dm_v9_for_select add column media_type Nullable(String);
+ALTER TABLE nadx_overall_dm_v9_for_select_all add column media_type Nullable(String);
 
 ------2019-04-20 新增审核送检数据表
 CREATE TABLE nadx_overall_audit_dm (
