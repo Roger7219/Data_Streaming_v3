@@ -127,6 +127,8 @@ object NadxTrafficDWISchema{
     StructField("rtb_version",                       StringType) ::
     StructField("demand_using_time",                 IntegerType) ::
     StructField("adx_using_time",                    IntegerType) ::
+    StructField("rater_type",                         StringType) ::
+    StructField("rater_id",                           StringType) ::
     StructField("raterType",                         StringType) ::
     StructField("raterId",                           StringType) ::
     StructField("adomain",                           StringType) ::
