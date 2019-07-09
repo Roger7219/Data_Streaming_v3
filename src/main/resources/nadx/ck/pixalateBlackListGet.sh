@@ -26,21 +26,6 @@ pwd
 #############################DeviceId 黑名单####################################
 if [ ! -f $deviceIdFile ]; then
   echo "$deviceIdFile is empty . download DeviceIdBlacklist File..."
-   clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_device_id_raw"
-   ssh ck001 "clickhouse-client  -m  --password $CC_PASS --query='drop table if EXISTS blacklist_device_id_raw'"
-   ssh ck002 "clickhouse-client  -m  --password $CC_PASS --query='drop table if EXISTS blacklist_device_id_raw'"
-
-   clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_device_id_raw_all"
-   ssh ck001 "clickhouse-client  -m  --password $CC_PASS --query='drop table if EXISTS blacklist_device_id_raw_all'"
-   ssh ck002 "clickhouse-client  -m  --password $CC_PASS --query='drop table if EXISTS blacklist_device_id_raw_all'"
-
-   clickhouse-client  -m  --password $CC_PASS --query="CREATE TABLE blacklist_device_id_raw ( device_id String, fraudType Nullable(String), os Nullable(String), idType Nullable(String), probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (device_id)  SETTINGS index_granularity = 8192;"
-   ssh ck001 "clickhouse-client  -m  --password $CC_PASS --query='CREATE TABLE blacklist_device_id_raw ( device_id String, fraudType Nullable(String), os Nullable(String), idType Nullable(String), probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (device_id)  SETTINGS index_granularity = 8192;'"
-   ssh ck002 "clickhouse-client  -m  --password $CC_PASS --query='CREATE TABLE blacklist_device_id_raw ( device_id String, fraudType Nullable(String), os Nullable(String), idType Nullable(String), probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (device_id)  SETTINGS index_granularity = 8192;'"
-
-   clickhouse-client  -m  --password $CC_PASS --query="create table blacklist_device_id_raw_all as blacklist_device_id_raw ENGINE = Distributed(bip_ck_cluster, default, blacklist_device_id_raw, rand())"
-   ssh ck001 "clickhouse-client  -m  --password $CC_PASS --query='create table blacklist_device_id_raw_all as blacklist_device_id_raw ENGINE = Distributed(bip_ck_cluster, default, blacklist_device_id_raw, rand())'"
-   ssh ck002 "clickhouse-client  -m  --password $CC_PASS --query='create table blacklist_device_id_raw_all as blacklist_device_id_raw ENGINE = Distributed(bip_ck_cluster, default, blacklist_device_id_raw, rand())'"
   lftp << EOF
 open ftp://$USER:$PASS@$HOST
 set ssl:verify-certificate no
@@ -49,26 +34,16 @@ EOF
   echo "$deviceIdFile download finished"
 sleep 10s
     if [ -f $deviceIdFile ]; then
-       echo "import csv data to clickhouse blacklist_device_id_raw"
-       clickhouse-client  -m  --password $CC_PASS --query="INSERT INTO blacklist_device_id_raw_all FORMAT CSVWithNames" < $deviceIdFile
-
-       clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_device_id_raw_for_select"
-       ssh ck001 "clickhouse-client  -m  --password $CC_PASS --query='drop table if EXISTS blacklist_device_id_raw_for_select'"
-       ssh ck002 "clickhouse-client  -m  --password $CC_PASS --query='drop table if EXISTS blacklist_device_id_raw_for_select'"
-
-       clickhouse-client  -m  --password $CC_PASS --query="CREATE TABLE blacklist_device_id_raw_for_select ( device_id String, fraudType Nullable(String), os Nullable(String), idType Nullable(String), probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (device_id)  SETTINGS index_granularity = 8192;"
-       ssh ck001 "clickhouse-client  -m  --password $CC_PASS --query='CREATE TABLE blacklist_device_id_raw_for_select ( device_id String, fraudType Nullable(String), os Nullable(String), idType Nullable(String), probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (device_id)  SETTINGS index_granularity = 8192;'"
-       ssh ck002 "clickhouse-client  -m  --password $CC_PASS --query='CREATE TABLE blacklist_device_id_raw_for_select ( device_id String, fraudType Nullable(String), os Nullable(String), idType Nullable(String), probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (device_id)  SETTINGS index_granularity = 8192;'"
-
-       clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_device_id_raw_select_all"
-       ssh ck001 "clickhouse-client  -m  --password $CC_PASS --query='drop table if EXISTS blacklist_device_id_raw_select_all'"
-       ssh ck002 "clickhouse-client  -m  --password $CC_PASS --query='drop table if EXISTS blacklist_device_id_raw_select_all'"
-
-       clickhouse-client  -m  --password $CC_PASS --query="create table blacklist_device_id_raw_select_all as blacklist_device_id_raw_for_select ENGINE = Distributed(bip_ck_cluster, default, blacklist_device_id_raw_for_select, rand())"
-       ssh ck001 "clickhouse-client  -m  --password $CC_PASS --query='create table blacklist_device_id_raw_select_all as blacklist_device_id_raw_for_select ENGINE = Distributed(bip_ck_cluster, default, blacklist_device_id_raw_for_select, rand())'"
-       ssh ck002 "clickhouse-client  -m  --password $CC_PASS --query='create table blacklist_device_id_raw_select_all as blacklist_device_id_raw_for_select ENGINE = Distributed(bip_ck_cluster, default, blacklist_device_id_raw_for_select, rand())'"
-
-       clickhouse-client  -m  --password $CC_PASS --query="insert into blacklist_device_id_raw_select_all select * from blacklist_device_id_raw_all"
+       echo "scp csv data to exchange"
+       #awk -F, '{if($1!="")print $1","$5}'
+       awk -F, 'NR>1{if($1!="" && $5>=0.3)print $1","$5}' $deviceIdFile > ivt_device_id.csv
+       scp ivt_device_id.csv root@ex001:/data/nadx-exchange/
+       scp ivt_device_id.csv root@ex002:/data/nadx-exchange/
+       scp ivt_device_id.csv root@ex003:/data/nadx-exchange/
+       scp ivt_device_id.csv root@ex004:/data/nadx-exchange/
+       scp ivt_device_id.csv root@ex005:/data/nadx-exchange/
+       scp ivt_device_id.csv root@ex006:/data/nadx-exchange/
+       scp ivt_device_id.csv root@ex007:/data/nadx-exchange/
        curTime=`date "+%Y-%m-%d %H:%M:%S"`
        message='[{"topic":"blackList_device_id_topic","key":"'$curTime'","uniqueKey":true,"data":""}]'
        curl $MESSAGE_URL --header  "Content-Type: application/json;charset=UTF-8" -d "$message"
@@ -91,21 +66,6 @@ fi
 #############################IP 黑名单####################################
 if [ ! -f $IPFile ]; then
   echo "$IPFile is empty . download GenericIPBlacklisting File..."
-   clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_ip_raw"
-   ssh ck001 "clickhouse-client  -m  --password $CC_PASS --query='drop table if EXISTS blacklist_ip_raw'"
-   ssh ck002 "clickhouse-client  -m  --password $CC_PASS --query='drop table if EXISTS blacklist_ip_raw'"
-
-   clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_ip_raw_all"
-   ssh ck001 "clickhouse-client  -m  --password $CC_PASS --query='drop table if EXISTS blacklist_ip_raw_all'"
-   ssh ck002 "clickhouse-client  -m  --password $CC_PASS --query='drop table if EXISTS blacklist_ip_raw_all'"
-
-   clickhouse-client  -m  --password $CC_PASS --query="CREATE TABLE blacklist_ip_raw ( ip String, fraudType Nullable(String), probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (ip)  SETTINGS index_granularity = 8192;"
-   ssh ck001 "clickhouse-client  -m  --password $CC_PASS --query='CREATE TABLE blacklist_ip_raw ( ip String, fraudType Nullable(String), probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (ip)  SETTINGS index_granularity = 8192;'"
-   ssh ck002 "clickhouse-client  -m  --password $CC_PASS --query='CREATE TABLE blacklist_ip_raw ( ip String, fraudType Nullable(String), probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (ip)  SETTINGS index_granularity = 8192;'"
-
-   clickhouse-client  -m  --password $CC_PASS --query="create table blacklist_ip_raw_all as blacklist_ip_raw ENGINE = Distributed(bip_ck_cluster, default, blacklist_ip_raw, rand())"
-   ssh ck001 "clickhouse-client  -m  --password $CC_PASS --query='create table blacklist_ip_raw_all as blacklist_ip_raw ENGINE = Distributed(bip_ck_cluster, default, blacklist_ip_raw, rand())'"
-   ssh ck002 "clickhouse-client  -m  --password $CC_PASS --query='create table blacklist_ip_raw_all as blacklist_ip_raw ENGINE = Distributed(bip_ck_cluster, default, blacklist_ip_raw, rand())'"
   lftp << EOF
 open ftp://$USER:$PASS@$HOST
 set ssl:verify-certificate no
@@ -114,25 +74,17 @@ EOF
   echo "$IPFile download finished"
 sleep 10s
   if [ -f $IPFile ]; then
-      echo "import csv data to clickhouse blacklist_ip_raw"
-      clickhouse-client  -m  --password $CC_PASS --query="INSERT INTO blacklist_ip_raw_all FORMAT CSVWithNames" < $IPFile
-      clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_ip_raw_for_select"
-      ssh ck001 "clickhouse-client  -m  --password $CC_PASS --query='drop table if EXISTS blacklist_ip_raw_for_select'"
-      ssh ck002 "clickhouse-client  -m  --password $CC_PASS --query='drop table if EXISTS blacklist_ip_raw_for_select'"
-
-      clickhouse-client  -m  --password $CC_PASS --query="CREATE TABLE blacklist_ip_raw_for_select ( ip String, fraudType Nullable(String), probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (ip)  SETTINGS index_granularity = 8192;"
-      ssh ck001 "clickhouse-client  -m  --password $CC_PASS --query='CREATE TABLE blacklist_ip_raw_for_select ( ip String, fraudType Nullable(String), probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (ip)  SETTINGS index_granularity = 8192;'"
-      ssh ck002 "clickhouse-client  -m  --password $CC_PASS --query='CREATE TABLE blacklist_ip_raw_for_select ( ip String, fraudType Nullable(String), probability Float64 DEFAULT CAST(0. AS Float64) ) ENGINE = MergeTree ORDER BY (ip)  SETTINGS index_granularity = 8192;'"
-
-      clickhouse-client  -m  --password $CC_PASS --query="drop table if EXISTS blacklist_ip_raw_select_all"
-      ssh ck001 "clickhouse-client  -m  --password $CC_PASS --query='drop table if EXISTS blacklist_ip_raw_select_all'"
-      ssh ck002 "clickhouse-client  -m  --password $CC_PASS --query='drop table if EXISTS blacklist_ip_raw_select_all'"
-
-      clickhouse-client  -m  --password $CC_PASS --query="create table blacklist_ip_raw_select_all as blacklist_ip_raw_for_select ENGINE = Distributed(bip_ck_cluster, default, blacklist_ip_raw_for_select, rand())"
-      ssh ck001 "clickhouse-client  -m  --password $CC_PASS --query='create table blacklist_ip_raw_select_all as blacklist_ip_raw_for_select ENGINE = Distributed(bip_ck_cluster, default, blacklist_ip_raw_for_select, rand())'"
-      ssh ck002 "clickhouse-client  -m  --password $CC_PASS --query='create table blacklist_ip_raw_select_all as blacklist_ip_raw_for_select ENGINE = Distributed(bip_ck_cluster, default, blacklist_ip_raw_for_select, rand())'"
-
-      clickhouse-client  -m  --password $CC_PASS --query="insert into  blacklist_ip_raw_select_all select * from blacklist_ip_raw_all"
+      echo "scp csv data to exchange"
+      #awk -F, '{if($1!="")print $1","$5}'
+      awk -F, 'NR>1{if($1!="")print $1","$3}' $IPFile > ivt_ip.csv
+      scp ivt_ip.csv root@ex007:/data/nadx-exchange/
+      scp ivt_ip.csv root@ex001:/data/nadx-exchange/
+      scp ivt_ip.csv root@ex002:/data/nadx-exchange/
+      scp ivt_ip.csv root@ex003:/data/nadx-exchange/
+      scp ivt_ip.csv root@ex004:/data/nadx-exchange/
+      scp ivt_ip.csv root@ex005:/data/nadx-exchange/
+      scp ivt_ip.csv root@ex006:/data/nadx-exchange/
+      scp ivt_ip.csv root@ex007:/data/nadx-exchange/
       curTime=`date "+%Y-%m-%d %H:%M:%S"`
       message='[{"topic":"blackList_ip_check_topic","key":"'$curTime'","uniqueKey":true,"data":""}]'
       curl $MESSAGE_URL --header  "Content-Type: application/json;charset=UTF-8" -d "$message"
