@@ -78,6 +78,7 @@ object ArgsConfig{
   val KAFKA_OFFSET_ROLLBACK_LATEST_HOURS = "rollbackHours"
   val CLONE = "clone"
   val VERSION = "version"
+  val EX = "ex"
 
   val OFFSET = "offset" // earliest or latest
 

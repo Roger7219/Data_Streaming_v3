@@ -375,6 +375,26 @@ object OptimizedMixApp {
           }
         allModulesConfig = allModulesConfig.withValue(s"modules.${vName}.kafka.consumer.partitoins", ConfigValueFactory.fromIterable(tps))
 
+        if(argsConfig.has(ArgsConfig.EX)) {
+          //拿到用户配置的ex
+          val excs = argsExColmunNames(argsConfig).map(_.trim).distinct
+          if(allModulesConfig.hasPath(s"modules.${x._1}.dwr.groupby.fields")){
+            // 排除dwr.groupby.fields中不需要统计的字段
+            var fields = allModulesConfig
+              .getConfigList(s"modules.${vName}.dwr.groupby.fields")
+              .map{y=>
+                var filed = new java.util.HashMap[String, String]()
+                if(excs.contains(y.getString("expr")) || excs.contains(y.getString("as"))){
+                  filed.put("expr", "null")
+                }else{
+                  filed.put("expr", y.getString("expr"))
+                }
+                filed.put("as", y.getString("as"))
+                filed
+              }.toList
+            allModulesConfig = allModulesConfig.withValue(s"modules.${vName}.dwr.groupby.fields", ConfigValueFactory.fromIterable(fields))
+          }
+        }
       }
     }
 
@@ -501,6 +521,10 @@ object OptimizedMixApp {
 
     LOG.warn("\nApp runnable modules final config content:\n" + runnableModulesConfig.root().unwrapped().toString +"\n")
 
+  }
+
+  def argsExColmunNames(argsConfig: ArgsConfig):Array[String] = {
+    argsConfig.get(ArgsConfig.EX).split(",")
   }
 
   def argsModuleNames(argsConfig: ArgsConfig):Array[String] = {
