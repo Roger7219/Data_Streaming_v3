@@ -10,14 +10,13 @@ import com.mobikok.message.client.MessageClient
 import com.mobikok.monitor.client.MonitorClient
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.client.cookie._
-import com.mobikok.ssp.data.streaming.concurrent.GlobalAppRunningStatusV2
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.{LatestOffsetRecord, OffsetRange}
 import com.mobikok.ssp.data.streaming.exception.ModuleException
 import com.mobikok.ssp.data.streaming.handler.Handler
 import com.mobikok.ssp.data.streaming.handler.dm.offline.{ClickHouseQueryByBDateHandler, ClickHouseQueryByBTimeHandler, ClickHouseQueryMonthHandler}
 import com.mobikok.ssp.data.streaming.handler.dwi.core.{HBaseDWIPersistHandler, HiveDWIPersistHandler, UUIDFilterDwiHandler}
-import com.mobikok.ssp.data.streaming.handler.dwr.core.{HiveDWRPersistDayHandler, HiveDWRPersistHandler, HiveDWRPersistMonthHandler, UUIDFilterDwrHandler}
+import com.mobikok.ssp.data.streaming.handler.dwr.core.{HiveLogTableHandler, _}
 import com.mobikok.ssp.data.streaming.module.support.uuid.{DefaultUuidFilter, UuidFilter}
 import com.mobikok.ssp.data.streaming.module.support.{HiveContextGenerater, MixModulesBatchController, SQLContextGenerater}
 import com.mobikok.ssp.data.streaming.util._
@@ -278,6 +277,7 @@ class PluggableModule(globalConfig: Config,
   //-------------------------  Dwr about  -------------------------
 
   var isEnableDwr = false
+  var isEnableOthersColumn = false
   var dwrTable: String = _
   try {
     isEnableDwr = globalConfig.getBoolean(s"modules.$moduleName.dwr.enable")
@@ -285,6 +285,11 @@ class PluggableModule(globalConfig: Config,
   if (isEnableDwr) {
     dwrTable = globalConfig.getString(s"modules.$moduleName.dwr.table")
   }
+
+  try {
+    isEnableOthersColumn = globalConfig.getConfigList(s"modules.$moduleName.dwr.groupby.fields").filter(x => if(x.hasPath("others")) x.getBoolean("others") else false).size > 0
+    LOG.warn(s"isEnableOthersColumn = ",isEnableOthersColumn)
+  } catch {case _: Exception =>}
 
   var dwrGroupByExprs: List[Column] = _
   try {
@@ -339,6 +344,13 @@ class PluggableModule(globalConfig: Config,
       val dwrPersistHandler = new HiveDWRPersistHandler()
       dwrPersistHandler.init(moduleName, mixTransactionManager, hbaseClient, hiveClient, clickHouseClient, globalConfig, globalConfig, "", "")
       dwrHandlers.add(dwrPersistHandler)
+    }
+
+    // 是否對離散數據統計
+    if (isEnableOthersColumn) {
+      val hiveLogTableHandler = new HiveLogTableHandler()
+      hiveLogTableHandler.init(moduleName, mixTransactionManager, hbaseClient, hiveClient, clickHouseClient, globalConfig, globalConfig, "", "")
+      dwrHandlers.add(hiveLogTableHandler)
     }
 
     var enableDwrAccDay = false
