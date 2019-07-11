@@ -1,12 +1,12 @@
-#### BaseData
+### BundleData
 spark-submit \
---name nadx_dwr_v8 \
+--name nadx_dwr_v9 \
 --class com.mobikok.ssp.data.streaming.OptimizedMixApp \
 --master yarn-cluster \
 --driver-memory 7g \
---executor-memory 7g \
---executor-cores 5 \
---num-executors 1 \
+--executor-memory 3g \
+--executor-cores 3 \
+--num-executors 3 \
 --queue default \
 --files /usr/hdp/current/spark2-client/conf/hive-site.xml,/apps/data-streaming/nadx/dwr/dwr.conf \
 --jars \
@@ -33,4 +33,6 @@ hdfs:/libs/config-1.3.1.jar \
 --conf spark.ui.port=1111 \
 --conf spark.yarn.executor.memoryOverhead=2g  \
 /apps/data-streaming/nadx/dwr/data-streaming.jar \
-dwr.conf buration = 150 kill=true modules = dwr_traffic,dwr_performance version=8 offset=latest
+dwr.conf buration = 150 kill=true modules = dwr_traffic,dwr_performance version=9 \
+ex=site_domain,publisher_id,adomain,crid
+#offset=latest

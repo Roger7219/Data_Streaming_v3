@@ -271,6 +271,11 @@ select
   tDwi.rtb_version as rtb_version,
   tDwi.demand_using_time as demand_using_time,
   tDwi.adx_using_time as adx_using_time,
+  tDwi.rater_type as rater_type,
+  tDwi.rater_id as rater_id,
+  tDwi.adomain as adomain,
+  tDwi.media_type as media_type,
+
 
   pDwi.repeated,
   from_unixtime(unix_timestamp(),'yyyy-MM-dd HH:00:00') as l_time,
@@ -413,7 +418,12 @@ select
   rtb_version                       ,
   demand_using_time                 ,
   adx_using_time                    ,
-
+  rater_type                        ,
+  rater_id                          ,
+  cast(null as STRING) as raterType ,
+  cast(null as STRING) as raterId   ,
+  adomain                           ,
+  media_type                        ,
 
   repeated                          ,
   l_time                            ,
@@ -508,15 +518,26 @@ select
 
 -- 待删，用tip_type
   null                                   as tips,
-  null                          as node,
+  null                                   as node,
   tip_type                               as tip_type,
 
-  null                          as tip_desc,
+  null                                   as tip_desc,
   sum(event_count)                       as event_count,
-  null                          as ssp_token,
+  null                                   as ssp_token,
   rtb_version                            as rtb_version,
   demand_using_time                      as demand_using_time,
   adx_using_time                         as adx_using_time,
+
+  null                                   as site_domain,
+  null                                   as publisher_id,
+  null                                   as raterType,
+  null                                   as raterId,
+  null                                   as adomain,
+  null                                   as crid,
+  null                                   as bidfloor,
+  rater_type                             as rater_type,
+  rater_id                               as rater_id,
+  media_type                             as media_type,
 
   from_unixtime(unix_timestamp(),'yyyy-MM-dd 00:00:00') as l_time,
   b_date,
@@ -569,7 +590,10 @@ group by
   rtb_version,
   demand_using_time,
   adx_using_time,
-  tip_type
+  tip_type,
+  rater_type,
+  rater_id,
+  media_type
 --   ,
 --   tip_desc                          ,
 --   ssp_token
