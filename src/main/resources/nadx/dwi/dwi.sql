@@ -835,4 +835,11 @@ ALTER TABLE nadx_overall_dwr_v6 ADD COLUMNS (publisher_id STRING);
 ALTER TABLE nadx_overall_dwr_v6 ADD COLUMNS (crid STRING);
 ALTER TABLE nadx_overall_dwr_v6 ADD COLUMNS (bidfloor STRING);
 
+-- 2019-07-11
+ALTER TABLE nadx_traffic_dwi ADD COLUMNS(raterType STRING);
+ALTER TABLE nadx_traffic_dwi ADD COLUMNS(raterId STRING);
+ALTER TABLE nadx_traffic_dwi ADD COLUMNS(adomain STRING);
+ALTER TABLE nadx_traffic_dwi ADD COLUMNS(rater_type STRING);
+ALTER TABLE nadx_traffic_dwi ADD COLUMNS(rater_id STRING);
+ALTER TABLE nadx_traffic_dwi ADD COLUMNS(media_type STRING);
 
