@@ -16,10 +16,12 @@ import scala.collection.JavaConversions._
 class HiveLogTableHandler extends Handler with Persistence {
 
   val logTableColumnCount: String = "count";
+  val logTableColumnTableName: String = "table_name";
   val logTableColumnFieldName: String = "field_name";
   val logTableColumnFieldValue: String = "field_value";
   val configFiled: String = "others";
-  var table: String = "nadx_log_table"
+  var logtable: String = "nadx_log_table"
+  var table: String = _
   var cookie: TransactionCookie = _
 
   val LOG: Logger = new Logger(moduleName, getClass.getName, System.currentTimeMillis())
@@ -29,6 +31,7 @@ class HiveLogTableHandler extends Handler with Persistence {
     // 默认为true 遵从配置设置
     isAsynchronous = true
     super.init(moduleName, transactionManager, hbaseClient, hiveClient, clickHouseClient, handlerConfig, globalConfig, expr, as)
+    table = globalConfig.getString(s"modules.$moduleName.dwr.table")
   }
 
   override def rollback(cookies: TransactionCookie*): Cleanable = {
@@ -55,17 +58,22 @@ class HiveLogTableHandler extends Handler with Persistence {
 
       val overwriteAggFields = Set(logTableColumnCount)
 
-      val groupByExprsAlias = Array(logTableColumnFieldName,logTableColumnFieldValue)
+      val groupByExprsAlias = Array(logTableColumnFieldName,logTableColumnFieldValue,logTableColumnTableName)
 
-      val partitionFields = Array("l_time", "b_date", "b_time", "b_version")
+      val partitionFields = Array("l_time", "b_date", "b_time", "b_version",logTableColumnFieldName)
       fields.foreach(filed =>{
 
+      var partitionFieldsTmp = partitionFields
+        //分区字段 和回滚分区不一致  特此处理
+      partitionFieldsTmp = partitionFieldsTmp.filter(f => !f.equals(logTableColumnFieldName))
         //帥選列
-      var persistenceDwr_ = persistenceDwr.select(filed.getString("as"),partitionFields:_*)
+      var persistenceDwr_ = persistenceDwr.select(filed.getString("as"),partitionFieldsTmp:_*)
         //group by
-        .groupBy(filed.getString("as"),partitionFields:_*)
+        .groupBy(filed.getString("as"),partitionFieldsTmp:_*)
         //計數
         .agg(count(lit(1)).as(logTableColumnCount))
+        //增加字段
+        .withColumn(logTableColumnTableName,expr(s"'${table}'") )
         //增加字段
         .withColumn(logTableColumnFieldName,expr(s"'${filed.getString("as")}'") )
         //增加字段
@@ -85,12 +93,13 @@ class HiveLogTableHandler extends Handler with Persistence {
       //寫入數據
       cookie = hiveClient.overwriteUnionSum(
         transactionManager.asInstanceOf[MixTransactionManager].getCurrentTransactionParentId(),
-        table,
+        logtable,
         result,
         aggExprsAlias,
         unionAggExprsAndAlias,
         overwriteAggFields,
         groupByExprsAlias,
+        null,
         partitionFields.head,
         partitionFields.tail:_*
       )
