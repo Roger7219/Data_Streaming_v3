@@ -1339,6 +1339,7 @@ class MixModule (config: Config,
                 Set[String](),
                 dwrGroupByExprsAlias ++ dwrGroupbyExtendedFieldsAlias,
                 rPs,
+                null,
                 "l_time",
                 "b_date"
               )

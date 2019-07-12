@@ -1001,6 +1001,7 @@ class GenericModule (config: Config,
             unionAggExprsAndAlias,
             Set[String](),
             dwrGroupByExprsAlias ++ dwrGroupbyExtendedFieldsAlias,
+            null,
             "l_time",
             "b_date"
           )

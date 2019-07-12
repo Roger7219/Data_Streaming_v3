@@ -2,6 +2,7 @@ package com.mobikok.ssp.data.streaming.handler.dwr.core
 
 import java.util
 
+import com.mobikok.ssp.data.streaming.OptimizedMixApp.allModulesConfig
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.client.cookie.{HiveTransactionCookie, TransactionCookie}
 import com.mobikok.ssp.data.streaming.handler.dwr.Handler
@@ -53,7 +54,9 @@ class HiveDWRPersistHandler extends Handler with Persistence {
 
 //    val partitionFields = globalConfig.getStringList(s"modules.$moduleName.dwr.partition.fields")
     val partitionFields = Array("l_time", "b_date", "b_time", "b_version")
-
+    val othersFields = allModulesConfig
+      .getConfigList(s"modules.$moduleName.dwr.groupby.fields")
+      .filter(x => if(x.hasPath("others")) x.getBoolean("others") else false).toList
 
     cookie = hiveClient.overwriteUnionSum(
       transactionManager.asInstanceOf[MixTransactionManager].getCurrentTransactionParentId(),
@@ -63,6 +66,7 @@ class HiveDWRPersistHandler extends Handler with Persistence {
       unionAggExprsAndAlias,
       overwriteAggFields,
       groupByExprsAlias,
+      othersFields,
       partitionFields.head,
       partitionFields.tail:_*
     )

@@ -1344,6 +1344,7 @@ class MixModuleForBTime (config: Config,
               Set[String](),
               dwrGroupByExprsAlias ++ dwrGroupbyExtendedFieldsAlias,
               rPs,
+              null,
               "l_time",
               "b_date",
               "b_time"

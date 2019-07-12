@@ -1,35 +1,26 @@
 package com.mobikok.ssp.data.streaming.client
 
-import java.net.{URLDecoder, URLEncoder}
-import java.text.SimpleDateFormat
-import java.util
-import java.util.concurrent.ExecutorService
-import java.util.{Date, List, UUID}
+import java.net.{URLDecoder}
+import java.util.{Date, List}
 
-import com.facebook.fb303.FacebookService
 import com.mobikok.message.{MessageConsumerCommitReq, MessagePullReq, MessagePushReq}
 import com.mobikok.message.client.MessageClient
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
-import com.mobikok.ssp.data.streaming.exception.{HBaseClientException, HiveClientException}
+import com.mobikok.ssp.data.streaming.exception.{ HiveClientException}
 import com.mobikok.ssp.data.streaming.client.cookie._
-import com.mobikok.ssp.data.streaming.module.support.{HiveContextGenerater, OptimizedTransactionalStrategy, TransactionalStrategy}
+import com.mobikok.ssp.data.streaming.module.support.{HiveContextGenerater}
 import com.mobikok.ssp.data.streaming.util._
 import com.typesafe.config.Config
-import org.apache.hadoop.fs.Path
-import org.apache.hadoop.hbase.{HTableDescriptor, TableName}
 import org.apache.log4j.Level
-import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.execution.command.DropTableCommand
-import org.apache.spark.sql.{Column, DataFrame, SaveMode}
+import org.apache.spark.sql._
 import org.apache.spark.sql.hive.HiveContext
-import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.functions._
 import org.apache.spark.streaming.StreamingContext
 
 import scala.collection.JavaConversions._
-import scala.collection.JavaConverters._
 import scala.collection.mutable
-import scala.collection.mutable.{ArrayBuffer, ListBuffer}
+import scala.collection.mutable.{ListBuffer}
 import scala.math.Ordering
 
 /**
@@ -162,6 +153,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
                          unionAggExprsAndAlias: List[Column],
                          overwriteAggFields: Set[String],
                          groupByFields: Array[String],
+                         othersFields: List[Config],
                          partitionField: String,
                          partitionFields: String*): HiveTransactionCookie = {
 
@@ -177,7 +169,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
       }
     moduleTracer.trace("        count partitions")
 
-    overwriteUnionSum(transactionParentId, table, newDF, aggExprsAlias, unionAggExprsAndAlias, overwriteAggFields, groupByFields, ps, partitionField, partitionFields:_*)
+    overwriteUnionSum(transactionParentId, table, newDF, aggExprsAlias, unionAggExprsAndAlias, overwriteAggFields, groupByFields, ps,othersFields, partitionField, partitionFields:_*)
   }
 
   def overwriteUnionSum (transactionParentId: String,
@@ -188,6 +180,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
                          overwriteAggFields: Set[String],
                          groupByFields: Array[String],
                          ps: Array[Array[HivePartitionPart]],
+                         othersFields: List[Config],
                          partitionField: String,
                          partitionFields: String*): HiveTransactionCookie = {
 
@@ -242,7 +235,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
         //      LOG.warn(s"HiveClient re-ordered field name via hive table _newDF take(2)", _newDF.take(2))
 
         // Sum
-        val updated = original
+        val updated_ = original
           .select(os:_*)
           .union(_newDF /*newDF*/)
           .groupBy(gs.head, gs.tail:_*)
@@ -252,7 +245,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
           )
           .select(fs.head, fs.tail:_* /*groupByFields ++ aggExprsAlias ++ ts:_**/)
 
-
+        val updated = selectExprBylogTable(othersFields,rw,table,updated_)
         val fileNumber = aHivePartitionRecommendedFileNumber("HiveClient unionSum repartition", shufflePartitions, updated.rdd.getNumPartitions, ps.length)
   //      val parts = sparkPartitionNum("HiveClient unionSum repartition", shufflePartitions, updated.rdd.getNumPartitions, ps.length)
         moduleTracer.trace(s"        union sum repartition rs: ${updated.rdd.getNumPartitions}, ps: ${ps.length}, fs: ${fileNumber}")
@@ -311,6 +304,36 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
         LOG.warn(ExceptionUtil.getStackTraceMessage(e))
         throw new HiveClientException(s"Hive Insert Overwrite Fail, module: $moduleName, transactionId:  $tid", e)
     }
+  }
+
+  def selectExprBylogTable(othersFields:List[Config],rw:String,table:String,updated:DataFrame): DataFrame = {
+    var updated_ = updated
+    var logTable:DataFrame = null
+    if(othersFields != null && othersFields.size() > 0){
+      var fields = ""
+      othersFields.foreach(f =>{
+        fields = fields + ",'"+f.getString("as")+"'"
+      })
+
+      fields = fields.substring(1,fields.length);
+      logTable = hiveContext
+        .read
+        .table("nadx_log_table")
+        .where(rw)
+        .where(" field_name in ("+ fields +")")
+        .where(" table_name = '" + table + "'")
+        .select("field_value","field_name", "count")
+    }
+
+    if(logTable != null && !logTable.take(1).isEmpty) {
+      othersFields.foreach(f=>{
+        val logRow = logTable.where(s"field_name='${f.getString("as")}'").selectExpr("*").first()
+        if(logRow != null){
+          updated_ = updated_.withColumn(f.getString("as"), expr(s"if(${(logRow.getLong(2) <= f.getInt("max"))},${f.getString("def")},${f.getString("as")})").as(f.getString("as")) )
+        }
+      })
+    }
+    updated_
   }
 
   def overwrite(transactionParentId: String, table: String, isOverwirteFixedLTime: Boolean, df: DataFrame, partitionField: String, partitionFields: String*): HiveTransactionCookie = {

@@ -2,6 +2,7 @@ package com.mobikok.ssp.data.streaming.handler.dwr.core
 
 import java.util
 
+import com.mobikok.ssp.data.streaming.OptimizedMixApp.allModulesConfig
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.client.cookie.TransactionCookie
 import com.mobikok.ssp.data.streaming.handler.dwr.Handler
@@ -11,7 +12,6 @@ import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.expr
 
 import scala.collection.JavaConversions._
-import scala.collection.JavaConverters._
 
 class HiveDWRPersistMonthHandler extends Handler with Persistence{
 
@@ -82,6 +82,9 @@ class HiveDWRPersistMonthHandler extends Handler with Persistence{
         x
       }
     }
+    val othersFields = allModulesConfig
+      .getConfigList(s"modules.$moduleName.dwr.groupby.fields")
+      .filter(x => if(x.hasPath("others")) x.getBoolean("others") else false).toList
 
 //    val partitionFields = globalConfig.getStringList(s"modules.$moduleName.dwr.partition.fields")
     val partitionFields = Array("l_time", "b_date", "b_time")
@@ -94,6 +97,7 @@ class HiveDWRPersistMonthHandler extends Handler with Persistence{
       unionAggExprsAndAlias,
       overwriteAggFields,
       groupByExprsAlias,
+      othersFields,
       partitionFields.head,
       partitionFields.tail:_*
     )
