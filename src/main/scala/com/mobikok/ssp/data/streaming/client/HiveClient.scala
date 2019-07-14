@@ -245,7 +245,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
           )
           .select(fs.head, fs.tail:_* /*groupByFields ++ aggExprsAlias ++ ts:_**/)
 
-        val updated = selectExprBylogTable(othersFields,w,table,updated_)
+        val updated = selectExprBylogTable(othersFields,w,table,updated_,fs)
         val fileNumber = aHivePartitionRecommendedFileNumber("HiveClient unionSum repartition", shufflePartitions, updated.rdd.getNumPartitions, ps.length)
   //      val parts = sparkPartitionNum("HiveClient unionSum repartition", shufflePartitions, updated.rdd.getNumPartitions, ps.length)
         moduleTracer.trace(s"        union sum repartition rs: ${updated.rdd.getNumPartitions}, ps: ${ps.length}, fs: ${fileNumber}")
@@ -306,7 +306,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
     }
   }
 
-  def selectExprBylogTable(othersFields:List[Config],rw:String,table:String,updated:DataFrame): DataFrame = {
+  def selectExprBylogTable(othersFields:List[Config],rw:String,table:String,updated:DataFrame,fs:Array[String]): DataFrame = {
 
     var updated_ = updated
     var logTable:DataFrame = null
@@ -327,11 +327,25 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
     }
 
     if(logTable != null && !logTable.take(1).isEmpty) {
+//      othersFields.foreach(f=>{
+//        val logRow = logTable.where(s"field_name='${f.getString("as")}'").selectExpr("*").first()
+//        if(logRow != null){
+//          updated_ = updated_.withColumn(f.getString("as"), expr(s"if(${(logRow.getLong(2) <= f.getInt("max"))},${f.getString("def")},${f.getString("as")})").as(f.getString("as")) )
+//        }
+//      })
       othersFields.foreach(f=>{
-        val logRow = logTable.where(s"field_name='${f.getString("as")}'").selectExpr("*").first()
-        if(logRow != null){
-          updated_ = updated_.withColumn(f.getString("as"), expr(s"if(${(logRow.getLong(2) <= f.getInt("max"))},${f.getString("def")},${f.getString("as")})").as(f.getString("as")) )
-        }
+        val log1 = logTable
+          .where(s"field_name='${f.getString("as")}'")
+          .selectExpr("*")
+          .alias("log");
+        updated_ = updated_
+          .alias("t1")
+          .join(log1,col("log.field_value") === col(f.getString("as")), "left_outer")
+          .withColumn(f.getString("as"),expr(s"if(log.count<=${f.getInt("max")},${f.getString("def")},${f.getString("as")})"))
+          .select(fs.head, fs.tail:_* /*groupByFields ++ aggExprsAlias ++ ts:_**/)
+//        updated_.schema.fields.foreach(f=>{
+//          println("selectExprBylogTable=="+f.name)
+//        })
       })
     }
     updated_
