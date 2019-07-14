@@ -245,7 +245,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
           )
           .select(fs.head, fs.tail:_* /*groupByFields ++ aggExprsAlias ++ ts:_**/)
 
-        val updated = selectExprBylogTable(othersFields,rw,table,updated_)
+        val updated = selectExprBylogTable(othersFields,w,table,updated_)
         val fileNumber = aHivePartitionRecommendedFileNumber("HiveClient unionSum repartition", shufflePartitions, updated.rdd.getNumPartitions, ps.length)
   //      val parts = sparkPartitionNum("HiveClient unionSum repartition", shufflePartitions, updated.rdd.getNumPartitions, ps.length)
         moduleTracer.trace(s"        union sum repartition rs: ${updated.rdd.getNumPartitions}, ps: ${ps.length}, fs: ${fileNumber}")
@@ -307,6 +307,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
   }
 
   def selectExprBylogTable(othersFields:List[Config],rw:String,table:String,updated:DataFrame): DataFrame = {
+
     var updated_ = updated
     var logTable:DataFrame = null
     if(othersFields != null && othersFields.size() > 0){
