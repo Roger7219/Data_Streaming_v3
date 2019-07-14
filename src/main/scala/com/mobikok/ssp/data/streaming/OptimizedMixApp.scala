@@ -383,13 +383,23 @@ object OptimizedMixApp {
             var fields = allModulesConfig
               .getConfigList(s"modules.${vName}.dwr.groupby.fields")
               .map{y=>
-                var filed = new java.util.HashMap[String, String]()
+                var filed = new java.util.HashMap[String, Any]()
                 if(exDims.contains(y.getString("as"))){
                   filed.put("expr", "null")
                 }else{
                   filed.put("expr", y.getString("expr"))
                 }
                 filed.put("as", y.getString("as"))
+
+                if(y.hasPathOrNull("others")){
+                  filed.put("others", y.getBoolean("others"))
+                }
+                if(y.hasPathOrNull("max")){
+                  filed.put("max", y.getInt("max"))
+                }
+                if(y.hasPathOrNull("def")){
+                  filed.put("def", y.getString("def"))
+                }
                 filed
               }
             allModulesConfig = allModulesConfig.withValue(s"modules.${vName}.dwr.groupby.fields", ConfigValueFactory.fromIterable(fields))
