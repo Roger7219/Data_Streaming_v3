@@ -341,7 +341,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
         updated_ = updated_
           .alias("t1")
           .join(log1,col("log.field_value") === col(f.getString("as")), "left_outer")
-          .withColumn(f.getString("as"),expr(s"if(log.count<=${f.getInt("max")},${f.getString("def")},${f.getString("as")})"))
+          .withColumn(f.getString("as"),expr(s"if(if(log.count is null,0,log.count)<=${f.getInt("max")},${f.getString("def")},${f.getString("as")})"))
           .select(fs.head, fs.tail:_* /*groupByFields ++ aggExprsAlias ++ ts:_**/)
 //        updated_.schema.fields.foreach(f=>{
 //          println("selectExprBylogTable=="+f.name)
