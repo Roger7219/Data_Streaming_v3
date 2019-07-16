@@ -15,8 +15,8 @@ import com.mobikok.ssp.data.streaming.entity.{LatestOffsetRecord, OffsetRange}
 import com.mobikok.ssp.data.streaming.exception.ModuleException
 import com.mobikok.ssp.data.streaming.handler.Handler
 import com.mobikok.ssp.data.streaming.handler.dm.offline.{ClickHouseQueryByBDateHandler, ClickHouseQueryByBTimeHandler, ClickHouseQueryMonthHandler}
-import com.mobikok.ssp.data.streaming.handler.dwi.core.{HBaseDWIPersistHandler, HiveDWIPersistHandler, UUIDFilterDwiHandler}
-import com.mobikok.ssp.data.streaming.handler.dwr.core.{HiveLogTableHandler, _}
+import com.mobikok.ssp.data.streaming.handler.dwi.core.{HBaseDWIPersistHandler, HiveDWIPersistHandler, HiveLogTableHandler, UUIDFilterDwiHandler}
+import com.mobikok.ssp.data.streaming.handler.dwr.core.{HiveDWRPersistDayHandler, HiveDWRPersistHandler, HiveDWRPersistMonthHandler, UUIDFilterDwrHandler}
 import com.mobikok.ssp.data.streaming.module.support.uuid.{DefaultUuidFilter, UuidFilter}
 import com.mobikok.ssp.data.streaming.module.support.{HiveContextGenerater, MixModulesBatchController, SQLContextGenerater}
 import com.mobikok.ssp.data.streaming.util._
@@ -346,13 +346,6 @@ class PluggableModule(globalConfig: Config,
       dwrHandlers.add(dwrPersistHandler)
     }
 
-    // 是否對離散數據統計
-    if (isEnableOthersColumn) {
-      val hiveLogTableHandler = new HiveLogTableHandler()
-      hiveLogTableHandler.init(moduleName, mixTransactionManager, hbaseClient, hiveClient, clickHouseClient, globalConfig, globalConfig, "", "")
-      dwrHandlers.add(hiveLogTableHandler)
-    }
-
     var enableDwrAccDay = false
     runInTry{enableDwrAccDay = globalConfig.getBoolean(s"modules.$moduleName.dwr.acc.day.enable")}
     if (enableDwrAccDay) {
@@ -489,6 +482,14 @@ class PluggableModule(globalConfig: Config,
       hbaseDWIPersistHandler.init(moduleName, mixTransactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, globalConfig, globalConfig, null, null)
       dwiHandlers = dwiHandlers :+ hbaseDWIPersistHandler
     }
+
+    // 是否對離散數據統計
+    if (isEnableOthersColumn) {
+      val hiveLogTableHandler = new HiveLogTableHandler()
+      hiveLogTableHandler.init(moduleName, mixTransactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, globalConfig, globalConfig, null, null)
+      dwiHandlers = dwiHandlers :+ hiveLogTableHandler
+    }
+
     dwiHandlers = uuidFilterHandler :: dwiHandlers
 
   }
