@@ -19,6 +19,7 @@ class HiveLogTableHandler extends Handler {
   //  val COOKIE_KIND_DWI_T = "dwiT"
 
   val logTableColumnCount: String = "count";
+  val logTableColumnCountField: String = "countField";
   val logTableColumnTableName: String = "table_name";
   val logTableColumnFieldName: String = "field_name";
   val logTableColumnFieldValue: String = "field_value";
@@ -66,22 +67,22 @@ class HiveLogTableHandler extends Handler {
       val partitionFields = Array("l_time", "b_date", "b_time", "b_version", logTableColumnFieldName)
       fields.foreach(filed => {
 
-        var partitionFieldsTmp = partitionFields
+        var partitionFieldsTmp: Array[String] = partitionFields
         //分区字段 和回滚分区不一致  特此处理
         partitionFieldsTmp = partitionFieldsTmp.filter(f => !f.equals(logTableColumnFieldName))
         //帥選列
-        var persistenceDwr_ = newDwi.select(filed.getString("as"), partitionFieldsTmp: _*)
+        var persistenceDwr_ = newDwi
           //group by
           .groupBy(filed.getString("as"), partitionFieldsTmp: _*)
           //計數
-          .agg(sum(lit(1)).as(logTableColumnCount))
+          .agg(sum(s"${filed.getString(logTableColumnCountField)}").as(logTableColumnCount))
           //增加字段
           .withColumn(logTableColumnTableName, expr(s"'${table}'"))
           //增加字段
           .withColumn(logTableColumnFieldName, expr(s"'${filed.getString("as")}'"))
           //增加字段
           .withColumn(logTableColumnFieldValue, expr(filed.getString("as")))
-          .withColumn("l_time", expr("from_unixtime(unix_timestamp(l_time, 'yyyy-MM-dd HH:mm:ss'), 'yyyy-MM-dd 00:00:00')"))
+          .withColumn("l_time", expr("from_unixtime(unix_timestamp(l_time, 'yyyy-MM-dd HH:mm:ss'), 'yyyy-MM-dd 00:00:00')").as("l_time"))
           //刪除無用字段
           .drop(filed.getString("as"))
 
