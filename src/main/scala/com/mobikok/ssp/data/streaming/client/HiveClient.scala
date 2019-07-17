@@ -323,7 +323,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
         .where(rw)
         .where(" field_name in ("+ fields +")")
         .where(" table_name = '" + table + "'")
-
+        .select("field_value","field_name", "count")
     }
 
     if(logTable != null && !logTable.take(1).isEmpty) {
