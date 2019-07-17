@@ -41,6 +41,7 @@ object OptimizedMixApp {
   var appName: String = null
   var appId: String = null
   var version: String = null
+  var kafkaTopicVersion: String = null
 
   var dwiLoadTimeFormat = CSTTime.formatter("yyyy-MM-dd HH:00:00")
   var dwrLoadTimeFormat = CSTTime.formatter("yyyy-MM-dd 00:00:00")
@@ -67,6 +68,7 @@ object OptimizedMixApp {
 
         argsConfig = new ArgsConfig().init(args.tail)
         version = argsConfig.get(ArgsConfig.VERSION, ArgsConfig.Value.VERSION_DEFAULT)
+        kafkaTopicVersion = argsConfig.get(ArgsConfig.VERSION_TOPIC, version)
 
         if(!ArgsConfig.Value.VERSION_DEFAULT.equals(version) && !appName.endsWith(s"v$version")) throw new IllegalArgumentException(s"App name suffix must be: v$version, App name suggests: ${appName}_v${version}")
 
@@ -340,20 +342,20 @@ object OptimizedMixApp {
               s"modules.${vName}.dwr.table",
               ConfigValueFactory.fromAnyRef(versionFeaturesTableName(version,  allModulesConfig.getValue(s"modules.${x._1}.dwr.table").unwrapped().toString)))
 
-          // 给kafka partitions中的topic加上对应的version信息
-          var vTps = allModulesConfig
-            .getConfigList(s"modules.${vName}.kafka.consumer.partitoins")
-            .map{y=>
-              var tp = new java.util.HashMap[String, Any]()
-              tp.put("topic", versionFeaturesKafkaTopicName(version, y.getString("topic")))
-              if(y.hasPath("partition")) tp.put("partition", y.getInt("partition"))
-              tp
-            }
-          allModulesConfig = allModulesConfig.withValue(s"modules.${vName}.kafka.consumer.partitoins", ConfigValueFactory.fromIterable(vTps))
-
           // 清理
           allModulesConfig = allModulesConfig.withoutPath(s"modules.${name}")
         }
+
+        // 给kafka partitions中的topic加上对应的version信息
+        var vTps = allModulesConfig
+          .getConfigList(s"modules.${vName}.kafka.consumer.partitoins")
+          .map{y=>
+            var tp = new java.util.HashMap[String, Any]()
+            tp.put("topic", versionFeaturesKafkaTopicName(kafkaTopicVersion, y.getString("topic")))
+            if(y.hasPath("partition")) tp.put("partition", y.getInt("partition"))
+            tp
+          }
+        allModulesConfig = allModulesConfig.withValue(s"modules.${vName}.kafka.consumer.partitoins", ConfigValueFactory.fromIterable(vTps))
 
         // 读取kafka服务器，获取tipic对应的partition并补全配置
         var tps = allModulesConfig
@@ -549,8 +551,8 @@ object OptimizedMixApp {
     return if(ArgsConfig.Value.VERSION_DEFAULT.equals(version)) table else s"${table}_v${version}".trim
   }
 
-  def versionFeaturesKafkaTopicName(version: String, kafkaTopic: String): String = {
-    return if(ArgsConfig.Value.VERSION_DEFAULT.equals(version)) kafkaTopic else s"${kafkaTopic}_v${version}".trim
+  def versionFeaturesKafkaTopicName(kafkaTopicVersion: String, kafkaTopic: String): String = {
+    return if(ArgsConfig.Value.VERSION_DEFAULT.equals(kafkaTopicVersion)) kafkaTopic else s"${kafkaTopic}_v${kafkaTopicVersion}".trim
   }
 
  //hasSparkStreaming

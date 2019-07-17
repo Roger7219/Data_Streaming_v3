@@ -1,11 +1,9 @@
 package com.mobikok.ssp.data.streaming.config
 
-import java.util
-
 import com.mobikok.ssp.data.streaming.util.OM
 
-import collection.JavaConverters._
-import collection.JavaConversions._
+import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 /**
   * Created by Administrator on 2017/8/24.
   */
@@ -78,7 +76,8 @@ object ArgsConfig{
   val KAFKA_OFFSET_ROLLBACK_LATEST_HOURS = "rollbackHours"
   val CLONE = "clone"
   val VERSION = "version"
-  val EX = "ex"
+  val EX = "ex" //Exclude，排除指定的维度字段
+  var VERSION_TOPIC = "version.topic" // 指定kafka topic版本
 
   val OFFSET = "offset" // earliest or latest
 
