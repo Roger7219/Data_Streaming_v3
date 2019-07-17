@@ -245,7 +245,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
           )
           .select(fs.head, fs.tail:_* /*groupByFields ++ aggExprsAlias ++ ts:_**/)
 
-        val updated = selectExprBylogTable(othersFields,w,table,updated_,fs,gs,unionAggExprsAndAlias)
+        val updated = selectExprBylogTable(othersFields,rw,table,updated_,fs,gs,unionAggExprsAndAlias)
         val fileNumber = aHivePartitionRecommendedFileNumber("HiveClient unionSum repartition", shufflePartitions, updated.rdd.getNumPartitions, ps.length)
   //      val parts = sparkPartitionNum("HiveClient unionSum repartition", shufflePartitions, updated.rdd.getNumPartitions, ps.length)
         moduleTracer.trace(s"        union sum repartition rs: ${updated.rdd.getNumPartitions}, ps: ${ps.length}, fs: ${fileNumber}")
@@ -323,7 +323,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
         .where(rw)
         .where(" field_name in ("+ fields +")")
         .where(" table_name = '" + table + "'")
-        .select("field_value","field_name", "count")
+
     }
 
     if(logTable != null && !logTable.take(1).isEmpty) {
@@ -348,13 +348,14 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 //        })
       })
     }
-    updated_
+    updated_ = updated_
       .groupBy(gs.head, gs.tail:_*)
       .agg(
         unionAggExprsAndAlias.head,
         unionAggExprsAndAlias.tail:_*
       )
       .select(fs.head, fs.tail:_* /*groupByFields ++ aggExprsAlias ++ ts:_**/)
+    updated_
   }
 
   def overwrite(transactionParentId: String, table: String, isOverwirteFixedLTime: Boolean, df: DataFrame, partitionField: String, partitionFields: String*): HiveTransactionCookie = {

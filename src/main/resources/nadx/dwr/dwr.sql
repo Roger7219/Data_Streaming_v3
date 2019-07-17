@@ -325,6 +325,9 @@ create view nadx_overall_dm_v9 as
 select * from nadx_overall_dwr_v9;
 
 
+-- bundle
+drop table if exists nadx_overall_dwr_v10;
+create table nadx_overall_dwr_v10 like nadx_overall_dwr_v6;
 
 
 
