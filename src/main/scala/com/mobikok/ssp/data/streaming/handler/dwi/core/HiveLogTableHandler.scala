@@ -33,7 +33,7 @@ class HiveLogTableHandler extends Handler {
   override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, argsConfig: ArgsConfig, handlerConfig: Config, globalConfig: Config, expr: String, as: Array[String]): Unit = {
     isAsynchronous = true
     super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, handlerConfig, globalConfig, expr, as)
-    table = globalConfig.getString(s"modules.$moduleName.dwi.table")
+    table = globalConfig.getString(s"modules.$moduleName.dwr.table")
   }
 
   override def rollback(cookies: TransactionCookie*): Cleanable = {
