@@ -81,6 +81,7 @@ class HiveLogTableHandler extends Handler {
           .withColumn(logTableColumnFieldName, expr(s"'${filed.getString("as")}'"))
           //增加字段
           .withColumn(logTableColumnFieldValue, expr(filed.getString("as")))
+          .withColumn("l_time", expr("from_unixtime(unix_timestamp(l_time, 'yyyy-MM-dd HH:mm:ss'), 'yyyy-MM-dd 00:00:00')"))
           //刪除無用字段
           .drop(filed.getString("as"))
 
