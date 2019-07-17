@@ -834,9 +834,3 @@ ALTER TABLE nadx_overall_dwr_v6 ADD COLUMNS (site_domain STRING);
 ALTER TABLE nadx_overall_dwr_v6 ADD COLUMNS (publisher_id STRING);
 ALTER TABLE nadx_overall_dwr_v6 ADD COLUMNS (crid STRING);
 ALTER TABLE nadx_overall_dwr_v6 ADD COLUMNS (bidfloor STRING);
-
-
-
-ALTER TABLE nadx_overall_performance_matched_dwi_v10 ADD COLUMNS (rater_type STRING);
-ALTER TABLE nadx_overall_performance_matched_dwi_v10 ADD COLUMNS (rater_id STRING);
-ALTER TABLE nadx_overall_performance_matched_dwi_v10 ADD COLUMNS (media_type STRING);
