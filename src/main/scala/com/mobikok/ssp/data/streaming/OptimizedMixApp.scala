@@ -396,6 +396,9 @@ object OptimizedMixApp {
                 if(y.hasPathOrNull("others")){
                   filed.put("others", y.getBoolean("others"))
                 }
+                if(y.hasPathOrNull("countField")){
+                  filed.put("countField", y.getString("countField"))
+                }
                 if(y.hasPathOrNull("max")){
                   filed.put("max", y.getInt("max"))
                 }
