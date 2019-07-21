@@ -81,7 +81,7 @@ class SyncMysql2HiveHandlerV3 extends Handler {
             .read
             .jdbc(rdbUrl, s"(select count(1) as count from $mysqlT where last_updated_time > '$last_updated_time') as sync_update_table", rdbProp)
             .first()
-            .getAs[Integer]("count")
+            .getAs[Long]("count")
 
         // 全量刷新
         if (updateCountDF > 0) {
