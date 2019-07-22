@@ -348,13 +348,13 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 //        })
       })
     }
-    updated_ = updated_
-      .groupBy(gs.head, gs.tail:_*)
-      .agg(
-        unionAggExprsAndAlias.head,
-        unionAggExprsAndAlias.tail:_*
-      )
-      .select(fs.head, fs.tail:_* /*groupByFields ++ aggExprsAlias ++ ts:_**/)
+//    updated_ = updated_
+//      .groupBy(gs.head, gs.tail:_*)
+//      .agg(
+//        unionAggExprsAndAlias.head,
+//        unionAggExprsAndAlias.tail:_*
+//      )
+//      .select(fs.head, fs.tail:_* /*groupByFields ++ aggExprsAlias ++ ts:_**/)
     updated_
   }
 
