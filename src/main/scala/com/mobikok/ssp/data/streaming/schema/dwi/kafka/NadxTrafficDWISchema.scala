@@ -133,6 +133,9 @@ object NadxTrafficDWISchema{
     StructField("raterId",                           StringType) ::
     StructField("adomain",                           StringType) ::
     StructField("media_type",                       StringType) ::
+    // 2019.7.22 新增
+    StructField("app_or_site_id",                       StringType) ::
+    StructField("bundle_or_domain",                     StringType) ::
 
     Nil)
 }
