@@ -354,7 +354,7 @@ class KafkaClient (moduleName: String, config: Config /*databaseUrl: String, use
         var x: ResultSet = mySqlJDBCClient.executeQuery(s"""show tables like "%${transactionalLegacyDataBackupCompletedTableSign}%" """)
         while (x.next()) {
           val t = x.getString(1)
-          cleanable.addAction{mySqlJDBCClient.execute(s"drop table ${t}")}
+          cleanable.addAction{mySqlJDBCClient.execute(s"drop table if exists ${t}")}
 //          mySqlJDBCClient.execute(s"drop table ${x.getString(1)}")
         }
 
@@ -368,7 +368,7 @@ class KafkaClient (moduleName: String, config: Config /*databaseUrl: String, use
         x = mySqlJDBCClient.executeQuery(s"""show tables like "%${transactionalTmpTableSign}%" """)
         while (x.next()) {
           val t = x.getString(1)
-          cleanable.addAction{mySqlJDBCClient.execute(s"drop table ${t}")}
+          cleanable.addAction{mySqlJDBCClient.execute(s"drop table if exists ${t}")}
 //          mySqlJDBCClient.execute(s"drop table ${x.getString(1)}")
         }
 
