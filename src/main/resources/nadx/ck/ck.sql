@@ -155,14 +155,39 @@ ALTER TABLE nadx_overall_dm_v9 add column media_type Nullable(String);
 ALTER TABLE nadx_overall_dm_v9_all add column media_type Nullable(String);
 ALTER TABLE nadx_overall_dm_v9_for_select add column media_type Nullable(String);
 ALTER TABLE nadx_overall_dm_v9_for_select_all add column media_type Nullable(String);
+-- 2019-07-22
+ALTER TABLE nadx_overall_dm_v9 add column demand_name Nullable(String);
+ALTER TABLE nadx_overall_dm_v9_all add column demand_name Nullable(String);
+ALTER TABLE nadx_overall_dm_v9_for_select add column demand_name Nullable(String);
+ALTER TABLE nadx_overall_dm_v9_for_select_all add column demand_name Nullable(String);
+
+ALTER TABLE nadx_overall_dm_v9 add column supply_name Nullable(String);
+ALTER TABLE nadx_overall_dm_v9_all add column supply_name Nullable(String);
+ALTER TABLE nadx_overall_dm_v9_for_select add column supply_name Nullable(String);
+ALTER TABLE nadx_overall_dm_v9_for_select_all add column supply_name Nullable(String);
+
+ALTER TABLE nadx_overall_dm add column demand_name Nullable(String);
+ALTER TABLE nadx_overall_dm_all add column demand_name Nullable(String);
+ALTER TABLE nadx_overall_dm_for_select add column demand_name Nullable(String);
+ALTER TABLE nadx_overall_dm_for_select_all add column demand_name Nullable(String);
+
+ALTER TABLE nadx_overall_dm add column supply_name Nullable(String);
+ALTER TABLE nadx_overall_dm_all add column supply_name Nullable(String);
+ALTER TABLE nadx_overall_dm_for_select add column supply_name Nullable(String);
+ALTER TABLE nadx_overall_dm_for_select_all add column supply_name Nullable(String);
 
 ------2019-04-20 新增审核送检数据表
+drop table nadx_overall_audit_dm;
+drop table nadx_overall_audit_dm_all;
+drop table nadx_overall_audit_dm_for_select;
+drop table nadx_overall_audit_dm_for_select_all;
 CREATE TABLE nadx_overall_audit_dm (
   demand_id                         Int32 DEFAULT CAST(0 AS Int32),
   crid                              Nullable(String),
   os                                Nullable(String),
   country                           Nullable(String),
   adm                               Nullable(String),
+  demand_name                       Nullable(String),
   demand_crid_count                 Int64 DEFAULT CAST(0 AS Int64),
 
   l_time                            DateTime,
