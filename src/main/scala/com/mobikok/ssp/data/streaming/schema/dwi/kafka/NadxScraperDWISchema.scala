@@ -14,6 +14,7 @@ object NadxScraperDWISchema{
 
       StructField("timestamp",          LongType)   ::
       StructField("bundle",             StringType) ::
+      StructField("domain",             StringType) ::
 
       Nil)
 }
