@@ -867,7 +867,7 @@ drop table nadx_scraper_bundle_dwi;
 create table nadx_scraper_bundle_dwi(
   repeats                           int,
   rowkey                            string,
-
+  timestamp                           bigint,
   bundle                          string
 )
 PARTITIONED BY (repeated string, l_time STRING, b_date STRING, b_time STRING, b_version STRING)
@@ -878,3 +878,20 @@ create table nadx_scraper_bundle_dwi_bak like nadx_scraper_bundle_dwi;
 
 set hive.exec.dynamic.partition.mode=nonstrict;insert overwrite  table nadx_scraper_bundle_dwi_bak select max(repeats) as repeats, max(rowkey) as rowkey, max(timestamp) as timestamp, bundle, max(repeated) as  repeated, max(l_time) as  l_time, max(b_date) as  b_date, max(b_time) as  b_time, max(b_version) as  b_version from nadx_scraper_bundle_dwi group by bundle;
 insert overwrite  table nadx_scraper_bundle_dwi select * from nadx_scraper_bundle_dwi_bak;
+
+//2019-07-26 domain爬虫domain数据表
+drop table nadx_scraper_domain_dwi;
+create table nadx_scraper_domain_dwi(
+  repeats                           int,
+  timestamp                           bigint,
+  rowkey                            string,
+  domain                          string
+)
+PARTITIONED BY (repeated string, l_time STRING, b_date STRING, b_time STRING, b_version STRING)
+STORED AS ORC;
+
+drop table nadx_scraper_domain_dwi_bak;
+create table nadx_scraper_domain_dwi_bak like nadx_scraper_domain_dwi;
+
+set hive.exec.dynamic.partition.mode=nonstrict;insert overwrite  table nadx_scraper_domain_dwi_bak select max(repeats) as repeats, max(rowkey) as rowkey, max(timestamp) as timestamp, bundle, max(repeated) as  repeated, max(l_time) as  l_time, max(b_date) as  b_date, max(b_time) as  b_time, max(b_version) as  b_version from nadx_scraper_domain_dwi group by bundle;
+insert overwrite  table nadx_scraper_domain_dwi select * from nadx_scraper_domain_dwi_bak;
