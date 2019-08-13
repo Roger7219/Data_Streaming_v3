@@ -51,11 +51,11 @@ drop table tb_demand_account;
    owner_bundle_probability      double,
    owner_publisher_probability   double,
    floor_percent                 int,
-   demand_bid_rate               double,
-   demand_bid_rate_ratio         double,
-   demand_imp_rate               double,
-   demand_imp_rate_ratio         double,
-   last_updated_time             string
+   last_updated_time             string,
+   black_white_filter            string,
+   filter_type                   int,
+   note                          string,
+   level                         int
 )
 STORED AS ORC;
 
