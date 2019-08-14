@@ -1,4 +1,4 @@
-#!bin/bash
+#!/bin/bash
 echo "script start at " `date "+%Y-%m-%d %H:%M:%S"`
 deviceIdFile="deviceidblacklistv2/DeviceIdBlacklist_"`date -d '1 days ago' "+%Y%m%d".csv`
 IPFile="ipblocklistv2/GenericIPBlacklisting_"`date -d '1 days ago' "+%Y%m%d".csv`
@@ -44,6 +44,19 @@ sleep 10s
        scp ivt_device_id.csv root@ex005:/data/nadx-exchange/
        scp ivt_device_id.csv root@ex006:/data/nadx-exchange/
        scp ivt_device_id.csv root@ex007:/data/nadx-exchange/
+       scp ivt_device_id.csv root@ex008:/data/nadx-exchange/
+       scp ivt_device_id.csv root@ex001-sg:/data/nadx-exchange/
+       #scp ivt_device_id.csv root@node245:/data/nadx-exchange/
+       ##### redis start
+         echo "black.ivt.deviceId redis start"
+         redisFileName="redis_"`echo "ivt_device_id.csv" | awk -F. '{print $1}'`".txt"
+         echo "del black.ivt.deviceId " > $redisFileName
+         awk -F, '{print "sadd black.ivt.deviceId "$1}' ivt_device_id.csv >> $redisFileName
+         if [ -f $redisFileName ]; then
+           cat $redisFileName | redis-cli -h nadx-redis1g.redis.rds.aliyuncs.com --pipe
+         fi
+         echo "black.ivt.deviceId redis end"
+       ##### redis end
        curTime=`date "+%Y-%m-%d %H:%M:%S"`
        message='[{"topic":"blackList_device_id_topic","key":"'$curTime'","uniqueKey":true,"data":""}]'
        curl $MESSAGE_URL --header  "Content-Type: application/json;charset=UTF-8" -d "$message"
@@ -85,6 +98,19 @@ sleep 10s
       scp ivt_ip.csv root@ex005:/data/nadx-exchange/
       scp ivt_ip.csv root@ex006:/data/nadx-exchange/
       scp ivt_ip.csv root@ex007:/data/nadx-exchange/
+      scp ivt_ip.csv root@ex008:/data/nadx-exchange/
+      scp ivt_ip.csv root@ex001-sg:/data/nadx-exchange/
+      #scp ivt_ip.csv root@node245:/data/nadx-exchange/
+      ##### redis start
+        echo "black.ivt.ip redis start"
+        redisFileName="redis_"`echo "ivt_ip.csv" | awk -F. '{print $1}'`".txt"
+        echo "del black.ivt.ip " > $redisFileName
+        awk -F, '{print "sadd black.ivt.ip "$1}' ivt_ip.csv >> $redisFileName
+        if [ -f $redisFileName ]; then
+          cat $redisFileName | redis-cli -h nadx-redis1g.redis.rds.aliyuncs.com --pipe 
+        fi
+        echo "black.ivt.ip redis end"
+      ##### reids end
       curTime=`date "+%Y-%m-%d %H:%M:%S"`
       message='[{"topic":"blackList_ip_check_topic","key":"'$curTime'","uniqueKey":true,"data":""}]'
       curl $MESSAGE_URL --header  "Content-Type: application/json;charset=UTF-8" -d "$message"

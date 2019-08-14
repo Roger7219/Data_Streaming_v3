@@ -1,4 +1,4 @@
-#!bin/bash
+#!/bin/bash
 echo "script start at " `date "+%Y-%m-%d %H:%M:%S"` >>pixalateDashboard.log
 MESSAGE_URL='http://104.250.136.138:5555/Api/Message'
 CC_PASS='9036011d8fa79028f99488c2de6fdfb09d66beb5e4b8ca5178ee9ff9179ed6a8'
@@ -68,6 +68,16 @@ if [ "$downloadBundlefilePath" ]; then
        ssh ck005 "clickhouse-client  -m  --password $CC_PASS --query='create table if not EXISTS blacklist_bundle_raw_select_all as blacklist_bundle_raw_for_select ENGINE = Distributed(bip_ck_cluster, default, blacklist_bundle_raw_for_select, rand())'"
 
        clickhouse-client  -m  --password $CC_PASS --query="insert into blacklist_bundle_raw_select_all select * from blacklist_bundle_raw_all"
+       ##### redis start
+       echo "black.ivt.appId redis start"
+         redisFileName="bundle/clickhouse_redis.txt"
+         echo "del black.ivt.appId " > $redisFileName
+         awk -F, '{print "sadd black.ivt.appId "$1}' bundle/clickhouse.csv >> $redisFileName
+         if [ -f $redisFileName ]; then
+           cat $redisFileName | redis-cli -h nadx-redis1g.redis.rds.aliyuncs.com --pipe
+         fi        
+       ehco "black.ivt.domain redis end"
+       ##### redis end
        curTime=`date "+%Y-%m-%d %H:%M:%S"`
        message='[{"topic":"blackList_bundle_check_topic","key":"'$curTime'","uniqueKey":true,"data":""}]'
        curl $MESSAGE_URL --header  "Content-Type: application/json;charset=UTF-8" -d "$message"
@@ -118,6 +128,16 @@ if [ "$downloadDomainfilePath" ]; then
        ssh ck005 "clickhouse-client  -m  --password $CC_PASS --query='create table if not EXISTS blacklist_domain_raw_select_all as blacklist_domain_raw_for_select ENGINE = Distributed(bip_ck_cluster, default, blacklist_domain_raw_for_select, rand())'"
 
        clickhouse-client  -m  --password $CC_PASS --query="insert into blacklist_domain_raw_select_all select * from blacklist_domain_raw_all"
+       ##### redis start
+       echo "black.ivt.domain redis start"
+         redisFileName="domain/clickhouse_redis.txt"
+         echo "del black.ivt.domain " > $redisFileName
+         awk -F, '{print "sadd black.ivt.domain "$1}' domain/clickhouse.csv >> $redisFileName     
+         if [ -f $redisFileName ]; then
+           cat $redisFileName | redis-cli -h nadx-redis1g.redis.rds.aliyuncs.com --pipe
+         fi
+       echo "black.ivt.domain redis end"
+       ##### redis end
        curTime=`date "+%Y-%m-%d %H:%M:%S"`
        message='[{"topic":"blackList_domain_check_topic","key":"'$curTime'","uniqueKey":true,"data":""}]'
        curl $MESSAGE_URL --header  "Content-Type: application/json;charset=UTF-8" -d "$message"
