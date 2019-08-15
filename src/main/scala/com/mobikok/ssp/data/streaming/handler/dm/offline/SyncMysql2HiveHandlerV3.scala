@@ -5,7 +5,7 @@ import java.sql.ResultSet
 import com.fasterxml.jackson.core.`type`.TypeReference
 import com.mobikok.message.client.MessageClient
 import com.mobikok.ssp.data.streaming.client._
-import com.mobikok.ssp.data.streaming.config.RDBConfig
+import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.util.MySqlJDBCClientV2.Callback
 import com.mobikok.ssp.data.streaming.util._
 import com.typesafe.config.Config
@@ -37,8 +37,8 @@ class SyncMysql2HiveHandlerV3 extends Handler {
   var mySqlJDBCClient: MySqlJDBCClientV2 = null
   @volatile var lock = new Object()
 
-  override def init(moduleName: String, bigQueryClient: BigQueryClient, greenplumClient: GreenplumClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext, handlerConfig: Config): Unit = {
-    super.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient, kylinClientV2, hbaseClient, hiveContext, handlerConfig)
+  override def init(moduleName: String, bigQueryClient: BigQueryClient, greenplumClient: GreenplumClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config): Unit = {
+    super.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient, kylinClientV2, hbaseClient, hiveContext, argsConfig, handlerConfig)
 
     tableDetails = handlerConfig.getConfigList("tables").map { x =>
       x.getString("mysql") -> (x.getString("hive"), if(x.hasPath("uuid")) x.getString("uuid") else null)
