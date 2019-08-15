@@ -1,11 +1,9 @@
 package com.mobikok.ssp.data.streaming.config
 
-import java.util
-
 import com.mobikok.ssp.data.streaming.util.OM
 
-import collection.JavaConverters._
-import collection.JavaConversions._
+import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 /**
   * Created by Administrator on 2017/8/24.
   */
