@@ -5,7 +5,7 @@ import java.{lang, util}
 import com.mobikok.message.client.MessageClient
 import com.mobikok.message.{Message, Resp}
 import com.mobikok.ssp.data.streaming.client._
-import com.mobikok.ssp.data.streaming.config.RDBConfig
+import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
 import com.mobikok.ssp.data.streaming.exception.HandlerException
 import com.mobikok.ssp.data.streaming.util._
@@ -53,8 +53,8 @@ class AccelerateTableHandlerV2 extends Handler {
   var viewConsumerTopics:Array[(String, String, Array[String], Array[String], Array[Column], Array[Column], String)] = null
 
 
-  override def init (moduleName: String, bigQueryClient: BigQueryClient, greenplumClient: GreenplumClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext, handlerConfig: Config): Unit = {
-    super.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient, kylinClientV2, hbaseClient, hiveContext, handlerConfig)
+  override def init (moduleName: String, bigQueryClient: BigQueryClient, greenplumClient: GreenplumClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config): Unit = {
+    super.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient, kylinClientV2, hbaseClient, hiveContext, argsConfig, handlerConfig)
 
     viewConsumerTopics = handlerConfig.getObjectList("items").map { x =>
       val c = x.toConfig

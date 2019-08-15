@@ -27,6 +27,8 @@ object CrontabClickhouseRefreshUtil {
 
     // nadx ck 重刷指定b_time区间的
 //    messageResetToLastest("nadx_overall_dm_cer", Array("nadx_overall_dwr"))
+
+//      sendMsg_btimes_for_ck("nadx_overall_dwr", "2019-07-17 12:00:00", "2019-07-17 12:00:00", "nadx_ck")
 //    sendMsg_btimes_for_ck("nadx_overall_dwr", "2019-03-25 00:00:00", "2019-03-25 23:00:00", "nadx_ck")
 //      sendMsg_btimes_for_ck("nadx_overall_dwr", "2019-03-24 00:00:00", "2019-03-24 23:00:00", "nadx_ck")
 //      sendMsg_btimes_for_ck("nadx_overall_dwr", "2019-03-26 00:00:00", "2019-03-26 23:00:00", "nadx_ck")
@@ -58,6 +60,8 @@ object CrontabClickhouseRefreshUtil {
 //    sendMsg_btime("nadx_performance_dwi", "2019-06-04 20:00:00")
 
 
+//    messageResetToLastest("nadx_overall_dm_v6_cer", Array("nadx_overall_dwr_v6"))
+//    messageResetToLastest("nadx_overall_traffic_audit_cer", Array("nadx_overall_audit_dwr"))
 
 //    sendMsg_btime("nadx_performance_dwi", "2019-06-02 23:00:00")
 //    sendMsg_btime("nadx_performance_dwi", "2019-06-03 15:00:00")
@@ -167,17 +171,73 @@ object CrontabClickhouseRefreshUtil {
 //    sendMsg_b_date("ssp_report_overall_dwr_day", "2018-05-02")
 //    sendMsg_b_date("ck_report_overall_day", "2018-08-14")
 
-//    sendMsg_btimes_for_ck("nadx_overall_dwr_v6", "2019-06-29 19:00:00", "2019-06-29 20:00:00", "nadx_ck")
+
+//    sendMsg_btimes_for_ck("nadx_performance_dwi", "2019-08-06 09:00:00", "2019-08-06 09:00:00", "adx_dwr_v6")
+//    sendMsg_btimes_for_ck("nadx_performance_dwi", "2019-08-06 07:00:00", "2019-08-06 07:00:00", "adx_dwr_v6")
+//    sendMsg_btimes_for_ck("nadx_performance_dwi", "2019-08-05 11:00:00", "2019-08-05 11:00:00", "adx_dwr_v6")
+//    sendMsg_btimes_for_ck("nadx_performance_dwi", "2019-08-05 03:00:00", "2019-08-05 03:00:00", "adx_dwr_v6")
+
+//    sendMsg_btimes_for_ck("nadx_overall_dwr_v6", "2019-07-31 17:00:00", "2019-08-02 19:00:00", "nadx_ck")
 //    sendMsg_btimes_for_ck("nadx_overall_dwr_v6", "2019-06-29 00:00:00", "2019-06-29 00:00:00", "nadx_ck")
 //    sendMsg_btimes_for_ck("nadx_overall_dwr_v6", "2019-06-29 21:00:00", "2019-06-29 21:00:00", "nadx_ck")
 //    sendMsg_btimes_for_ck("nadx_overall_dwr_v6", "2019-06-29 19:00:00", "2019-06-29 19:00:00", "nadx_ck")
 
+
+    // 刷新adx ck数据--------------------------------------------------
+//    sendMsg_btimes_for_ck("nadx_overall_dwr",    "2019-08-12 08:00:00", "2019-08-12 08:00:00", "nadx_ck")
+//    sendMsg_btimes_for_ck("nadx_overall_dwr_v6",    "2019-08-12 12:00:00", "2019-08-12 19:00:00", "nadx_ck")
+//    sendMsg_btimes_for_ck("nadx_overall_dwr_v6",    "2019-08-13 10:00:00", "2019-08-13 13:00:00", "nadx_ck")
+//
+//    sendMsg_btimes_for_ck("nadx_overall_dwr_v6_1",    "2019-08-12 12:00:00", "2019-08-12 19:00:00", "nadx_ck")
+//    sendMsg_btimes_for_ck("nadx_overall_dwr_v6_1",    "2019-08-13 10:00:00", "2019-08-13 13:00:00", "nadx_ck")
+//
+//    sendMsg_btimes_for_ck("nadx_overall_dwr_v6_2",    "2019-08-12 12:00:00", "2019-08-12 19:00:00", "nadx_ck")
+//    sendMsg_btimes_for_ck("nadx_overall_dwr_v6_2",    "2019-08-13 10:00:00", "2019-08-13 13:00:00", "nadx_ck")
+//
+//    sendMsg_btimes_for_ck("nadx_overall_dwr_v6_3",    "2019-08-12 12:00:00", "2019-08-12 19:00:00", "nadx_ck")
+//    sendMsg_btimes_for_ck("nadx_overall_dwr_v6_3",    "2019-08-13 10:00:00", "2019-08-13 13:00:00", "nadx_ck")
+
+//    -----------------
+
+    sendMsg_btimes_for_ck("nadx_overall_dwr_v6",    "2019-08-14 22:00:00", "2019-08-14 22:00:00", "nadx_ck")
+    sendMsg_btimes_for_ck("nadx_overall_dwr_v6_1",    "2019-08-14 22:00:00", "2019-08-14 22:00:00", "nadx_ck")
+    sendMsg_btimes_for_ck("nadx_overall_dwr_v6_2",    "2019-08-14 22:00:00", "2019-08-14 22:00:00", "nadx_ck")
+    sendMsg_btimes_for_ck("nadx_overall_dwr_v6_3",    "2019-08-14 22:00:00", "2019-08-14 22:00:00", "nadx_ck")
+
+    //    "2019-08-13 13:00:00",
+//    "2019-08-13 12:00:00",
+//    "2019-08-13 11:00:00",
+//    "2019-08-13 10:00:00",
+//    "2019-08-12 19:00:00",
+//    "2019-08-12 18:00:00",
+//    "2019-08-12 17:00:00",
+//    "2019-08-12 16:00:00",
+//    "2019-08-12 15:00:00",
+//    "2019-08-12 14:00:00",
+//    "2019-08-12 13:00:00",
+//    "2019-08-12 12:00:00"
+
+//    sendMsg_btimes_for_ck("nadx_overall_dwr",    "2019-07-27 17:00:00", "2019-07-27 17:00:00", "nadx_ck")
+//    sendMsg_btimes_for_ck("nadx_overall_dwr", "2019-07-29 17:00:00", "2019-07-29 17:00:00", "nadx_ck")
+
+//    sendMsg_btimes_for_ck("nadx_overall_dwr_v6", "2019-07-23 00:00:00", "2019-07-23 18:00:00", "nadx_ck")
+//    sendMsg_btimes_for_ck("nadx_overall_dwr", "2019-07-23 21:00:00", "2019-07-23 21:00:00", "nadx_ck")
 //    sendMsg_btimes_for_ck("nadx_overall_dwr", "2019-07-10 00:00:00", "2019-07-10 23:00:00", "nadx_ck")
-      sendMsg_btimes_for_ck("nadx_overall_dwr", "2019-07-09 00:00:00", "2019-07-09 23:00:00", "nadx_ck")
+//      sendMsg_btimes_for_ck("nadx_overall_dwr", "2019-07-17 12:00:00", "2019-07-17 12:00:00", "nadx_ck")
+//    sendMsg_btimes_for_ck("nadx_overall_dwr", "2019-07-17 12:00:00", "2019-07-17 12:00:00", "nadx_ck")
 
     // 刷新campaign/publisher表
 //    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2018-06-01", "2018-06-10")
 //    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2018-05-01", "2018-05-31")
+
+//    sendMsg_btime("ssp_report_overall_dwr", "2019-08-08 12:00:00")
+//    sendMsg_btime("ssp_report_overall_dwr", "2019-08-08 13:00:00")
+//    sendMsg_btime("ssp_report_overall_dwr", "2019-08-08 14:00:00")
+//    sendMsg_btime("ssp_report_overall_dwr", "2019-08-08 15:00:00")
+//    sendMsg_btime("ssp_report_overall_dwr", "2019-08-08 16:00:00")
+//    sendMsg_btime("ssp_report_overall_dwr", "2019-08-08 17:00:00")
+//    sendMsg_btime("ssp_report_overall_dwr", "2019-08-08 18:00:00")
+
 
     // 重刷28 29号的数据
 //    sendMsg_btime_00_00_00("bq_report_campaign_update", "2018-06-27", "2018-06-29")
@@ -240,7 +300,9 @@ object CrontabClickhouseRefreshUtil {
 //    messageResetToLastest("ImageHandler_cer", Array("ssp_report_overall_dwr"))
 //    messageResetToLastest("new_ssp_image_dm_bqcer", Array("ssp_report_overall_dwr"))
 //    messageResetToLastest("offerHandler", Array("ssp_report_overall_dwr"))
-//    messageResetToLastest("writeToRedisCer", Array("ssp_report_overall_dwr"))
+//    messageResetToLastest("nadx_p_matched_dwi_cer_v12", Array("nadx_performance_dwi", "nadx_traffic_dwi"))
+
+    //    messageResetToLastest("writeToRedisCer", Array("ssp_report_overall_dwr"))
 //      messageResetToLastest("bd_offer_dm_bqcer", Array("ssp_report_overall_dwr"))
     //    messageResetToLastest("monitor_offer_cer", Array("ssp_report_overall_dwr"))
 //    messageResetToLastest("ssp_topn_dm_cer", Array("ssp_report_overall_dwr"))
@@ -259,6 +321,8 @@ object CrontabClickhouseRefreshUtil {
 //    killApp("overall_dwi")
 //    killApp("overall")
 //    killApp("overall")
+
+//      killApp("adx_dwr_v20", "application_1561429996932_4476")
 
 //    killApp("quartz_mix")
 //    messageResetToLastest("bq_report_overall_day_v2_bqcer", Array("ssp_report_overall_dm_day_v2_update"))
@@ -363,8 +427,8 @@ object CrontabClickhouseRefreshUtil {
     messageClient.pushMessage(new MessagePushReq(appName, ms))
   }
 
-  def killApp(appName:String): Unit = {
-    messageClient.pushMessage(new MessagePushReq(appName,  "kill_self"))
+  def killApp(appName:String, appId:String): Unit = {
+    messageClient.pushMessage(new MessagePushReq("kill_self_"+appName,  appId))
   }
 
 

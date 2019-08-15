@@ -2,7 +2,7 @@ package com.mobikok.ssp.data.streaming.handler.dm.offline
 
 import com.mobikok.message.client.MessageClient
 import com.mobikok.ssp.data.streaming.client._
-import com.mobikok.ssp.data.streaming.config.RDBConfig
+import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.util._
 import com.typesafe.config.Config
 import org.apache.spark.sql.hive.HiveContext
@@ -30,8 +30,8 @@ class OfferAutoSoldoutHandler extends Handler{
   val AUTO_SLOTOUT_OFFER_CHECK_CER = "OfferAutoSoldCheck_cer"
   val AUTO_SLOTOUT_OFFER_CHECK_TOPIC = "OfferAutoSoldCheck_topic"
 
-  override def init (moduleName: String, bigQueryClient:BigQueryClient,greenplumClient:GreenplumClient, rDBConfig:RDBConfig,kafkaClient: KafkaClient, messageClient:MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext, handlerConfig: Config): Unit = {
-    super.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient: KafkaClient,messageClient, kylinClientV2, hbaseClient, hiveContext, handlerConfig)
+  override def init (moduleName: String, bigQueryClient:BigQueryClient,greenplumClient:GreenplumClient, rDBConfig:RDBConfig,kafkaClient: KafkaClient, messageClient:MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config): Unit = {
+    super.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient: KafkaClient,messageClient, kylinClientV2, hbaseClient, hiveContext, argsConfig, handlerConfig)
 
 //    dwrDayTable = handlerConfig.getString("dwr.table")
 

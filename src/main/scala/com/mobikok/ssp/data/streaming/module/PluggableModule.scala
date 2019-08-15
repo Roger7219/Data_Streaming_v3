@@ -11,13 +11,14 @@ import com.mobikok.monitor.client.MonitorClient
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.client.cookie._
 import com.mobikok.ssp.data.streaming.concurrent.GlobalAppRunningStatusV2
+import com.mobikok.ssp.data.streaming.config.ArgsConfig.Value
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.{LatestOffsetRecord, OffsetRange}
 import com.mobikok.ssp.data.streaming.exception.ModuleException
 import com.mobikok.ssp.data.streaming.handler.Handler
 import com.mobikok.ssp.data.streaming.handler.dm.offline.{ClickHouseQueryByBDateHandler, ClickHouseQueryByBTimeHandler, ClickHouseQueryMonthHandler}
 import com.mobikok.ssp.data.streaming.handler.dwi.core.{HBaseDWIPersistHandler, HiveDWIPersistHandler, UUIDFilterDwiHandler}
-import com.mobikok.ssp.data.streaming.handler.dwr.core.{HiveDWRPersistDayHandler, HiveDWRPersistHandler, HiveDWRPersistMonthHandler, UUIDFilterDwrHandler}
+import com.mobikok.ssp.data.streaming.handler.dwr.core._
 import com.mobikok.ssp.data.streaming.module.support.uuid.{DefaultUuidFilter, UuidFilter}
 import com.mobikok.ssp.data.streaming.module.support.{HiveContextGenerater, MixModulesBatchController, SQLContextGenerater}
 import com.mobikok.ssp.data.streaming.util._
@@ -327,48 +328,17 @@ class PluggableModule(globalConfig: Config,
     dwrIncludeRepeated = false
   }
 
+  var dimCounterMaps:Map[String, String] = _
+  try {
+    dimCounterMaps = globalConfig.getConfigList(s"modules.$moduleName.dwr.groupby.fields").map {
+      x => if(x.hasPath("map")) x.getString("as") -> x.getString("map") else null
+    }.filter(_ != null).toMap
+  } catch {
+    case e: Throwable =>
+  }
+
   var dwrHandlers: util.ArrayList[com.mobikok.ssp.data.streaming.handler.dwr.Handler] = _
   var dwrHandlerCookies: Array[(String, TransactionCookie)] = _
-  if (isMaster) {
-    dwrHandlers = new util.ArrayList[com.mobikok.ssp.data.streaming.handler.dwr.Handler]()
-    if (!dwrIncludeRepeated) {
-      dwrHandlers.add(new UUIDFilterDwrHandler(uuidFilter))
-    }
-    // 核心handler的手动配置
-    if (isEnableDwr) {
-      val dwrPersistHandler = new HiveDWRPersistHandler()
-      dwrPersistHandler.init(moduleName, mixTransactionManager, hbaseClient, hiveClient, clickHouseClient, globalConfig, globalConfig, "", "")
-      dwrHandlers.add(dwrPersistHandler)
-    }
-
-    var enableDwrAccDay = false
-    runInTry{enableDwrAccDay = globalConfig.getBoolean(s"modules.$moduleName.dwr.acc.day.enable")}
-    if (enableDwrAccDay) {
-      val dwrPersistDayHandler = new HiveDWRPersistDayHandler()
-      dwrPersistDayHandler.init(moduleName, mixTransactionManager, hbaseClient, hiveClient, clickHouseClient, globalConfig, globalConfig, "", "")
-      dwrHandlers.add(dwrPersistDayHandler)
-    }
-
-    var enableDwrAccMonth = false
-    runInTry{enableDwrAccMonth = globalConfig.getBoolean(s"modules.$moduleName.dwr.acc.month.enable")}
-    if (enableDwrAccMonth) {
-      val dwrPersistMonthHandler = new HiveDWRPersistMonthHandler()
-      dwrPersistMonthHandler.init(moduleName, mixTransactionManager, hbaseClient, hiveClient, clickHouseClient, globalConfig, globalConfig, "", "")
-      dwrHandlers.add(dwrPersistMonthHandler)
-    }
-    try {
-      globalConfig.getConfigList(s"modules.$moduleName.dwr.handler").foreach { x =>
-        val hc = x
-        val h = Class.forName(hc.getString("class")).newInstance().asInstanceOf[com.mobikok.ssp.data.streaming.handler.dwr.Handler]
-        val expr = if (x.hasPath("expr")) x.getString("expr") else ""
-        val as = if (x.hasPath("as")) x.getString("as") else ""
-        h.init(moduleName, mixTransactionManager, hbaseClient, hiveClient, clickHouseClient, hc, globalConfig, expr, as)
-        dwrHandlers.add(h)
-      }
-    } catch {
-      case e: Exception => LOG.warn(s"Dwr init error, exception: ${e.getMessage}")
-    }
-  }
 
   //-------------------------  Dwr End  -------------------------
 
@@ -415,7 +385,7 @@ class PluggableModule(globalConfig: Config,
     try {
       dmOfflineHandlers = globalConfig.getConfigList(s"modules.$moduleName.dm.offline.handlers").map { setting =>
         val h = Class.forName(setting.getString("class")).newInstance().asInstanceOf[com.mobikok.ssp.data.streaming.handler.dm.offline.Handler]
-        h.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient, kylinClient, hbaseClient, hiveContext, setting)
+        h.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient, kylinClient, hbaseClient, hiveContext, argsConfig, setting)
         if (h.isInstanceOf[ClickHouseQueryByBTimeHandler] || h.isInstanceOf[ClickHouseQueryByBDateHandler] || h.isInstanceOf[ClickHouseQueryMonthHandler]) {
           h.setClickHouseClient(clickHouseClient)
         }
@@ -469,16 +439,67 @@ class PluggableModule(globalConfig: Config,
     }
     if (isEnableDwi) {
       val hiveDWIPersistHandler = new HiveDWIPersistHandler()
-      hiveDWIPersistHandler.init(moduleName, mixTransactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, globalConfig, globalConfig, null, null)
+      hiveDWIPersistHandler.init(moduleName, mixTransactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, null, globalConfig, null, null)
       dwiHandlers = dwiHandlers :+ hiveDWIPersistHandler
     }
     if (dwiPhoenixEnable) {
       val hbaseDWIPersistHandler = new HBaseDWIPersistHandler()
-      hbaseDWIPersistHandler.init(moduleName, mixTransactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, globalConfig, globalConfig, null, null)
+      hbaseDWIPersistHandler.init(moduleName, mixTransactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, null, globalConfig, null, null)
       dwiHandlers = dwiHandlers :+ hbaseDWIPersistHandler
     }
     dwiHandlers = uuidFilterHandler :: dwiHandlers
 
+  }
+
+  def initDwrHandlers(): Unit ={
+//    if (isMaster) {
+      dwrHandlers = new util.ArrayList[com.mobikok.ssp.data.streaming.handler.dwr.Handler]()
+      if (!dwrIncludeRepeated) {
+        dwrHandlers.add(new UUIDFilterDwrHandler(uuidFilter))
+      }
+      // 核心handler的手动配置
+      if (isEnableDwr) {
+
+        // 小众数据单维度统计
+        if(dimCounterMaps != null && dimCounterMaps.nonEmpty) {
+          val counterHandler = new HiveCounterHandler()
+          counterHandler.init(moduleName, mixTransactionManager, hbaseClient, hiveClient, clickHouseClient, null, globalConfig, "", "")
+          dwrHandlers.add(counterHandler)
+        }
+
+        val dwrPersistHandler = new HiveDWRPersistHandlerV2()
+        dwrPersistHandler.init(moduleName, mixTransactionManager, hbaseClient, hiveClient, clickHouseClient, null, globalConfig, "", "")
+        dwrHandlers.add(dwrPersistHandler)
+      }
+
+      var enableDwrAccDay = false
+      runInTry{enableDwrAccDay = globalConfig.getBoolean(s"modules.$moduleName.dwr.acc.day.enable")}
+      if (enableDwrAccDay) {
+        val dwrPersistDayHandler = new HiveDWRPersistDayHandler()
+        dwrPersistDayHandler.init(moduleName, mixTransactionManager, hbaseClient, hiveClient, clickHouseClient, null, globalConfig, "", "")
+        dwrHandlers.add(dwrPersistDayHandler)
+      }
+
+      var enableDwrAccMonth = false
+      runInTry{enableDwrAccMonth = globalConfig.getBoolean(s"modules.$moduleName.dwr.acc.month.enable")}
+      if (enableDwrAccMonth) {
+        val dwrPersistMonthHandler = new HiveDWRPersistMonthHandler()
+        dwrPersistMonthHandler.init(moduleName, mixTransactionManager, hbaseClient, hiveClient, clickHouseClient, null, globalConfig, "", "")
+        dwrHandlers.add(dwrPersistMonthHandler)
+      }
+      try {
+        globalConfig.getConfigList(s"modules.$moduleName.dwr.handler").foreach { x =>
+          val hc = x
+          val h = Class.forName(hc.getString("class")).newInstance().asInstanceOf[com.mobikok.ssp.data.streaming.handler.dwr.Handler]
+          val expr = if (x.hasPath("expr")) x.getString("expr") else ""
+          val as = if (x.hasPath("as")) x.getString("as") else ""
+          h.init(moduleName, mixTransactionManager, hbaseClient, hiveClient, clickHouseClient, hc, globalConfig, expr, as)
+          dwrHandlers.add(h)
+        }
+      } catch {
+        case e: Exception => LOG.warn(s"Dwr init error, exception: ${e.getMessage}")
+      }
+//    }
   }
 
   @volatile var hiveCleanable, clickHouseCleanable, hbaseCleanable, kafkaCleanable, phoenixCleanable: Cleanable = _
@@ -490,22 +511,28 @@ class PluggableModule(globalConfig: Config,
 //      GlobalAppRunningStatusV2.setStatus(concurrentGroup, moduleName, GlobalAppRunningStatusV2.STATUS_IDLE)
 
       hiveClient.init()
-      tryCreateTableForVersionFeatures()
-
       if (hbaseClient != null) hbaseClient.init()
       kafkaClient.init()
       phoenixClient.init()
 //      mysqlClient.init()
       clickHouseClient.init()
 
-      initDwiHandlers()
+      tryCreateTableForVersionFeatures()
 
-      hiveCleanable = hiveClient.rollback()
-//      mysqlCleanable = mysqlClient.rollback()
-      if (hbaseClient != null) hbaseCleanable = hbaseClient.rollback()
-      kafkaCleanable = kafkaClient.rollback()
-      phoenixCleanable = phoenixClient.rollback()
-      clickHouseCleanable = clickHouseClient.rollback()
+      initDwiHandlers()
+      initDwrHandlers()
+
+      val rollback = argsConfig.get(ArgsConfig.ROLLBACK, Value.ROLLBACK_TRUE)
+      if(Value.ROLLBACK_TRUE.equals(rollback)) {
+        hiveCleanable = hiveClient.rollback()
+  //      mysqlCleanable = mysqlClient.rollback()
+        if (hbaseClient != null) hbaseCleanable = hbaseClient.rollback()
+        kafkaCleanable = kafkaClient.rollback()
+        phoenixCleanable = phoenixClient.rollback()
+        clickHouseCleanable = clickHouseClient.rollback()
+      }else {
+        LOG.warn("ArgsConfig parameter configuration do not rollback ")
+      }
 
       mySqlJDBCClientV2.execute(
         s"""
@@ -726,9 +753,9 @@ class PluggableModule(globalConfig: Config,
                   asyncHandlers.addAll(dwiHandlers.filter{ h => h.isAsynchronous })
                 }
                 if (dwrHandlers != null && dwrHandlers.nonEmpty) {
-                  if (!isMaster) {
-                    throw new ModuleException("Module of include 'dwr.handler' must config: master=true")
-                  }
+//                  if (!isMaster) {
+//                    throw new ModuleException("Module of include 'dwr.handler' must config: master=true")
+//                  }
                   LOG.warn("dwr handlers", dwrHandlers.map{ h => h.getClass.getName})
                   asyncHandlers.addAll(dwrHandlers.filter{ h => h.isAsynchronous })
                 }
@@ -781,10 +808,11 @@ class PluggableModule(globalConfig: Config,
                 //-----------------------------------------------------------------------------------------------------------------
                 var dwrDwi = handledDwi
                 if (isEnableDwr && dwrHandlers != null && dwrHandlers.nonEmpty) {
-                  if (!isMaster) {
-                    throw new ModuleException("Module of include 'dwr.handler' must config: master=true")
-                  }
-                  dwrHandlers.filter( h => !h.isAsynchronous).foreach { h =>
+//                  if (!isMaster) {
+//                    throw new ModuleException("Module of include 'dwr.handler' must config: master=true")
+//                  }
+                  // 同步和异步的handler预处理
+                  dwrHandlers/*.filter( h => !h.isAsynchronous)*/.foreach { h =>
                     moduleTracer.trace(s"dwr ${h.getClass.getSimpleName} prepare start")
                     dwrDwi = h.prepare(dwrDwi)
                     moduleTracer.trace(s"dwr ${h.getClass.getSimpleName} prepare done")
@@ -814,16 +842,18 @@ class PluggableModule(globalConfig: Config,
                 //  DWR handle
                 //-----------------------------------------------------------------------------------------------------------------
                 if (isEnableDwr && dwrHandlers != null && dwrHandlers.nonEmpty) {
-                  if (!isMaster) {
-                    LOG.warn(dwrHandlers.head.getClass.getName)
-                    throw new ModuleException("Module of include 'dwr.handler' must config: master=true")
-                  }
-                  dwrHandlers.filter{ h => !h.isAsynchronous }.foreach{ h =>
-                    moduleTracer.trace(s"dwr ${h.getClass.getSimpleName} handle start")
-                    mixModulesBatchController.set({
-                      h.handle(mixModulesBatchController.get())
-                    })
-                    moduleTracer.trace(s"dwr ${h.getClass.getSimpleName} handle done")
+//                  if (!isMaster) {
+//                    LOG.warn(dwrHandlers.head.getClass.getName)
+//                    throw new ModuleException("Module of include 'dwr.handler' must config: master=true")
+//                  }
+                  if(isMaster) {
+                    dwrHandlers.filter{ h => !h.isAsynchronous }.foreach{ h =>
+                      moduleTracer.trace(s"dwr ${h.getClass.getSimpleName} handle start")
+                      mixModulesBatchController.set({
+                        h.handle(mixModulesBatchController.get())
+                      })
+                      moduleTracer.trace(s"dwr ${h.getClass.getSimpleName} handle done")
+                    }
                   }
                 }
 
@@ -896,91 +926,97 @@ class PluggableModule(globalConfig: Config,
                       }
                     case dwrHandler: com.mobikok.ssp.data.streaming.handler.dwr.Handler =>
                       asyncWorker.run {
-                        val n = dwrHandler.getClass.getSimpleName
-                        try {
-                          moduleTracer.startBatch(order, parentTid, pTheadId, "    ")
+                        if(isMaster) {
+                          val n = dwrHandler.getClass.getSimpleName
+                          try {
+                            moduleTracer.startBatch(order, parentTid, pTheadId, "    ")
 
-                          // handle
-                          LOG.warn(s"dwr async ${n} handle start")
-                          moduleTracer.trace(s"dwr async ${n} handle start")
-                          dwrHandler.handle(mixModulesBatchController.get())
-                          moduleTracer.trace(s"dwr async ${n} handle done")
-                          LOG.warn(s"dwr async ${n} handle done")
+                            // handle
+                            LOG.warn(s"dwr async ${n} handle start")
+                            moduleTracer.trace(s"dwr async ${n} handle start")
+                            dwrHandler.handle(mixModulesBatchController.get())
+                            moduleTracer.trace(s"dwr async ${n} handle done")
+                            LOG.warn(s"dwr async ${n} handle done")
 
-                          // commit
-                          if(dwrHandler.isInstanceOf[Transactional]){
-                            LOG.warn(s"dwr async ${n} commit start")
-                            moduleTracer.trace(s"dwr async ${n} commit start")
-                            dwrHandler.asInstanceOf[Transactional].commit(null)
-                            moduleTracer.trace(s"dwr async ${n} commit done")
-                            LOG.warn(s"dwr async ${n} commit done")
-                          }
+                            // commit
+                            if(dwrHandler.isInstanceOf[Transactional]){
+                              LOG.warn(s"dwr async ${n} commit start")
+                              moduleTracer.trace(s"dwr async ${n} commit start")
+                              dwrHandler.asInstanceOf[Transactional].commit(null)
+                              moduleTracer.trace(s"dwr async ${n} commit done")
+                              LOG.warn(s"dwr async ${n} commit done")
+                            }
 
-//                          asyncHandlersCountDownLatch.countDown()
-                        } catch {
-                          case e: Exception => {
-                            LOG.warn("DWR asynchronous handle error", "handler", n, "exception", e)
-                            throw e
+  //                          asyncHandlersCountDownLatch.countDown()
+                          } catch {
+                            case e: Exception => {
+                              LOG.warn("DWR asynchronous handle error", "handler", n, "exception", e)
+                              throw e
+                            }
                           }
                         }
                       }
                     case dmOnlineHandler: com.mobikok.ssp.data.streaming.handler.dm.online.Handler =>
                       asyncWorker.run {
-                        val n = dmOnlineHandler.getClass.getSimpleName
-                        try {
-                          moduleTracer.startBatch(order, parentTid, pTheadId, "    ")
+                        if(isMaster) {
+                          val n = dmOnlineHandler.getClass.getSimpleName
+                          try {
+                            moduleTracer.startBatch(order, parentTid, pTheadId, "    ")
 
-                          // handle
-                          LOG.warn(s"dm online async ${n} handle start")
-                          moduleTracer.trace(s"dm online async ${n} handle start")
-                          dmOnlineHandler.handle(mixModulesBatchController.get())
-                          moduleTracer.trace(s"dm online async ${n} handle done")
-                          LOG.warn(s"dm online async ${n} handle done")
+                            // handle
+                            LOG.warn(s"dm online async ${n} handle start")
+                            moduleTracer.trace(s"dm online async ${n} handle start")
+                            dmOnlineHandler.handle(mixModulesBatchController.get())
+                            moduleTracer.trace(s"dm online async ${n} handle done")
+                            LOG.warn(s"dm online async ${n} handle done")
 
-                          // commit
-                          if(dmOnlineHandler.isInstanceOf[Transactional]){
-                            LOG.warn(s"dm online async ${n} commit start")
-                            moduleTracer.trace(s"dm online async ${n} commit start")
-                            dmOnlineHandler.asInstanceOf[Transactional].commit(null)
-                            moduleTracer.trace(s"dm online async ${n} commit done")
-                            LOG.warn(s"dm online async ${n} commit done")
-                          }
+                            // commit
+                            if(dmOnlineHandler.isInstanceOf[Transactional]){
+                              LOG.warn(s"dm online async ${n} commit start")
+                              moduleTracer.trace(s"dm online async ${n} commit start")
+                              dmOnlineHandler.asInstanceOf[Transactional].commit(null)
+                              moduleTracer.trace(s"dm online async ${n} commit done")
+                              LOG.warn(s"dm online async ${n} commit done")
+                            }
 
-//                          asyncHandlersCountDownLatch.countDown()
-                        } catch {
-                          case e: Exception => {
-                            LOG.warn(s"DM online asynchronous handle error", "handler", n, "exception", e)
-                            throw e
+  //                          asyncHandlersCountDownLatch.countDown()
+                          } catch {
+                            case e: Exception => {
+                              LOG.warn(s"DM online asynchronous handle error", "handler", n, "exception", e)
+                              throw e
+                            }
                           }
                         }
                       }
                     case dmOfflineHandler: com.mobikok.ssp.data.streaming.handler.dm.offline.Handler =>
                       asyncWorker.run {
-                        val n = dmOfflineHandler.getClass.getSimpleName
-                        try {
-                          moduleTracer.startBatch(order, parentTid, pTheadId, "    ")
+                        if(isMaster) {
+                          val n = dmOfflineHandler.getClass.getSimpleName
+                          try {
+                            moduleTracer.startBatch(order, parentTid, pTheadId, "    ")
 
-                          // handle
-                          LOG.warn(s"dm offline async handle start", n)
-                          moduleTracer.trace(s"dm offline async ${n} handle start")
-                          dmOfflineHandler.handle()
-                          moduleTracer.trace(s"dm offline async ${n} handle done")
-                          LOG.warn(s"dm offline async handle done", n)
+                            // handle
+                            LOG.warn(s"dm offline async handle start", n)
+                            moduleTracer.trace(s"dm offline async ${n} handle start")
+                            dmOfflineHandler.handle()
+                            moduleTracer.trace(s"dm offline async ${n} handle done")
+                            LOG.warn(s"dm offline async handle done", n)
 
-                          // commit
-                          if(dmOfflineHandler.isInstanceOf[Transactional]){
-                            LOG.warn(s"dm offline async ${n} commit start")
-                            moduleTracer.trace(s"dm offline async ${n} commit start")
-                            dmOfflineHandler.asInstanceOf[Transactional].commit(null)
-                            moduleTracer.trace(s"dm offline ${n} commit done")
-                            LOG.warn(s"dm offline async ${n} commit start")
-                          }
+                            // commit
+                            if(dmOfflineHandler.isInstanceOf[Transactional]){
+                              LOG.warn(s"dm offline async ${n} commit start")
+                              moduleTracer.trace(s"dm offline async ${n} commit start")
+                              dmOfflineHandler.asInstanceOf[Transactional].commit(null)
+                              moduleTracer.trace(s"dm offline ${n} commit done")
+                              LOG.warn(s"dm offline async ${n} commit start")
+                            }
 
-//                          asyncHandlersCountDownLatch.countDown()
-                        } catch {
-                          case e: Exception => {
-                            LOG.warn("dm offline asynchronous handle error", "handler", n, "exception", e)
-                            throw e
+  //                          asyncHandlersCountDownLatch.countDown()
+                          } catch {
+                            case e: Exception => {
+                              LOG.warn("dm offline asynchronous handle error", "handler", n, "exception", e)
+                              throw e
+                            }
                           }
                         }
                       }
@@ -1036,7 +1072,7 @@ class PluggableModule(globalConfig: Config,
                       moduleTracer.trace(s"dwi ${h.getClass.getSimpleName} commit done")
                     }
                 }
-                if (dwrHandlers != null) {
+                if (isMaster && dwrHandlers != null) {
                   dwrHandlers
                     .filter{ x => x.isInstanceOf[Transactional] && !x.isAsynchronous }
                     .foreach{ h =>
@@ -1306,7 +1342,7 @@ class PluggableModule(globalConfig: Config,
     val v = argsConfig.get(ArgsConfig.VERSION, ArgsConfig.Value.VERSION_DEFAULT)
     if(!ArgsConfig.Value.VERSION_DEFAULT.equals(v)) {
       val vSuffix = s"_v${v}"
-      LOG.warn("Version", v)
+      LOG.warn("Table major version", v)
       if(StringUtil.notEmpty(dwiTable)) {
         hiveClient.createTableIfNotExists(dwiTable, dwiTable.substring(0, dwiTable.length - vSuffix.length))
 //        clickHouseClient.createTableIfNotExists(dwiTable, dwiTable.substring(0, dwiTable.length - vSuffix.length))
@@ -1314,7 +1350,7 @@ class PluggableModule(globalConfig: Config,
 //        clickHouseClient.createTableIfNotExists(dwiTable + "_for_select", dwiTable)
 //        clickHouseClient.createTableWithEngineIfNotExists(dwiTable + "_for_select_all", dwiTable + "_for_select")
       }
-      if(StringUtil.notEmpty(dwrTable) && isMaster){
+      if(StringUtil.notEmpty(dwrTable) /*&& isMaster*/){
         hiveClient.createTableIfNotExists(dwrTable, dwrTable.substring(0, dwrTable.length - vSuffix.length))
 //        clickHouseClient.createTableIfNotExists(dwiTable, dwiTable.substring(0, dwiTable.length - vSuffix.length))
 //        clickHouseClient.createTableWithEngineIfNotExists(dwiTable + "_all", dwiTable)

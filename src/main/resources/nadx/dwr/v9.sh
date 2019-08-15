@@ -1,6 +1,6 @@
 ### BundleData
 spark-submit \
---name nadx_dwr_v9 \
+--name adx_dwr_v9 \
 --class com.mobikok.ssp.data.streaming.OptimizedMixApp \
 --master yarn-cluster \
 --driver-memory 7g \
@@ -34,5 +34,5 @@ hdfs:/libs/config-1.3.1.jar \
 --conf spark.yarn.executor.memoryOverhead=2g  \
 /apps/data-streaming/nadx/dwr/data-streaming.jar \
 dwr.conf buration = 150 kill=true modules = dwr_traffic,dwr_performance version=9 \
-ex=site_domain,publisher_id,adomain,crid
-#offset=latest
+ex=adomain,crid rate=3000000  \
+offset=latest

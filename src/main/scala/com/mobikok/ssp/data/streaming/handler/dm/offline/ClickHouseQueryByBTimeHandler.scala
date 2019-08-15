@@ -6,9 +6,9 @@ import com.fasterxml.jackson.core.`type`.TypeReference
 import com.mobikok.message.{MessageConsumerCommitReq, MessagePullReq, MessagePushReq}
 import com.mobikok.message.client.MessageClient
 import com.mobikok.ssp.data.streaming.client._
-import com.mobikok.ssp.data.streaming.config.RDBConfig
+import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
-import com.mobikok.ssp.data.streaming.util.{CSTTime, OM, RunAgainIfError, StringUtil}
+import com.mobikok.ssp.data.streaming.util._
 import com.typesafe.config.Config
 import org.apache.spark.sql.hive.HiveContext
 
@@ -19,8 +19,8 @@ class ClickHouseQueryByBTimeHandler extends Handler {
   //view, consumer, topics
   private var viewConsumerTopics = null.asInstanceOf[Array[(String, String, String, String, Array[String],Boolean)]]
 
-  override def init(moduleName: String, bigQueryClient: BigQueryClient, greenplumClient: GreenplumClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext, handlerConfig: Config): Unit = {
-    super.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient, kylinClientV2, hbaseClient, hiveContext, handlerConfig)
+  override def init(moduleName: String, bigQueryClient: BigQueryClient, greenplumClient: GreenplumClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config): Unit = {
+    super.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient, kylinClientV2, hbaseClient, hiveContext, argsConfig, handlerConfig)
 
     viewConsumerTopics = handlerConfig.getObjectList("items").map { item =>
       val config = item.toConfig
@@ -33,13 +33,19 @@ class ClickHouseQueryByBTimeHandler extends Handler {
 //      LOG.warn("consumer topic", s"($view, $consumer, $topic)")
       (hiveView, ckTable, minBtExpr, consumer, topics,isDay)
     }.toArray
+
+    viewConsumerTopics.foreach{case(_, _, _, consumer, topics,_)=>
+      if(ArgsConfig.Value.OFFSET_LATEST.equals(argsConfig.get(ArgsConfig.OFFSET))){
+        MC.setLastestOffset(consumer, topics)
+      }
+    }
   }
 
   override def handle(): Unit = {
 
     LOG.warn("ClickHouseBTimeHandler handler starting")
     RunAgainIfError.run {
-      viewConsumerTopics.foreach { case(hiveView, ckTable, minBtExpr, consumer, topics, isDay) =>
+      viewConsumerTopics.par.foreach { case(hiveView, ckTable, minBtExpr, consumer, topics, isDay) =>
         val pageData = messageClient
           .pullMessage(new MessagePullReq(consumer, topics))
           .getPageData

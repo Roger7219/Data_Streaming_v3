@@ -41,6 +41,7 @@ object OptimizedMixApp {
   var appName: String = null
   var appId: String = null
   var version: String = null
+  var kafkaTopicVersion: String = null
 
   var dwiLoadTimeFormat = CSTTime.formatter("yyyy-MM-dd HH:00:00")
   var dwrLoadTimeFormat = CSTTime.formatter("yyyy-MM-dd 00:00:00")
@@ -67,8 +68,9 @@ object OptimizedMixApp {
 
         argsConfig = new ArgsConfig().init(args.tail)
         version = argsConfig.get(ArgsConfig.VERSION, ArgsConfig.Value.VERSION_DEFAULT)
+        kafkaTopicVersion = argsConfig.get(ArgsConfig.VERSION_TOPIC, version)
 
-        if(!ArgsConfig.Value.VERSION_DEFAULT.equals(version) && !appName.endsWith(s"v$version")) throw new IllegalArgumentException(s"App name suffix must be: v$version, App name suggests: ${appName}_v${version}")
+        if(!ArgsConfig.Value.VERSION_DEFAULT.equals(version) && !appName.endsWith(s"v$version")) throw new IllegalArgumentException(s"App name suffix must be: v$version, Suggests app name: ${appName}_v${version}")
 
         LOG.warn("\nParsed ArgsConfig: \n" + argsConfig.toString)
 
@@ -340,20 +342,20 @@ object OptimizedMixApp {
               s"modules.${vName}.dwr.table",
               ConfigValueFactory.fromAnyRef(versionFeaturesTableName(version,  allModulesConfig.getValue(s"modules.${x._1}.dwr.table").unwrapped().toString)))
 
-          // 给kafka partitions中的topic加上对应的version信息
-          var vTps = allModulesConfig
-            .getConfigList(s"modules.${vName}.kafka.consumer.partitoins")
-            .map{y=>
-              var tp = new java.util.HashMap[String, Any]()
-              tp.put("topic", versionFeaturesKafkaTopicName(version, y.getString("topic")))
-              if(y.hasPath("partition")) tp.put("partition", y.getInt("partition"))
-              tp
-            }
-          allModulesConfig = allModulesConfig.withValue(s"modules.${vName}.kafka.consumer.partitoins", ConfigValueFactory.fromIterable(vTps))
-
           // 清理
           allModulesConfig = allModulesConfig.withoutPath(s"modules.${name}")
         }
+
+        // 给kafka partitions中的topic加上对应的version信息
+        var vTps = allModulesConfig
+          .getConfigList(s"modules.${vName}.kafka.consumer.partitoins")
+          .map{y=>
+            var tp = new java.util.HashMap[String, Any]()
+            tp.put("topic", versionFeaturesKafkaTopicName(kafkaTopicVersion, y.getString("topic")))
+            if(y.hasPath("partition")) tp.put("partition", y.getInt("partition"))
+            tp
+          }
+        allModulesConfig = allModulesConfig.withValue(s"modules.${vName}.kafka.consumer.partitoins", ConfigValueFactory.fromIterable(vTps))
 
         // 读取kafka服务器，获取tipic对应的partition并补全配置
         var tps = allModulesConfig
@@ -384,12 +386,17 @@ object OptimizedMixApp {
               .getConfigList(s"modules.${vName}.dwr.groupby.fields")
               .map{y=>
                 var filed = new java.util.HashMap[String, String]()
+                // 复制字段
+                y.root().foreach{case(key, value)=>
+                  filed.put(key, value.unwrapped().toString)
+                }
+                // 重置字段值
                 if(exDims.contains(y.getString("as"))){
                   filed.put("expr", "null")
                 }else{
                   filed.put("expr", y.getString("expr"))
                 }
-                filed.put("as", y.getString("as"))
+//                filed.put("as", y.getString("as"))
                 filed
               }
             allModulesConfig = allModulesConfig.withValue(s"modules.${vName}.dwr.groupby.fields", ConfigValueFactory.fromIterable(fields))
@@ -473,7 +480,7 @@ object OptimizedMixApp {
           allModulesConfig.getList(s"modules.${x._1}.kafka.consumer.partitoins").size()
         }.max*/
 
-        val maxRatePerPartition = Integer.valueOf(argsConfig.get(ArgsConfig.RATE))/Integer.valueOf(argsConfig.get(ArgsConfig.STREAMING_BATCH_BURATION))/partitionNum
+        val maxRatePerPartition = Math.ceil(java.lang.Double.valueOf(argsConfig.get(ArgsConfig.RATE))/Integer.valueOf(argsConfig.get(ArgsConfig.STREAMING_BATCH_BURATION))/partitionNum).toInt
 
         LOG.warn("reset maxRatePerPartition ", "partitionNum ",partitionNum, "maxRatePerPartition ", maxRatePerPartition)
         allModulesConfig = allModulesConfig.withValue("spark.conf.set.spark.streaming.kafka.maxRatePerPartition", ConfigValueFactory.fromAnyRef(maxRatePerPartition))
@@ -539,8 +546,8 @@ object OptimizedMixApp {
     return if(ArgsConfig.Value.VERSION_DEFAULT.equals(version)) table else s"${table}_v${version}".trim
   }
 
-  def versionFeaturesKafkaTopicName(version: String, kafkaTopic: String): String = {
-    return if(ArgsConfig.Value.VERSION_DEFAULT.equals(version)) kafkaTopic else s"${kafkaTopic}_v${version}".trim
+  def versionFeaturesKafkaTopicName(kafkaTopicVersion: String, kafkaTopic: String): String = {
+    return if(ArgsConfig.Value.VERSION_DEFAULT.equals(kafkaTopicVersion)) kafkaTopic else s"${kafkaTopic}_v${kafkaTopicVersion}".trim
   }
 
  //hasSparkStreaming
@@ -548,21 +555,10 @@ object OptimizedMixApp {
 
     var streamingModuleNum = 0
     allModulesConfig.getConfig("modules").root().map { case (moduleName, _) =>
-
-      streamingModuleNum += allModulesConfig.getConfigList(s"modules.$moduleName.kafka.consumer.partitoins")/*.filter { x =>
-
-//        LOG.warn("hasSparkStreaming",  "topic", x.getString("topic"))
-        !"topic_empty".equals(x.getString("topic"))
-
-      }*/.size
-
-//      if(!"topic_empty".equals(config.getString(s"modules.$moduleName.kafka.consumer.partitoins.topic"))){
-//        return true
-//      }
-
+      streamingModuleNum += (if(allModulesConfig.hasPath(s"modules.$moduleName.kafka.consumer")) 1 else 0)
     }
 
-    LOG.warn("hasSparkStreaming",  "streamingModuleNum", streamingModuleNum)
+    LOG.warn("Spark streaming module count: " + streamingModuleNum)
 
     streamingModuleNum > 0
   }

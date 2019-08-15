@@ -5,7 +5,7 @@ import java.util.Date
 
 import com.mobikok.message.client.MessageClient
 import com.mobikok.ssp.data.streaming.client._
-import com.mobikok.ssp.data.streaming.config.RDBConfig
+import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.util._
 import com.typesafe.config.Config
 import org.apache.spark.sql.functions._
@@ -31,8 +31,8 @@ class CampaignHandler extends Handler{
   val TOADY_NEED_INIT_CER = "CampaignHandler_ToadyNeedInit_cer"
   val TOADY_NEED_INIT_TOPIC = "CampaignHandler_ToadyNeedInit_topic"
 
-  override def init (moduleName: String, bigQueryClient: BigQueryClient, greenplumClient:GreenplumClient, rDBConfig:RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext, handlerConfig: Config): Unit = {
-    super.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient, kylinClientV2, hbaseClient, hiveContext, handlerConfig)
+  override def init (moduleName: String, bigQueryClient: BigQueryClient, greenplumClient:GreenplumClient, rDBConfig:RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext,argsConfig: ArgsConfig,  handlerConfig: Config): Unit = {
+    super.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient, kylinClientV2, hbaseClient, hiveContext, argsConfig, handlerConfig)
 
     monthDmTable = "ssp_report_overall_dm_month" //"ssp_report_campaign_month_dm"//handlerConfig.getString("dwr.daily.table")
     dayDmTable = "ssp_report_overall_dm_day" //"`ssp_report_campaign_dm"//handlerConfig.getString("dwr.daily.table")

@@ -5,7 +5,7 @@ import java.util.Date
 
 import com.mobikok.message.client.MessageClient
 import com.mobikok.ssp.data.streaming.client._
-import com.mobikok.ssp.data.streaming.config.RDBConfig
+import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.exception.HandlerException
 import com.mobikok.ssp.data.streaming.util.{CSTTime, Logger, MySqlJDBCClient}
 import com.typesafe.config.Config
@@ -26,9 +26,9 @@ class ALSHandler extends Handler {
 
   val seqTimeFormat = CSTTime.formatter("yyyyMMdd_HHmmss_SSS")//new SimpleDateFormat("yyyyMMdd_HHmmss_SSS")
 
-  override def init (moduleName: String, bigQueryClient: BigQueryClient, greenplumClient:GreenplumClient, rDBConfig:RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext, handlerConfig: Config): Unit = {
+  override def init (moduleName: String, bigQueryClient: BigQueryClient, greenplumClient:GreenplumClient, rDBConfig:RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config): Unit = {
 
-    super.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient: KafkaClient, messageClient, kylinClientV2, hbaseClient, hiveContext, handlerConfig)
+    super.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient: KafkaClient, messageClient, kylinClientV2, hbaseClient, hiveContext, argsConfig, handlerConfig)
     dwrTable = handlerConfig.getString("dwr.table")
     modelOutputDir = handlerConfig.getString("model.output.dir")
   }

@@ -156,6 +156,49 @@ ALTER TABLE nadx_overall_dm_v9_all add column media_type Nullable(String);
 ALTER TABLE nadx_overall_dm_v9_for_select add column media_type Nullable(String);
 ALTER TABLE nadx_overall_dm_v9_for_select_all add column media_type Nullable(String);
 
+-- 2019-07-10
+ALTER TABLE nadx_overall_dm add column raterType Nullable(String);
+ALTER TABLE nadx_overall_dm_all add column raterType Nullable(String);
+ALTER TABLE nadx_overall_dm_for_select add column raterType Nullable(String);
+ALTER TABLE nadx_overall_dm_for_select_all add column raterType Nullable(String);
+
+ALTER TABLE nadx_overall_dm add column raterId Nullable(String);
+ALTER TABLE nadx_overall_dm_all add column raterId Nullable(String);
+ALTER TABLE nadx_overall_dm_for_select add column raterId Nullable(String);
+ALTER TABLE nadx_overall_dm_for_select_all add column raterId Nullable(String);
+
+ALTER TABLE nadx_overall_dm add column adomain Nullable(String);
+ALTER TABLE nadx_overall_dm_all add column adomain Nullable(String);
+ALTER TABLE nadx_overall_dm_for_select add column adomain Nullable(String);
+ALTER TABLE nadx_overall_dm_for_select_all add column adomain Nullable(String);
+
+ALTER TABLE nadx_overall_dm add column crid Nullable(String);
+ALTER TABLE nadx_overall_dm_all add column crid Nullable(String);
+ALTER TABLE nadx_overall_dm_for_select add column crid Nullable(String);
+ALTER TABLE nadx_overall_dm_for_select_all add column crid Nullable(String);
+
+-- bidfloor应该是double类型啊！
+ALTER TABLE nadx_overall_dm add column bidfloor Nullable(String);
+ALTER TABLE nadx_overall_dm_all add column bidfloor Nullable(String);
+ALTER TABLE nadx_overall_dm_for_select add column bidfloor Nullable(String);
+ALTER TABLE nadx_overall_dm_for_select_all add column bidfloor Nullable(String);
+
+ALTER TABLE nadx_overall_dm add column rater_type Nullable(String);
+ALTER TABLE nadx_overall_dm_all add column rater_type Nullable(String);
+ALTER TABLE nadx_overall_dm_for_select add column rater_type Nullable(String);
+ALTER TABLE nadx_overall_dm_for_select_all add column rater_type Nullable(String);
+
+ALTER TABLE nadx_overall_dm add column rater_id Nullable(String);
+ALTER TABLE nadx_overall_dm_all add column rater_id Nullable(String);
+ALTER TABLE nadx_overall_dm_for_select add column rater_id Nullable(String);
+ALTER TABLE nadx_overall_dm_for_select_all add column rater_id Nullable(String);
+
+ALTER TABLE nadx_overall_dm add column media_type Nullable(String);
+ALTER TABLE nadx_overall_dm_all add column media_type Nullable(String);
+ALTER TABLE nadx_overall_dm_for_select add column media_type Nullable(String);
+ALTER TABLE nadx_overall_dm_for_select_all add column media_type Nullable(String);
+
+
 ------2019-04-20 新增审核送检数据表
 CREATE TABLE nadx_overall_audit_dm (
   demand_id                         Int32 DEFAULT CAST(0 AS Int32),
@@ -182,12 +225,82 @@ CREATE TABLE nadx_overall_dm_v9_all AS nadx_overall_dm_v9 ENGINE = Distributed(b
 CREATE TABLE nadx_overall_dm_v9_for_select AS nadx_overall_dm_v9;
 CREATE TABLE nadx_overall_dm_v9_for_select_all AS nadx_overall_dm_v9_for_select ENGINE = Distributed(bip_ck_cluster, default, nadx_overall_dm_v9_for_select, rand());
 
-CREATE TABLE nadx_overall_dm_v8 AS nadx_overall_dm;
-CREATE TABLE nadx_overall_dm_v8_all AS nadx_overall_dm_v8 ENGINE = Distributed(bip_ck_cluster, default, nadx_overall_dm_v8, rand());
-CREATE TABLE nadx_overall_dm_v8_for_select AS nadx_overall_dm_v8;
-CREATE TABLE nadx_overall_dm_v8_for_select_all AS nadx_overall_dm_v8_for_select ENGINE = Distributed(bip_ck_cluster, default, nadx_overall_dm_v8_for_select, rand());
+DROP TABLE nadx_overall_dm_v1;
+DROP TABLE nadx_overall_dm_v1_all;
+DROP TABLE nadx_overall_dm_v1_for_select;
+DROP TABLE nadx_overall_dm_v1_for_select_all;
+CREATE TABLE nadx_overall_dm_v1 AS nadx_overall_dm;
+CREATE TABLE nadx_overall_dm_v1_all AS nadx_overall_dm_v1 ENGINE = Distributed(bip_ck_cluster, default, nadx_overall_dm_v1, rand());
+CREATE TABLE nadx_overall_dm_v1_for_select AS nadx_overall_dm_v1;
+CREATE TABLE nadx_overall_dm_v1_for_select_all AS nadx_overall_dm_v1_for_select ENGINE = Distributed(bip_ck_cluster, default, nadx_overall_dm_v1_for_select, rand());
 
 CREATE TABLE nadx_overall_dm_day AS nadx_overall_dm;
 CREATE TABLE nadx_overall_dm_day_all AS nadx_overall_dm_day ENGINE = Distributed(bip_ck_cluster, default, nadx_overall_dm_day, rand());
 CREATE TABLE nadx_overall_dm_day_for_select AS nadx_overall_dm_day;
 CREATE TABLE nadx_overall_dm_day_for_select_all AS nadx_overall_dm_day_for_select ENGINE = Distributed(bip_ck_cluster, default, nadx_overall_dm_day_for_select, rand());
+
+-- 2019-07-23
+ALTER TABLE nadx_overall_dm_v9                add column app_or_site_id Nullable(String);
+ALTER TABLE nadx_overall_dm_v9_all            add column app_or_site_id Nullable(String);
+ALTER TABLE nadx_overall_dm_v9_for_select     add column app_or_site_id Nullable(String);
+ALTER TABLE nadx_overall_dm_v9_for_select_all add column app_or_site_id Nullable(String);
+
+ALTER TABLE nadx_overall_dm_v9                add column bundle_or_domain Nullable(String);
+ALTER TABLE nadx_overall_dm_v9_all            add column bundle_or_domain Nullable(String);
+ALTER TABLE nadx_overall_dm_v9_for_select     add column bundle_or_domain Nullable(String);
+ALTER TABLE nadx_overall_dm_v9_for_select_all add column bundle_or_domain Nullable(String);
+
+
+
+----------------------------------------------------------
+-- 标准建表语句
+CREATE TABLE nadx_overall_dm_v6_1 AS nadx_overall_dm_v9;
+CREATE TABLE nadx_overall_dm_v6_1_all AS nadx_overall_dm_v6_1 ENGINE = Distributed(bip_ck_cluster, default, nadx_overall_dm_v6_1, rand());
+CREATE TABLE nadx_overall_dm_v6_1_for_select AS nadx_overall_dm_v9;
+CREATE TABLE nadx_overall_dm_v6_1_for_select_all AS nadx_overall_dm_v6_1 ENGINE = Distributed(bip_ck_cluster, default, nadx_overall_dm_v6_1_for_select, rand());
+
+
+CREATE TABLE nadx_overall_dm_v6_2 AS nadx_overall_dm_v9;
+CREATE TABLE nadx_overall_dm_v6_2_all AS nadx_overall_dm_v6_2 ENGINE = Distributed(bip_ck_cluster, default, nadx_overall_dm_v6_2, rand());
+CREATE TABLE nadx_overall_dm_v6_2_for_select AS nadx_overall_dm_v9;
+CREATE TABLE nadx_overall_dm_v6_2_for_select_all AS nadx_overall_dm_v6_2 ENGINE = Distributed(bip_ck_cluster, default, nadx_overall_dm_v6_2_for_select, rand());
+
+
+CREATE TABLE nadx_overall_dm_v6_3 AS nadx_overall_dm_v9;
+CREATE TABLE nadx_overall_dm_v6_3_all AS nadx_overall_dm_v6_3 ENGINE = Distributed(bip_ck_cluster, default, nadx_overall_dm_v6_3, rand());
+CREATE TABLE nadx_overall_dm_v6_3_for_select AS nadx_overall_dm_v9;
+CREATE TABLE nadx_overall_dm_v6_3_for_select_all AS nadx_overall_dm_v6_3 ENGINE = Distributed(bip_ck_cluster, default, nadx_overall_dm_v6_3_for_select, rand());
+
+
+-- 2019-08-06
+ALTER TABLE nadx_overall_dm                add column app_or_site_id Nullable(String);
+ALTER TABLE nadx_overall_dm_all            add column app_or_site_id Nullable(String);
+ALTER TABLE nadx_overall_dm_for_select     add column app_or_site_id Nullable(String);
+ALTER TABLE nadx_overall_dm_for_select_all add column app_or_site_id Nullable(String);
+
+ALTER TABLE nadx_overall_dm                add column bundle_or_domain Nullable(String);
+ALTER TABLE nadx_overall_dm_all            add column bundle_or_domain Nullable(String);
+ALTER TABLE nadx_overall_dm_for_select     add column bundle_or_domain Nullable(String);
+ALTER TABLE nadx_overall_dm_for_select_all add column bundle_or_domain Nullable(String);
+
+
+-- 2019-08-13
+ALTER TABLE nadx_overall_dm                add column cid Nullable(String);
+ALTER TABLE nadx_overall_dm_all            add column cid Nullable(String);
+ALTER TABLE nadx_overall_dm_for_select     add column cid Nullable(String);
+ALTER TABLE nadx_overall_dm_for_select_all add column cid Nullable(String);
+
+ALTER TABLE nadx_overall_dm_v6_1                add column cid Nullable(String);
+ALTER TABLE nadx_overall_dm_v6_1_all            add column cid Nullable(String);
+ALTER TABLE nadx_overall_dm_v6_1_for_select     add column cid Nullable(String);
+ALTER TABLE nadx_overall_dm_v6_1_for_select_all add column cid Nullable(String);
+
+ALTER TABLE nadx_overall_dm_v6_2                add column cid Nullable(String);
+ALTER TABLE nadx_overall_dm_v6_2_all            add column cid Nullable(String);
+ALTER TABLE nadx_overall_dm_v6_2_for_select     add column cid Nullable(String);
+ALTER TABLE nadx_overall_dm_v6_2_for_select_all add column cid Nullable(String);
+
+ALTER TABLE nadx_overall_dm_v6_3                add column cid Nullable(String);
+ALTER TABLE nadx_overall_dm_v6_3_all            add column cid Nullable(String);
+ALTER TABLE nadx_overall_dm_v6_3_for_select     add column cid Nullable(String);
+ALTER TABLE nadx_overall_dm_v6_3_for_select_all add column cid Nullable(String);

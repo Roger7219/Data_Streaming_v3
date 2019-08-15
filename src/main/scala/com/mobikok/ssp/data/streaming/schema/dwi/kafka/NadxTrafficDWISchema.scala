@@ -65,6 +65,7 @@ object NadxTrafficDWISchema{
     StructField("supplyBidId",                       StringType) ::
     StructField("bidRequestId",                      StringType) ::
 
+    // 已弃用，用bundle_or_domain代替
     StructField("bundle",                            StringType) ::
     StructField("size",                              StringType) ::
 
@@ -102,18 +103,20 @@ object NadxTrafficDWISchema{
     StructField("saveCount",                         IntegerType) ::
 
     StructField("bidfloor",                          DoubleType) ::
+    // 已弃用，用app_or_site_id代替
     StructField("site_id",                           StringType) ::
     StructField("site_cat",                          StringType) ::
+    // 已弃用，用bundle_or_domain代替
     StructField("site_domain",                       StringType) ::
     StructField("publisher_id",                      StringType) ::
+    // 已弃用，用app_or_site_id代替
     StructField("app_id",                            StringType) ::
     StructField("tmax",                              IntegerType) ::
     StructField("ip",                                StringType) ::
     StructField("crid",                              StringType) ::
-    StructField("cid",                               StringType) ::
-      // 该数据来源节点
+    // 该数据来源节点
     StructField("node",                              StringType) ::
-      // 已弃用，用tip_type代替
+    // 已弃用，用tip_type代替
     StructField("tips",                              StringType) ::
 
     // 2019.4.23 Tip功能新增
@@ -127,12 +130,19 @@ object NadxTrafficDWISchema{
     StructField("rtb_version",                       StringType) ::
     StructField("demand_using_time",                 IntegerType) ::
     StructField("adx_using_time",                    IntegerType) ::
-    StructField("rater_type",                         StringType) ::
-    StructField("rater_id",                           StringType) ::
+    // raterType/raterId待删
     StructField("raterType",                         StringType) ::
     StructField("raterId",                           StringType) ::
-    StructField("adomain",                           StringType) ::
-    StructField("media_type",                       StringType) ::
 
-    Nil)
+    StructField("adomain",                           StringType) ::
+    StructField("rater_type",                        StringType) ::
+    StructField("rater_id",                          StringType) ::
+    StructField("media_type",                        StringType) ::
+
+    // 2019.7.22 新增
+    StructField("app_or_site_id",                    StringType) ::
+    StructField("bundle_or_domain",                  StringType) ::
+    StructField("cid",                               StringType) ::
+
+      Nil)
 }

@@ -17,6 +17,7 @@ import com.typesafe.config.Config
 import okio.{Buffer, GzipSink, Okio}
 import org.apache.hadoop.fs.{FileStatus, FileSystem, Path, PathFilter}
 import org.apache.hadoop.hdfs.HdfsConfiguration
+import org.apache.http.HttpStatus
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.hive.HiveContext
 import org.apache.spark.sql.{DataFrame, Dataset, SaveMode}
@@ -174,7 +175,7 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
   }
 
   def overwriteByBTime(clickHouseTable: String, hiveTable: String, hivePartitionBTime: Array[String]): Unit = {
-    LOG.warn(s"Overwrite clickHouseTable start", "clickHouseTable", clickHouseTable, "hiveTable", hiveTable, "hivePartitionBTimes", hivePartitionBTime)
+    LOG.warn(s"ClickHouseTable all b_time overwrite start", "clickHouseTable", clickHouseTable, "hiveTable", hiveTable, "hivePartitionBTimes", hivePartitionBTime)
     //    taskCount.addAndGet(hivePartitionBTime.length)
 
     var dataCount = -1L
@@ -193,7 +194,7 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
         if (b_date.equals(b_time.split(" ")(0))) {
           THREAD_POOL.execute(new Runnable {
             override def run(): Unit = {
-              LOG.warn("ThreadPool", s"start run, b_date=$b_date and b_time=$b_time")
+              LOG.warn(s"ClickHouseTable a b_time overwrite start", "clickHouseTable", clickHouseTable, s"b_time", b_time, "hiveTable", hiveTable)
               val time = b_time.replace("-", "_").replace(" ", "__").replace(":", "_")
               val gzDir = s"/root/kairenlo/data-streaming/test/${hiveTable}_${time}_gz.dir"
               var gzFiles = null.asInstanceOf[Array[FileStatus]]
@@ -263,7 +264,7 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
               LOG.warn("ClickHouseClient generate gz file completed", gzDir)
 
               RunAgainIfError.run {
-                // 先删除分区
+                // 先删除临时表分区，确保临时表分区无数据
                 dropPartition(clickHouseTable, b_date, b_time)
 
                 // 上传到ClickHouse
@@ -285,18 +286,26 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
                       importCount = copyToClickHouseForSearch(clickHouseTable, s"${clickHouseTable}_for_select", b_date, b_time)
                       times -= 1
                     }
-                    // 复制完成后删除原表的分区
+                    // 复制完成后删除临时表的分区
                     dropPartition(clickHouseTable, b_date, b_time)
                   }
                 }
+
+                //清理文件
+                gzFiles.foreach{x=>
+                  fileSystem.delete(x.getPath, true)
+                }
+
               }
               countDownLatch.countDown()
+              LOG.warn(s"ClickhouseTable a b_time overwrite done",  "clickHouseTable", clickHouseTable,"b_time", b_time, "hiveTable", hiveTable)
             }
           })
         }
       }
     }
     countDownLatch.await()
+    LOG.warn(s"ClickHouseTable all b_time overwrite done", "clickHouseTable", clickHouseTable, "hiveTable", hiveTable, "hivePartitionBTimes", hivePartitionBTime)
     //    countDownLatch.await(5, TimeUnit.MINUTES)
   }
   def createTableIfNotExists(table: String, like: String): Unit = {
@@ -537,7 +546,12 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
         }, new Callback {
           override def prepare(conn: HttpURLConnection): Unit = {}
 
-          override def completed(responseStatus: String, response: String): Unit = {}
+          override def completed(responseStatus: String, response: String): Unit = {
+            if(!responseStatus.startsWith(HttpStatus.SC_OK + "")) {
+              LOG.warn("DROP PARTITION ERROR", s"$responseStatus\n$response\n at host $host")
+              throw new HandlerException(response)
+            }
+          }
 
           override def failed(responseStatus: String, responseError: String, ex: Exception): Unit = {
             LOG.warn("DROP PARTITION ERROR", s"$responseStatus\n$responseError\n${ex.getMessage} at host $host")
@@ -708,147 +722,148 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
   override def init(): Unit = {}
 
   override def rollback(cookies: TransactionCookie*): Cleanable = {
-    try {
-      val cleanable = new Cleanable
-      if (cookies.isEmpty) {
-        val cookieTables = sql(s"show tables like '%$transactionalLegacyDataBackupCompletedTableSign%'", tryAgainWhenError = true)
-          .split("[\r]?\n")
-          .filter(t => t.length > 0)
-
-        cookieTables.sortBy{ cookieTable => (
-          cookieTable.split(transactionalLegacyDataBackupCompletedTableSign)(0)
-            .split(TransactionManager.parentTransactionIdSeparator)(0),
-          cookieTable.split(transactionalLegacyDataBackupCompletedTableSign)(1)
-            .split(TransactionManager.parentTransactionIdSeparator)(1).toInt
-        )}.reverse
-          .foreach{ cookieTable =>
-            val parentId = cookieTable.split(transactionalLegacyDataBackupCompletedTableSign)(1)
-              .split(TransactionManager.parentTransactionIdSeparator)(0)
-            val tid = cookieTable.split(transactionalLegacyDataBackupCompletedTableSign)(1)
-
-            val needRollBack = transactionManager.isActiveButNotAllCommited(parentId)
-            if (needRollBack) {
-              LOG.warn("ClickHouse client roll back start")
-              val targetTable = s"${cookieTable.split(transactionalLegacyDataBackupCompletedTableSign)(0)}_for_select"
-
-//              val tables = Array(cookieTable)
-              val ps = partitions(cookieTable)
-
-              clickHousePartitionAlterSQL(ps).foreach{ partition =>
-//                sql(s"alter table $targetTable drop partition($partition)", tryAgainWhenError = true)
-                dropPartition(targetTable, partition, hosts:_*)
-              }
-
-              val targetFieldSchema = sql(s"desc $targetTable", tryAgainWhenError = true).split("[\r]?\n").map{ field =>
-                val schema = field.split("\t")
-                (schema(0), schema(1))
-              }
-              val targetFieldString = targetFieldSchema.map{f => f._1}
-
-              val backupFieldSchema = sql(s"desc $cookieTable", tryAgainWhenError = true).split("[\r]?\n").map{ field =>
-                val schema = field.split("\t")
-                (schema(0), schema(1))
-              }
-              val backupFieldString = backupFieldSchema.map{ f => f._1}
-
-              val selects = ListBuffer[String]()
-              targetFieldString.zipWithIndex.foreach{ case(field, i) =>
-                if (backupFieldString.contains(field)) {
-                  selects.append(s"`${targetFieldSchema(i)._1}`")
-                } else {
-                  if ("String".eq(targetFieldSchema(i)._2)) {
-                    selects.append(s"""'' as `${targetFieldSchema(i)._1}`""")
-                  } else if (targetFieldSchema(i)._2.startsWith("Int") || targetFieldSchema(i)._2.startsWith("Float")) {
-                    // (Int64 or Int32) || (Float64 or Float32)
-                    selects.append(s"""0 as ${targetFieldSchema(i)._1}""")
-                  } else if (targetFieldSchema(i)._2.startsWith("Date")) {
-                    // Date or DateTime(一般不会是这个)
-                    selects.append(s"""now() as ${targetFieldSchema(i)._1}""")
-                  }
-                }
-              }
-
-              val batchCount = sql(s"select count(1) from $cookieTable", tryAgainWhenError = true).trim.toInt
-              if (batchCount == 0) {
-                LOG.warn(s"ClickHouseClient rollback", s"Reverting to the legacy data, Backup table is empty, Drop partitions of targetTable!! \ntable: $targetTable \npartitions: ${partitionsWhereSQL(ps)}")
-              } else {
-//                var isFirstRun = true
-                RunAgainIfError.run {
-//                  if (!isFirstRun) {
-                    clearRedundantData(ps, targetTable, hosts:_*)
+    new Cleanable
+//    try {
+//      val cleanable = new Cleanable
+//      if (cookies.isEmpty) {
+//        val cookieTables = sql(s"show tables like '%$transactionalLegacyDataBackupCompletedTableSign%'", tryAgainWhenError = true)
+//          .split("[\r]?\n")
+//          .filter(t => t.length > 0)
+//
+//        cookieTables.sortBy{ cookieTable => (
+//          cookieTable.split(transactionalLegacyDataBackupCompletedTableSign)(0)
+//            .split(TransactionManager.parentTransactionIdSeparator)(0),
+//          cookieTable.split(transactionalLegacyDataBackupCompletedTableSign)(1)
+//            .split(TransactionManager.parentTransactionIdSeparator)(1).toInt
+//        )}.reverse
+//          .foreach{ cookieTable =>
+//            val parentId = cookieTable.split(transactionalLegacyDataBackupCompletedTableSign)(1)
+//              .split(TransactionManager.parentTransactionIdSeparator)(0)
+//            val tid = cookieTable.split(transactionalLegacyDataBackupCompletedTableSign)(1)
+//
+//            val needRollBack = transactionManager.isActiveButNotAllCommited(parentId)
+//            if (needRollBack) {
+//              LOG.warn("ClickHouse client roll back start")
+//              val targetTable = s"${cookieTable.split(transactionalLegacyDataBackupCompletedTableSign)(0)}_for_select"
+//
+////              val tables = Array(cookieTable)
+//              val ps = partitions(cookieTable)
+//
+//              clickHousePartitionAlterSQL(ps).foreach{ partition =>
+////                sql(s"alter table $targetTable drop partition($partition)", tryAgainWhenError = true)
+//                dropPartition(targetTable, partition, hosts:_*)
+//              }
+//
+//              val targetFieldSchema = sql(s"desc $targetTable", tryAgainWhenError = true).split("[\r]?\n").map{ field =>
+//                val schema = field.split("\t")
+//                (schema(0), schema(1))
+//              }
+//              val targetFieldString = targetFieldSchema.map{f => f._1}
+//
+//              val backupFieldSchema = sql(s"desc $cookieTable", tryAgainWhenError = true).split("[\r]?\n").map{ field =>
+//                val schema = field.split("\t")
+//                (schema(0), schema(1))
+//              }
+//              val backupFieldString = backupFieldSchema.map{ f => f._1}
+//
+//              val selects = ListBuffer[String]()
+//              targetFieldString.zipWithIndex.foreach{ case(field, i) =>
+//                if (backupFieldString.contains(field)) {
+//                  selects.append(s"`${targetFieldSchema(i)._1}`")
+//                } else {
+//                  if ("String".eq(targetFieldSchema(i)._2)) {
+//                    selects.append(s"""'' as `${targetFieldSchema(i)._1}`""")
+//                  } else if (targetFieldSchema(i)._2.startsWith("Int") || targetFieldSchema(i)._2.startsWith("Float")) {
+//                    // (Int64 or Int32) || (Float64 or Float32)
+//                    selects.append(s"""0 as ${targetFieldSchema(i)._1}""")
+//                  } else if (targetFieldSchema(i)._2.startsWith("Date")) {
+//                    // Date or DateTime(一般不会是这个)
+//                    selects.append(s"""now() as ${targetFieldSchema(i)._1}""")
 //                  }
-//                  isFirstRun = false
-                  // 正常情况下只执行一次，防止因为网络问题导致sql执行成功却返回非200，导致数据重复导入的问题
-                  sql(s"""insert into ${targetTable}_all select ${selects.mkString(",")} from $cookieTable""")
-                }
-              }
-            }
-          }
-
-        sql(s"""show tables like '%$transactionalLegacyDataBackupCompletedTableSign%'""", tryAgainWhenError = true).split("[\r]?\n")
-          .filter( t => t.length > 0)
-          .sortBy{ x => (
-            x.split(transactionalLegacyDataBackupCompletedTableSign)(1)
-              .split(TransactionManager.parentTransactionIdSeparator)(0),
-            Integer.parseInt(x.split(transactionalLegacyDataBackupCompletedTableSign)(1)
-              .split(TransactionManager.parentTransactionIdSeparator)(1))
-          )}
-          .reverse
-          .foreach{ t => cleanable.addAction(sql(s"drop table if exists $t", tryAgainWhenError = true))}
-
-        sql(s"""show tables like '%$transactionalLegacyDataBackupProgressingTableSign%'""", tryAgainWhenError = true).split("[\r]?\n")
-          .filter( t => t.length > 0)
-          .foreach{ t => cleanable.addAction(sql(s"drop table if exists $t", tryAgainWhenError = true))}
-
-        sql(s"""show tables like '%$transactionalTmpTableSign%'""", tryAgainWhenError = true).split("[\r]?\n")
-          .filter( t => t.length > 0)
-          .foreach{ t => cleanable.addAction(sql(s"drop table if exists $t", tryAgainWhenError = true))}
-
-        return cleanable
-      }
-
-      val cs = cookies.asInstanceOf[Array[ClickHouseRollbackableTransactionCookie]]
-      cs.foreach{ c =>
-        val parentId = c.parentId.split(TransactionManager.parentTransactionIdSeparator)(0)
-
-        // 这里获取唯一需要rollback的最新表，后面的返回false
-        val needRollBack = transactionManager.isActiveButNotAllCommited(parentId)
-        if (needRollBack) {
-
-          LOG.warn("ClickHouse client roll back start")
-          clickHousePartitionAlterSQL(c.partitions).foreach{partition =>
-//            sql(s"alter table ${c.targetTable} drop partition($partition)", tryAgainWhenError = true)
-            dropPartition(s"${c.targetTable}_for_select", partition, hosts: _*)
-          }
-
-          val batchCount = sql(s"select count(1) from ${c.transactionalCompletedBackupTable}", tryAgainWhenError = true).trim.toInt
-          if (batchCount == 0) {
-            LOG.warn(s"ClickHouseClient rollback", s"Reverting to the legacy data, Backup table is empty, Drop partitions of targetTable!! \ntable: ${c.transactionalCompletedBackupTable} \npartitions: ${partitionsWhereSQL(c.partitions)}")
-          } else {
-            var isFirstRun = true
-            RunAgainIfError.run{
-              if (!isFirstRun) {
-                clearRedundantData(c.partitions, s"${c.targetTable}_for_select", hosts:_*)
-              }
-              isFirstRun = false
-              // 正常情况下只执行一次，防止因为网络问题导致sql执行成功却返回非200，导致数据重复导入的问题
-              sql(s"insert into ${c.targetTable}_for_select_all select * from ${c.transactionalCompletedBackupTable}")
-            }
-          }
-        }
-      }
-
-      cs.foreach{ c =>
-        cleanable.addAction(sql(s"drop table if exists ${c.transactionalCompletedBackupTable}", tryAgainWhenError = true))
-        cleanable.addAction(sql(s"drop table if exists ${c.transactionalProgressingBackupTable}", tryAgainWhenError = true))
-        cleanable.addAction(sql(s"drop table if exists ${c.transactionalTmpTable}", tryAgainWhenError = true))
-      }
-
-      cleanable
-    } catch {
-      case e: Exception =>
-        throw new ClickHouseClientException(s"ClickHouse Transaction Rollback Fail, module: $moduleName, cookies: " + cookies, e)
-    }
+//                }
+//              }
+//
+//              val batchCount = sql(s"select count(1) from $cookieTable", tryAgainWhenError = true).trim.toInt
+//              if (batchCount == 0) {
+//                LOG.warn(s"ClickHouseClient rollback", s"Reverting to the legacy data, Backup table is empty, Drop partitions of targetTable!! \ntable: $targetTable \npartitions: ${partitionsWhereSQL(ps)}")
+//              } else {
+////                var isFirstRun = true
+//                RunAgainIfError.run {
+////                  if (!isFirstRun) {
+//                    clearRedundantData(ps, targetTable, hosts:_*)
+////                  }
+////                  isFirstRun = false
+//                  // 正常情况下只执行一次，防止因为网络问题导致sql执行成功却返回非200，导致数据重复导入的问题
+//                  sql(s"""insert into ${targetTable}_all select ${selects.mkString(",")} from $cookieTable""")
+//                }
+//              }
+//            }
+//          }
+//
+//        sql(s"""show tables like '%$transactionalLegacyDataBackupCompletedTableSign%'""", tryAgainWhenError = true).split("[\r]?\n")
+//          .filter( t => t.length > 0)
+//          .sortBy{ x => (
+//            x.split(transactionalLegacyDataBackupCompletedTableSign)(1)
+//              .split(TransactionManager.parentTransactionIdSeparator)(0),
+//            Integer.parseInt(x.split(transactionalLegacyDataBackupCompletedTableSign)(1)
+//              .split(TransactionManager.parentTransactionIdSeparator)(1))
+//          )}
+//          .reverse
+//          .foreach{ t => cleanable.addAction(sql(s"drop table if exists $t", tryAgainWhenError = true))}
+//
+//        sql(s"""show tables like '%$transactionalLegacyDataBackupProgressingTableSign%'""", tryAgainWhenError = true).split("[\r]?\n")
+//          .filter( t => t.length > 0)
+//          .foreach{ t => cleanable.addAction(sql(s"drop table if exists $t", tryAgainWhenError = true))}
+//
+//        sql(s"""show tables like '%$transactionalTmpTableSign%'""", tryAgainWhenError = true).split("[\r]?\n")
+//          .filter( t => t.length > 0)
+//          .foreach{ t => cleanable.addAction(sql(s"drop table if exists $t", tryAgainWhenError = true))}
+//
+//        return cleanable
+//      }
+//
+//      val cs = cookies.asInstanceOf[Array[ClickHouseRollbackableTransactionCookie]]
+//      cs.foreach{ c =>
+//        val parentId = c.parentId.split(TransactionManager.parentTransactionIdSeparator)(0)
+//
+//        // 这里获取唯一需要rollback的最新表，后面的返回false
+//        val needRollBack = transactionManager.isActiveButNotAllCommited(parentId)
+//        if (needRollBack) {
+//
+//          LOG.warn("ClickHouse client roll back start")
+//          clickHousePartitionAlterSQL(c.partitions).foreach{partition =>
+////            sql(s"alter table ${c.targetTable} drop partition($partition)", tryAgainWhenError = true)
+//            dropPartition(s"${c.targetTable}_for_select", partition, hosts: _*)
+//          }
+//
+//          val batchCount = sql(s"select count(1) from ${c.transactionalCompletedBackupTable}", tryAgainWhenError = true).trim.toInt
+//          if (batchCount == 0) {
+//            LOG.warn(s"ClickHouseClient rollback", s"Reverting to the legacy data, Backup table is empty, Drop partitions of targetTable!! \ntable: ${c.transactionalCompletedBackupTable} \npartitions: ${partitionsWhereSQL(c.partitions)}")
+//          } else {
+//            var isFirstRun = true
+//            RunAgainIfError.run{
+//              if (!isFirstRun) {
+//                clearRedundantData(c.partitions, s"${c.targetTable}_for_select", hosts:_*)
+//              }
+//              isFirstRun = false
+//              // 正常情况下只执行一次，防止因为网络问题导致sql执行成功却返回非200，导致数据重复导入的问题
+//              sql(s"insert into ${c.targetTable}_for_select_all select * from ${c.transactionalCompletedBackupTable}")
+//            }
+//          }
+//        }
+//      }
+//
+//      cs.foreach{ c =>
+//        cleanable.addAction(sql(s"drop table if exists ${c.transactionalCompletedBackupTable}", tryAgainWhenError = true))
+//        cleanable.addAction(sql(s"drop table if exists ${c.transactionalProgressingBackupTable}", tryAgainWhenError = true))
+//        cleanable.addAction(sql(s"drop table if exists ${c.transactionalTmpTable}", tryAgainWhenError = true))
+//      }
+//
+//      cleanable
+//    } catch {
+//      case e: Exception =>
+//        throw new ClickHouseClientException(s"ClickHouse Transaction Rollback Fail, module: $moduleName, cookies: " + cookies, e)
+//    }
   }
 
 

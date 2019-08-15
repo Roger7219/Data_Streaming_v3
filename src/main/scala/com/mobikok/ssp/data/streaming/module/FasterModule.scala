@@ -484,7 +484,7 @@ class FasterModule(config: Config,
       dmHandlers = new util.ArrayList[Handler]()
       config.getConfigList(s"modules.$moduleName.dm.handler.setting").foreach { setting =>
         var h = Class.forName(setting.getString("class")).newInstance().asInstanceOf[com.mobikok.ssp.data.streaming.handler.dm.offline.Handler]
-        h.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient, kylinClient, hbaseClient, hiveContext, setting)
+        h.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient, kylinClient, hbaseClient, hiveContext, argsConfig, setting)
         if (h.isInstanceOf[ClickHouseQueryByBTimeHandler] || h.isInstanceOf[ClickHouseQueryByBDateHandler] || h.isInstanceOf[ClickHouseQueryMonthHandler]) {
           h.setClickHouseClient(clickHouseClient)
         }
@@ -921,6 +921,7 @@ class FasterModule(config: Config,
                           Set[String](),
                           dwrGroupByExprsAlias, //dwrGroupByExprsAlias ++ dwrGroupbyExtendedFieldsAlias,
                           rPs,
+                          null,
                           "l_time",
                           "b_date",
                           "b_time"
@@ -964,6 +965,7 @@ class FasterModule(config: Config,
                               Set[String](),
                               dwrGroupByExprsAlias,
 //                              rPs_accday,
+                              null,
                               "l_time",
                               "b_date",
                               "b_time"
@@ -1011,6 +1013,7 @@ class FasterModule(config: Config,
                               Set[String](),
                               dwrGroupByExprsAlias, //dwrGroupByExprsAlias ++ dwrGroupbyExtendedFieldsAlias,
 //                              rPs_accmonth,
+                              null,
                               "l_time",
                               "b_date",
                               "b_time"

@@ -327,7 +327,39 @@ select * from nadx_overall_dwr_v9;
 
 
 
+-- drop view if exists nadx_overall_dm_v9;
+-- create view nadx_overall_dm_v9 as
+-- select t.*,d.name as demand_name,s.name as supply_name
+-- from nadx_overall_dwr_v18_1 t
+-- left join tb_demand_account d on t.demand_id=d.id
+-- left join tb_supply_account s on t.supply_id=s.id;
 
+----
 
+drop view if exists nadx_overall_dm_v6;
+create view nadx_overall_dm_v6 as
+select t.*,d.name as demand_name,s.name as supply_name
+from nadx_overall_dwr_v6 t
+left join tb_demand_account d on t.demand_id=d.id
+left join tb_supply_account s on t.supply_id=s.id;
 
+drop view if exists nadx_overall_dm_v6_1;
+create view nadx_overall_dm_v6_1 as
+select t.*,d.name as demand_name,s.name as supply_name
+from nadx_overall_dwr_v6_1 t
+left join tb_demand_account d on t.demand_id=d.id
+left join tb_supply_account s on t.supply_id=s.id;
 
+drop view if exists nadx_overall_dm_v6_2;
+create view nadx_overall_dm_v6_2 as
+select t.*,d.name as demand_name,s.name as supply_name
+from nadx_overall_dwr_v6_2 t
+left join tb_demand_account d on t.demand_id=d.id
+left join tb_supply_account s on t.supply_id=s.id;
+
+drop view if exists nadx_overall_dm_v6_3;
+create view nadx_overall_dm_v6_3 as
+select t.*,d.name as demand_name,s.name as supply_name
+from nadx_overall_dwr_v6_3 t
+left join tb_demand_account d on t.demand_id=d.id
+left join tb_supply_account s on t.supply_id=s.id;

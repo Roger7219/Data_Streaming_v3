@@ -2,7 +2,7 @@ package com.mobikok.ssp.data.streaming.handler.dm.offline
 
 import com.mobikok.message.client.MessageClient
 import com.mobikok.ssp.data.streaming.client._
-import com.mobikok.ssp.data.streaming.config.RDBConfig
+import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.util.{MySqlJDBCClientV2, RunAgainIfError}
 import com.typesafe.config.Config
 import org.apache.spark.sql.functions._
@@ -22,8 +22,8 @@ class AggHandler extends  Handler{
   var rdbProp: java.util.Properties = null
   var mySqlJDBCClient: MySqlJDBCClientV2 = null
 
-  override def init (moduleName: String, bigQueryClient:BigQueryClient, greenplumClient:GreenplumClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext, handlerConfig: Config): Unit = {
-    super.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient, kylinClientV2, hbaseClient, hiveContext, handlerConfig)
+  override def init (moduleName: String, bigQueryClient:BigQueryClient, greenplumClient:GreenplumClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config): Unit = {
+    super.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient, kylinClientV2, hbaseClient, hiveContext, argsConfig, handlerConfig)
 
     dwrTable = "agg_traffic_month_dwr" //handlerConfig.getString("dwr.table")
     mysqlTable = handlerConfig.getString("mysql.table")

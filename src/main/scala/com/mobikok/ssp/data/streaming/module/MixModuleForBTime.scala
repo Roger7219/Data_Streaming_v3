@@ -415,7 +415,7 @@ class MixModuleForBTime (config: Config,
     dmHandlers = new util.ArrayList[Handler]()
     config.getConfigList(s"modules.$moduleName.dm.handler.setting").foreach { x =>
       var h: Handler = Class.forName(x.getString("class")).newInstance().asInstanceOf[Handler]
-      h.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient,kylinClient, hbaseClient, hiveContext, x)
+      h.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient,kylinClient, hbaseClient, hiveContext, argsConfig, x)
       dmHandlers.add(h)
     }
   }
@@ -1344,6 +1344,7 @@ class MixModuleForBTime (config: Config,
               Set[String](),
               dwrGroupByExprsAlias ++ dwrGroupbyExtendedFieldsAlias,
               rPs,
+              null,
               "l_time",
               "b_date",
               "b_time"

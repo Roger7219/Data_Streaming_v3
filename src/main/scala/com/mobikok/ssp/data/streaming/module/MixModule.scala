@@ -413,7 +413,7 @@ class MixModule (config: Config,
     dmHandlers = new util.ArrayList[com.mobikok.ssp.data.streaming.handler.dm.offline.Handler]()
     config.getConfigList(s"modules.$moduleName.dm.handler.setting").foreach { x =>
       var h = Class.forName(x.getString("class")).newInstance().asInstanceOf[com.mobikok.ssp.data.streaming.handler.dm.offline.Handler]
-      h.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient,kylinClient, hbaseClient, hiveContext, x)
+      h.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient,kylinClient, hbaseClient, hiveContext, argsConfig, x)
       dmHandlers.add(h)
     }
   }
@@ -1339,6 +1339,7 @@ class MixModule (config: Config,
                 Set[String](),
                 dwrGroupByExprsAlias ++ dwrGroupbyExtendedFieldsAlias,
                 rPs,
+                null,
                 "l_time",
                 "b_date"
               )

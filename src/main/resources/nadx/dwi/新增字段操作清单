@@ -1,0 +1,7 @@
+1) supervisor stop掉该app: http://master:9001/
+2) yarn等待该app当前批次完成后kill该app(等待批次完成是为避免重启时触发回滚)：http://47.89.185.121:8088/cluster/scheduler
+3) 在master节点，~/sparksql中执行新增字段的sql
+4) 修改xx.conf配置文件
+4) 上传含最新schema的data-steaming.jar和xx.conf
+
+5) supervisor start该app

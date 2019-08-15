@@ -161,6 +161,11 @@ object MC {
     messageClient.pushMessage(reqs.map{ x=> new MessagePushReq(x.topic, "-", true, x.data)}:_*)
   }
 
+  def setLastestOffset(messageConsumer: String, messageTopics: Array[String]): Unit ={
+    checkInited
+    MC.pull(messageConsumer,messageTopics, {x=> true})
+  }
+
 }
 
 case class UpdateReq(topic: String, data: String)

@@ -20,7 +20,7 @@ import org.apache.hadoop.hbase.{HTableDescriptor, TableName}
 import org.apache.log4j.Level
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.execution.command.DropTableCommand
-import org.apache.spark.sql.{Column, DataFrame, SaveMode}
+import org.apache.spark.sql.{Column, DataFrame, Row, SaveMode}
 import org.apache.spark.sql.hive.HiveContext
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.functions._
@@ -40,8 +40,8 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
   //private[this] val LOG = Logger.getLogger(getClass().getName());
 
   private var hiveJDBCClient: HiveJDBCClient = null
-  var hiveContext: HiveContext = null
-  var compactionHiveContext:HiveContext = null
+  var hiveContext: HiveContext = HiveContextGenerater.generate(ssc.sparkContext)
+  var compactionHiveContext:HiveContext = HiveContextGenerater.generate(ssc.sparkContext)
   var hdfsUtil: HdfsUtil = null
 
   private val transactionalTmpTableSign = s"_m_${moduleName}_trans_"
@@ -54,10 +54,10 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 
   override def init(): Unit = {
     LOG.warn(s"HiveClient init started")
-    hiveContext = HiveContextGenerater.generate(ssc.sparkContext)
+//    hiveContext = HiveContextGenerater.generate(ssc.sparkContext)
     LOG.warn("show tables: ", hiveContext.sql("show tables").collect())
 
-    compactionHiveContext = HiveContextGenerater.generate(ssc.sparkContext)
+//    compactionHiveContext = HiveContextGenerater.generate(ssc.sparkContext)
 
     hiveJDBCClient = new HiveJDBCClient(config.getString("hive.jdbc.url"), null, null)
 
@@ -160,8 +160,9 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
                          newDF: DataFrame,
                          aggExprsAlias: List[String],
                          unionAggExprsAndAlias: List[Column],
-                         overwriteAggFields: Set[String],
+                         overwriteAggFields: Set[String], // 已弃用，待删
                          groupByFields: Array[String],
+                         beforeWriteCallback: DataFrame => DataFrame,
                          partitionField: String,
                          partitionFields: String*): HiveTransactionCookie = {
 
@@ -177,7 +178,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
       }
     moduleTracer.trace("        count partitions")
 
-    overwriteUnionSum(transactionParentId, table, newDF, aggExprsAlias, unionAggExprsAndAlias, overwriteAggFields, groupByFields, ps, partitionField, partitionFields:_*)
+    overwriteUnionSum(transactionParentId, table, newDF, aggExprsAlias, unionAggExprsAndAlias, overwriteAggFields, groupByFields, ps, beforeWriteCallback, partitionField, partitionFields:_*)
   }
 
   def overwriteUnionSum (transactionParentId: String,
@@ -188,6 +189,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
                          overwriteAggFields: Set[String],
                          groupByFields: Array[String],
                          ps: Array[Array[HivePartitionPart]],
+                         beforeWriteCallback: DataFrame => DataFrame,
                          partitionField: String,
                          partitionFields: String*): HiveTransactionCookie = {
 
@@ -241,8 +243,10 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
           var os = fs.map{x=>expr(s"`$x`")}
         //      LOG.warn(s"HiveClient re-ordered field name via hive table _newDF take(2)", _newDF.take(2))
 
+        if(beforeWriteCallback != null) _newDF = beforeWriteCallback(_newDF)
+
         // Sum
-        val updated = original
+        var updated = original
           .select(os:_*)
           .union(_newDF /*newDF*/)
           .groupBy(gs.head, gs.tail:_*)
@@ -252,13 +256,11 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
           )
           .select(fs.head, fs.tail:_* /*groupByFields ++ aggExprsAlias ++ ts:_**/)
 
-
         val fileNumber = aHivePartitionRecommendedFileNumber("HiveClient unionSum repartition", shufflePartitions, updated.rdd.getNumPartitions, ps.length)
   //      val parts = sparkPartitionNum("HiveClient unionSum repartition", shufflePartitions, updated.rdd.getNumPartitions, ps.length)
         moduleTracer.trace(s"        union sum repartition rs: ${updated.rdd.getNumPartitions}, ps: ${ps.length}, fs: ${fileNumber}")
         moduleTracer.trace(s"${makeShowPartition(ps).mkString("\n", "\n", "")}")
         LOG.warn("Union sum partitions", makeShowPartition(ps).mkString("\n"))
-
 
         if(transactionManager.needTransactionalAction()) {
           //支持事务，先写入临时表，commit()时在写入目标表
@@ -332,6 +334,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 
   def overwrite(transactionParentId: String, table: String, isOverwirteFixedLTime: Boolean, df: DataFrame, ps: Array[Array[HivePartitionPart]]): HiveTransactionCookie = {
 
+    val fs = hiveContext.read.table(table).schema.fieldNames
     var tid: String = null
     try {
 
@@ -349,12 +352,13 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
       tid = transactionManager.generateTransactionId(transactionParentId)
 
       val fileNumber = aHivePartitionRecommendedFileNumber("HiveClient overwrite repartition", shufflePartitions, df.rdd.getNumPartitions, ps.length)
-      moduleTracer.trace(s"        overwrite repartition fs: $fileNumber, rs: ${df.rdd.getNumPartitions}, ps: ${ps.length}")
+      moduleTracer.trace(s"        overwrite repartition fs: $fileNumber, ps: ${ps.length}, rs: ${df.rdd.getNumPartitions}")
       moduleTracer.trace(s"            ${makeShowPartition(ps).mkString("\n", "\n", "")}")
       LOG.warn("Overwrite partitions", makeShowPartition(ps).mkString("\n"))
 
       if(!transactionManager.needTransactionalAction()) {
-        df.repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
+        df.selectExpr(fs:_*)
+          .repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
           .write
           .format("orc")
           .mode(SaveMode.Overwrite)
@@ -377,7 +381,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 //          .mode(SaveMode.Overwrite)
 //          .insertInto(tt)
 
-        df
+        df.selectExpr(fs:_*)
           .createOrReplaceTempView(tt);
       }
 
@@ -510,7 +514,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 
         val fileNumber2 = aHivePartitionRecommendedFileNumber("HiveClient read table repartition", shufflePartitions, df2.rdd.getNumPartitions, c.partitions.length)
 //        val parts2 = sparkPartitionNum("HiveClient read pluggable table repartition", shufflePartitions, df2.rdd.getNumPartitions, c.partitions.length)
-        moduleTracer.trace(s"        read transactional tmp table rs: ${df2.rdd.getNumPartitions}, ps: ${c.partitions.length}, fs: $fileNumber2")
+        moduleTracer.trace(s"        read transactional tmp table rs: ${df2.rdd.getNumPartitions}, fs: $fileNumber2, ps: ${c.partitions.length}")
         moduleTracer.trace(s"            ${makeShowPartition(c.partitions).mkString("\n", "\n", "")}")
         LOG.warn(s"Read transactional tmp table partitions", makeShowPartition(c.partitions).mkString("\n"))
 
@@ -1048,6 +1052,17 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
       log.setLevel(level)
     }
     result
+  }
+
+  def emptyDF(schema: StructType): DataFrame ={
+    hiveContext.createDataFrame(hiveContext.sparkContext.emptyRDD[Row], schema)
+  }
+
+  def emptyDF(tableName: String): DataFrame ={
+    hiveContext.createDataFrame(
+      hiveContext.sparkContext.emptyRDD[Row],
+      hiveContext.read.table(tableName).schema
+    )
   }
 
   override def clean(cookies: TransactionCookie*): Unit = {

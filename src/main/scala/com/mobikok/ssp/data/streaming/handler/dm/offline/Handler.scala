@@ -4,7 +4,7 @@ import java.util.Date
 
 import com.mobikok.message.client.MessageClient
 import com.mobikok.ssp.data.streaming.client._
-import com.mobikok.ssp.data.streaming.config.RDBConfig
+import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.util.Logger
 import com.mobikok.ssp.data.streaming.util.RunAgainIfError
 import com.typesafe.config.Config
@@ -19,6 +19,7 @@ trait Handler extends com.mobikok.ssp.data.streaming.handler.Handler {
   var LOG: Logger = _
   var hbaseClient: HBaseClient = _
   var hiveContext: HiveContext = _
+  var argsConfig: ArgsConfig = _
   var handlerConfig: Config = _
   var messageClient: MessageClient = _
   var kylinClientV2: KylinClientV2 = _
@@ -29,12 +30,13 @@ trait Handler extends com.mobikok.ssp.data.streaming.handler.Handler {
 
   var kafkaClient: KafkaClient = _
 
-  def init(moduleName: String, bigQueryClient: BigQueryClient, greenplumClient: GreenplumClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext, handlerConfig: Config): Unit = {
+  def init(moduleName: String, bigQueryClient: BigQueryClient, greenplumClient: GreenplumClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config): Unit = {
     LOG = new Logger(moduleName, getClass.getName, new Date().getTime)
 
     this.rDBConfig = rDBConfig
     this.hbaseClient = hbaseClient
     this.hiveContext = hiveContext
+    this.argsConfig = argsConfig
     this.handlerConfig = handlerConfig
     this.messageClient = messageClient
     this.kylinClientV2 = kylinClientV2

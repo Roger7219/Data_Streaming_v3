@@ -843,3 +843,31 @@ ALTER TABLE nadx_traffic_dwi ADD COLUMNS(rater_type STRING);
 ALTER TABLE nadx_traffic_dwi ADD COLUMNS(rater_id STRING);
 ALTER TABLE nadx_traffic_dwi ADD COLUMNS(media_type STRING);
 
+-- 2019-07-23
+-- 已弃用的表，不用新增字段：
+-- nadx_overall_traffic_dwi
+-- nadx_overall_traffic_dwi_v6
+-- nadx_overall_traffic_dwi_v9
+-- 需更新的表：
+ALTER TABLE nadx_traffic_dwi       ADD COLUMNS(app_or_site_id STRING);
+ALTER TABLE nadx_traffic_dwi_40000 ADD COLUMNS(app_or_site_id STRING);
+ALTER TABLE nadx_overall_dwr       ADD COLUMNS(app_or_site_id STRING);
+ALTER TABLE nadx_overall_dwr_v6    ADD COLUMNS(app_or_site_id STRING);
+ALTER TABLE nadx_overall_dwr_v9    ADD COLUMNS(app_or_site_id STRING);
+
+ALTER TABLE nadx_traffic_dwi       ADD COLUMNS(bundle_or_domain STRING);
+ALTER TABLE nadx_traffic_dwi_40000 ADD COLUMNS (bundle_or_domain STRING);
+ALTER TABLE nadx_overall_dwr       ADD COLUMNS(bundle_or_domain STRING);
+ALTER TABLE nadx_overall_dwr_v6    ADD COLUMNS(bundle_or_domain STRING);
+ALTER TABLE nadx_overall_dwr_v9    ADD COLUMNS(bundle_or_domain STRING);
+
+
+--  2019-08-13
+ALTER TABLE nadx_overall_dwr add COLUMNS(cid STRING);
+ALTER TABLE nadx_overall_dwr_v6 add COLUMNS(cid STRING);
+ALTER TABLE nadx_overall_dwr_v6 add COLUMNS(cid STRING);
+ALTER TABLE nadx_overall_dwr_v6_1 add COLUMNS(cid STRING);
+ALTER TABLE nadx_overall_dwr_v6_2 add COLUMNS(cid STRING);
+ALTER TABLE nadx_overall_dwr_v6_3 add COLUMNS(cid STRING);
+
+

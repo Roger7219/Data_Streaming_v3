@@ -29,7 +29,7 @@ trait Handler extends com.mobikok.ssp.data.streaming.handler.Handler {
            clickHouseClient: ClickHouseClient,
            handlerConfig: Config,
            globalConfig: Config, // 获取group by，agg字段
-           expr: String,
+           exprString: String,
            as: String): Unit = {
     this.moduleName = moduleName
     this.transactionManager = transactionManager
@@ -49,6 +49,15 @@ trait Handler extends com.mobikok.ssp.data.streaming.handler.Handler {
 
   def handle(persistenceDwr: DataFrame): DataFrame // 返回新的groupby字段集
 
+  /**
+    * 不能有事务操作
+    * @param dwi
+    * @return
+    */
   def prepare(dwi: DataFrame): DataFrame = dwi
 
+  def sql(sqlText: String): DataFrame ={
+    //    LOG.warn("Execute HQL", sqlText)
+    hiveClient.sql(sqlText)
+  }
 }

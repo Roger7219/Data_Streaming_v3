@@ -21,7 +21,7 @@ object RunAgainIfError {
     run(func, "", errorCallback)
   }
   def run[T](func: => T, errorTip: String, errorCallback: Throwable =>Unit): T = {
-    run(func, errorTip, errorCallback, 20)
+    run(func, errorTip, errorCallback, Integer.MAX_VALUE)
   }
 
   def run[T](func: => T, errorTip: String, errorCallback: Throwable =>Unit, maxTries: Int): T = {

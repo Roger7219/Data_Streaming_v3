@@ -11,10 +11,13 @@ class TestDWISchema {
 
 object TestDWISchema {
 
+  //注意字段名两边不要含空格！！
   val structType = StructType(
-        StructField("appId",       IntegerType) :: //ssp平台申请的id
-//        StructField("b_date",      StringType)   ::
-//        StructField("l_time",      StringType)   ::
-        Nil
-  )
+    //单位秒，非毫秒
+    StructField("timestamp",          LongType)    ::
+      StructField("id",           IntegerType) ::
+      StructField("name",           StringType) ::
+      StructField("a",           IntegerType) ::
+      StructField("b",           IntegerType) ::
+      Nil)
 }

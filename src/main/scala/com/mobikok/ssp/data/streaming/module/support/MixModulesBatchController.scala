@@ -253,7 +253,7 @@ class MixModulesBatchController(config:Config, runnableModuleNames: Array[String
 
 
           if(!_dwrGroupByDimensionFieldsAlias.toString().equals(dwrGroupByDimensionFieldsAlias.toString())) {
-            throw new ModuleException(s"Mix module dwr  dimension fields alias is not the same ! \n$moduleName config: ${_dwrGroupByDimensionFieldsAlias}, \nfirst module config: $dwrGroupByDimensionFieldsAlias")
+            throw new ModuleException(s"Mix module dwr dimension fields alias is not the same ! \n$moduleName config: ${_dwrGroupByDimensionFieldsAlias}, \nfirst module config: $dwrGroupByDimensionFieldsAlias")
           }
 
           if(!_dwrGroupByUnionAggExprsAndAlias.toString().equals(dwrGroupByUnionAggExprsAndAlias.toString())) {

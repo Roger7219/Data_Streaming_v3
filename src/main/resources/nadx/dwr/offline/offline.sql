@@ -246,7 +246,7 @@ select
 
   0 as saveCount,
 
-  tDwi.bidfloor as bidfloor,
+  if(tDwi.tip_type >= 10000 and tDwi.tip_type < 20000, tDwi.bidfloor, 0.0) as bidfloor,
   tDwi.site_id as site_id,
   tDwi.site_cat as site_cat,
   tDwi.site_domain as site_domain,
@@ -268,14 +268,15 @@ select
     ELSE 0 END
   AS event_count,
   tDwi.ssp_token,
-  tDwi.rtb_version as rtb_version,
+  tDwi.rtb_version       as rtb_version,
   tDwi.demand_using_time as demand_using_time,
-  tDwi.adx_using_time as adx_using_time,
-  tDwi.rater_type as rater_type,
-  tDwi.rater_id as rater_id,
-  tDwi.adomain as adomain,
-  tDwi.media_type as media_type,
-
+  tDwi.adx_using_time    as adx_using_time,
+  tDwi.rater_type        as rater_type,
+  tDwi.rater_id          as rater_id,
+  tDwi.adomain           as adomain,
+  tDwi.media_type        as media_type,
+  tDwi.app_or_site_id    as app_or_site_id,
+  tDwi.bundle_or_domain  as bundle_or_domain,
 
   pDwi.repeated,
   from_unixtime(unix_timestamp(),'yyyy-MM-dd HH:00:00') as l_time,
@@ -424,6 +425,8 @@ select
   cast(null as STRING) as raterId   ,
   adomain                           ,
   media_type                        ,
+  app_or_site_id                    ,
+  bundle_or_domain                  ,
 
   repeated                          ,
   l_time                            ,
@@ -534,12 +537,19 @@ select
   null                                   as raterId,
   null                                   as adomain,
   null                                   as crid,
-  null                                   as bidfloor,
-  rater_type                             as rater_type,
-  rater_id                               as rater_id,
+  sum(bidfloor)                          as bidfloor,
+--   rater_type                             as rater_type,
+--   rater_id                               as rater_id,
+  null                                   as rater_type,
+  null                                   as rater_id,
   media_type                             as media_type,
+--   app_or_site_id                         as app_or_site_id,
+  null                                   as app_or_site_id,
+  null                                   as bundle_or_domain,
+  null                                   as cid,
+--   from_unixtime(unix_timestamp(),'yyyy-MM-dd 00:00:00') as l_time,
+  if(tip_type >= 50000, '0001-01-01 00:00:00', from_unixtime(unix_timestamp(),'yyyy-MM-dd 00:00:00')) as l_time,
 
-  from_unixtime(unix_timestamp(),'yyyy-MM-dd 00:00:00') as l_time,
   b_date,
   b_time,
   '0' as b_version
@@ -582,18 +592,21 @@ group by
   bid_price_model                   ,
   traffic_type                      ,
   currency                          ,
---   bundle                            ,
+--   bundle                         ,
   size                              ,
   b_date                            ,
   b_time                            ,
---   node                              ,
-  rtb_version,
-  demand_using_time,
-  adx_using_time,
-  tip_type,
-  rater_type,
-  rater_id,
+--   node                           ,
+  rtb_version                       ,
+  demand_using_time                 ,
+  adx_using_time                    ,
+  tip_type                          ,
+--   rater_type                        ,
+--   rater_id                          ,
   media_type
+--   ,
+--   app_or_site_id                    ,
+--   bundle_or_domain
 --   ,
 --   tip_desc                          ,
 --   ssp_token
@@ -610,3 +623,156 @@ set log = "MAKE nadx_overall_dwr done!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
 -- device_brand,
 -- device_model,
 -- bundle
+
+----------------------------------------------------------------------------
+-- alter table nadx_overall_dwr_v6 drop partition (b_time='2019-08-13 13:00:00');
+-- alter table nadx_overall_dwr_v6 drop partition (b_time='2019-08-13 12:00:00');
+-- alter table nadx_overall_dwr_v6 drop partition (b_time='2019-08-13 11:00:00');
+-- alter table nadx_overall_dwr_v6 drop partition (b_time='2019-08-13 10:00:00');
+-- alter table nadx_overall_dwr_v6 drop partition (b_time='2019-08-12 19:00:00');
+-- alter table nadx_overall_dwr_v6 drop partition (b_time='2019-08-12 18:00:00');
+-- alter table nadx_overall_dwr_v6 drop partition (b_time='2019-08-12 17:00:00');
+-- alter table nadx_overall_dwr_v6 drop partition (b_time='2019-08-12 16:00:00');
+-- alter table nadx_overall_dwr_v6 drop partition (b_time='2019-08-12 15:00:00');
+-- alter table nadx_overall_dwr_v6 drop partition (b_time='2019-08-12 14:00:00');
+-- alter table nadx_overall_dwr_v6 drop partition (b_time='2019-08-12 13:00:00');
+-- alter table nadx_overall_dwr_v6 drop partition (b_time='2019-08-12 12:00:00');
+--
+-- alter table nadx_overall_dwr_v6_1 drop partition (b_time='2019-08-13 13:00:00');
+-- alter table nadx_overall_dwr_v6_1 drop partition (b_time='2019-08-13 12:00:00');
+-- alter table nadx_overall_dwr_v6_1 drop partition (b_time='2019-08-13 11:00:00');
+-- alter table nadx_overall_dwr_v6_1 drop partition (b_time='2019-08-13 10:00:00');
+-- alter table nadx_overall_dwr_v6_1 drop partition (b_time='2019-08-12 19:00:00');
+-- alter table nadx_overall_dwr_v6_1 drop partition (b_time='2019-08-12 18:00:00');
+-- alter table nadx_overall_dwr_v6_1 drop partition (b_time='2019-08-12 17:00:00');
+-- alter table nadx_overall_dwr_v6_1 drop partition (b_time='2019-08-12 16:00:00');
+-- alter table nadx_overall_dwr_v6_1 drop partition (b_time='2019-08-12 15:00:00');
+-- alter table nadx_overall_dwr_v6_1 drop partition (b_time='2019-08-12 14:00:00');
+-- alter table nadx_overall_dwr_v6_1 drop partition (b_time='2019-08-12 13:00:00');
+-- alter table nadx_overall_dwr_v6_1 drop partition (b_time='2019-08-12 12:00:00');
+--
+-- alter table nadx_overall_dwr_v6_2 drop partition (b_time='2019-08-13 13:00:00');
+-- alter table nadx_overall_dwr_v6_2 drop partition (b_time='2019-08-13 12:00:00');
+-- alter table nadx_overall_dwr_v6_2 drop partition (b_time='2019-08-13 11:00:00');
+-- alter table nadx_overall_dwr_v6_2 drop partition (b_time='2019-08-13 10:00:00');
+-- alter table nadx_overall_dwr_v6_2 drop partition (b_time='2019-08-12 19:00:00');
+-- alter table nadx_overall_dwr_v6_2 drop partition (b_time='2019-08-12 18:00:00');
+-- alter table nadx_overall_dwr_v6_2 drop partition (b_time='2019-08-12 17:00:00');
+-- alter table nadx_overall_dwr_v6_2 drop partition (b_time='2019-08-12 16:00:00');
+-- alter table nadx_overall_dwr_v6_2 drop partition (b_time='2019-08-12 15:00:00');
+-- alter table nadx_overall_dwr_v6_2 drop partition (b_time='2019-08-12 14:00:00');
+-- alter table nadx_overall_dwr_v6_2 drop partition (b_time='2019-08-12 13:00:00');
+-- alter table nadx_overall_dwr_v6_2 drop partition (b_time='2019-08-12 12:00:00');
+--
+-- alter table nadx_overall_dwr_v6_3 drop partition (b_time='2019-08-13 13:00:00');
+-- alter table nadx_overall_dwr_v6_3 drop partition (b_time='2019-08-13 12:00:00');
+-- alter table nadx_overall_dwr_v6_3 drop partition (b_time='2019-08-13 11:00:00');
+-- alter table nadx_overall_dwr_v6_3 drop partition (b_time='2019-08-13 10:00:00');
+-- alter table nadx_overall_dwr_v6_3 drop partition (b_time='2019-08-12 19:00:00');
+-- alter table nadx_overall_dwr_v6_3 drop partition (b_time='2019-08-12 18:00:00');
+-- alter table nadx_overall_dwr_v6_3 drop partition (b_time='2019-08-12 17:00:00');
+-- alter table nadx_overall_dwr_v6_3 drop partition (b_time='2019-08-12 16:00:00');
+-- alter table nadx_overall_dwr_v6_3 drop partition (b_time='2019-08-12 15:00:00');
+-- alter table nadx_overall_dwr_v6_3 drop partition (b_time='2019-08-12 14:00:00');
+-- alter table nadx_overall_dwr_v6_3 drop partition (b_time='2019-08-12 13:00:00');
+-- alter table nadx_overall_dwr_v6_3 drop partition (b_time='2019-08-12 12:00:00');
+--
+--
+-- select count(1),sum(impression_revenue), b_time from nadx_overall_dwr_v6  where b_date>='2019-08-12' group by b_time order by b_time desc;
+--
+--
+-- insert overwrite table nadx_overall_dwr_v6
+-- select * from nadx_overall_dwr
+-- where b_time in(
+-- "2019-08-13 13:00:00",
+-- "2019-08-13 12:00:00",
+-- "2019-08-13 11:00:00",
+-- "2019-08-13 10:00:00",
+-- "2019-08-12 19:00:00",
+-- "2019-08-12 18:00:00",
+-- "2019-08-12 17:00:00",
+-- "2019-08-12 16:00:00",
+-- "2019-08-12 15:00:00",
+-- "2019-08-12 14:00:00",
+-- "2019-08-12 13:00:00",
+-- "2019-08-12 12:00:00"
+-- );
+--
+--
+--
+-- set hive.exec.dynamic.partition.mode=nonstrict;
+-- insert overwrite table nadx_overall_dwr_v6_1
+-- select * from nadx_overall_dwr
+-- where b_time in(
+-- "2019-08-13 13:00:00",
+-- "2019-08-13 12:00:00",
+-- "2019-08-13 11:00:00",
+-- "2019-08-13 10:00:00",
+-- "2019-08-12 19:00:00",
+-- "2019-08-12 18:00:00",
+-- "2019-08-12 17:00:00",
+-- "2019-08-12 16:00:00",
+-- "2019-08-12 15:00:00",
+-- "2019-08-12 14:00:00",
+-- "2019-08-12 13:00:00",
+-- "2019-08-12 12:00:00"
+-- );
+--
+-- insert overwrite table nadx_overall_dwr_v6_2
+-- select * from nadx_overall_dwr
+-- where b_time in(
+-- "2019-08-13 13:00:00",
+-- "2019-08-13 12:00:00",
+-- "2019-08-13 11:00:00",
+-- "2019-08-13 10:00:00",
+-- "2019-08-12 19:00:00",
+-- "2019-08-12 18:00:00",
+-- "2019-08-12 17:00:00",
+-- "2019-08-12 16:00:00",
+-- "2019-08-12 15:00:00",
+-- "2019-08-12 14:00:00",
+-- "2019-08-12 13:00:00",
+-- "2019-08-12 12:00:00"
+-- );
+--
+-- insert overwrite table nadx_overall_dwr_v6_3
+-- select * from nadx_overall_dwr
+-- where b_time in(
+-- "2019-08-13 13:00:00",
+-- "2019-08-13 12:00:00",
+-- "2019-08-13 11:00:00",
+-- "2019-08-13 10:00:00",
+-- "2019-08-12 19:00:00",
+-- "2019-08-12 18:00:00",
+-- "2019-08-12 17:00:00",
+-- "2019-08-12 16:00:00",
+-- "2019-08-12 15:00:00",
+-- "2019-08-12 14:00:00",
+-- "2019-08-12 13:00:00",
+-- "2019-08-12 12:00:00"
+-- );
+
+----------------------------------
+-- set hive.exec.dynamic.partition.mode=nonstrict;
+--
+-- insert overwrite table nadx_overall_dwr_v6
+-- select * from nadx_overall_dwr
+-- where b_time in(
+-- "2019-08-14 22:00:00"
+-- );
+-- insert overwrite table nadx_overall_dwr_v6_1
+-- select * from nadx_overall_dwr
+-- where b_time in(
+-- "2019-08-14 22:00:00"
+-- );
+-- insert overwrite table nadx_overall_dwr_v6_2
+-- select * from nadx_overall_dwr
+-- where b_time in(
+-- "2019-08-14 22:00:00"
+-- );
+-- insert overwrite table nadx_overall_dwr_v6_3
+-- select * from nadx_overall_dwr
+-- where b_time in(
+-- "2019-08-14 22:00:00"
+-- );
+

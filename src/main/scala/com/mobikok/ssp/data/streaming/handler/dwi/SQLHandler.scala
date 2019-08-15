@@ -59,6 +59,10 @@ class SQLHandler extends Handler {
       .replaceAll("\\s*--[^\n]+","")
       .split(";\\s*[\n]")
       .filter{x=>StringUtil.notEmpty(x)}
+
+    if(ArgsConfig.Value.OFFSET_LATEST.equals(argsConfig.get(ArgsConfig.OFFSET))){
+      MC.setLastestOffset(messageConsumer, messageTopics)
+    }
   }
 
   override def handle(newDwi: DataFrame): (DataFrame, Array[TransactionCookie]) = {
@@ -75,13 +79,16 @@ class SQLHandler extends Handler {
 
           sqlSegments.foreach{x=>
             var s = x.replaceAll("""\$\{b_time_where\}""", w)
-            resultDF = sql(s);
+            // 只处理最近3小时的数据
+            resultDF = sql(s)
           }
         }
 
         true;
       })
     }
+
+    if(resultDF != null) resultDF = resultDF.where("b_time >= date_format(current_timestamp() + INTERVAL -2 HOUR, 'yyyy-MM-dd HH:00:00')");
 
     LOG.warn(s"SQLHandler handle done")
     (resultDF, Array())

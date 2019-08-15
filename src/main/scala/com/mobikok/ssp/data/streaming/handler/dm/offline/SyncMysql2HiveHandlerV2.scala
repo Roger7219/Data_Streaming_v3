@@ -5,7 +5,7 @@ import java.sql.ResultSet
 import com.fasterxml.jackson.core.`type`.TypeReference
 import com.mobikok.message.client.MessageClient
 import com.mobikok.ssp.data.streaming.client._
-import com.mobikok.ssp.data.streaming.config.RDBConfig
+import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.util.MySqlJDBCClientV2.Callback
 import com.mobikok.ssp.data.streaming.util._
 import com.typesafe.config.Config
@@ -24,7 +24,7 @@ import scala.collection.mutable.ListBuffer
   */
 class SyncMysql2HiveHandlerV2 extends Handler {
 
-  var tableDetails: Map[String, (String, String)] = null //[mysql(hive,uuid)]
+  var hiveTableDetails: Map[String, (String, String)] = null //[hiveTable(mysqlTable,uuid)]
 
   var rdbUrl: String = null
   var rdbUser: String = null
@@ -38,12 +38,14 @@ class SyncMysql2HiveHandlerV2 extends Handler {
   var mySqlJDBCClient: MySqlJDBCClientV2 = null
   @volatile var lock = new Object()
 
-  override def init(moduleName: String, bigQueryClient: BigQueryClient, greenplumClient: GreenplumClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext, handlerConfig: Config): Unit = {
-    super.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient, kylinClientV2, hbaseClient, hiveContext, handlerConfig)
+  override def init(moduleName: String, bigQueryClient: BigQueryClient, greenplumClient: GreenplumClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config): Unit = {
+    super.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient, kylinClientV2, hbaseClient, hiveContext, argsConfig, handlerConfig)
 
-    tableDetails = handlerConfig.getConfigList("tables").map { x =>
-      x.getString("mysql") -> (x.getString("hive"), if(x.hasPath("uuid")) x.getString("uuid") else null)
+    hiveTableDetails = handlerConfig.getConfigList("tables").map { x =>
+      x.getString("hive") -> (x.getString("mysql"), if(x.hasPath("uuid")) x.getString("uuid") else null)
     }.toMap
+
+    LOG.warn("Sync hiveTableDetails", hiveTableDetails)
 
     rdbUrl = handlerConfig.getString(s"rdb.url")
     rdbUser = handlerConfig.getString(s"rdb.user")
@@ -92,15 +94,15 @@ class SyncMysql2HiveHandlerV2 extends Handler {
           }
         }
 
-        tableDetails.entrySet().foreach { x =>
-          var mysqlT = x.getKey;
-          var hiveT = x.getValue._1;
+        hiveTableDetails.entrySet().foreach { x=>
+          var hiveT = x.getKey
+          var mysqlT = x.getValue._1
+          var uuidField = x.getValue._2
           var syncResultTmpT = s"${hiveT}_sync_result_tmp"
-          var uuidFied = x.getValue._2;
           var hiveDF = hiveContext.read.table(hiveT)
 
           // 全量刷新
-          if (StringUtil.isEmpty(x.getValue._2)) {
+          if (StringUtil.isEmpty(uuidField/*x.getValue._2*/)) {
             LOG.warn(s"Full table overwrite start", "mysqlTable", mysqlT, "hiveTable", hiveT)
             var unc = hiveContext.read.table(hiveT)
 
@@ -145,12 +147,12 @@ class SyncMysql2HiveHandlerV2 extends Handler {
                   .jdbc(rdbUrl, s"(select * from $mysqlT where id > $lastId) as sync_incr_table", rdbProp)
                   .selectExpr(hiveDF.schema.fieldNames.map(x => s"`$x`"): _*)
 
-              val updateDF = updateDFByWhere(tablesUpdateWhere, mysqlT)
+              val updateDF = updateDFByWhere(tablesUpdateWhere, mysqlT, hiveT)
 
               var incrAndUpdateDF = if (updateDF == null) incrDF else incrDF.union(updateDF)
 
             incrAndUpdateDF.createOrReplaceTempView(incrAndUpdateT)
-            incrAndUpdateDF.cache()
+//            incrAndUpdateDF.cache()
 
             if(incrAndUpdateDF.head(1).nonEmpty) {
 
@@ -162,7 +164,7 @@ class SyncMysql2HiveHandlerV2 extends Handler {
                    |from(
                    |  select
                    |    *,
-                   |    row_number() over(partition by $uuidFied order by 1 desc) row_num
+                   |    row_number() over(partition by $uuidField order by 1 desc) row_num
                    |  from (
                    |    select * from $incrAndUpdateT
                    |    union all
@@ -196,7 +198,7 @@ class SyncMysql2HiveHandlerV2 extends Handler {
 //            })
 
             }
-            incrAndUpdateDF.unpersist()
+//            incrAndUpdateDF.unpersist()
 
             LOG.warn(s"Incr table append done", "mysqlTable", mysqlT, "hiveTable", hiveT)
 
@@ -212,10 +214,10 @@ class SyncMysql2HiveHandlerV2 extends Handler {
 
   }
 
-    private def updateDFByWhere(tableWheres: mutable.Map[String, ListBuffer[String]], mysqlT: String): DataFrame ={
+    private def updateDFByWhere(tableWheres: mutable.Map[String, ListBuffer[String]], mysqlT: String, hiveT: String): DataFrame ={
 
       var allWs = tableWheres.getOrElse(mysqlT, ListBuffer[String]())
-      var hiveT = tableDetails.get(mysqlT).get._1
+//      var hiveT = hiveTableDetails.get(mysqlT).get._1
       var df = hiveContext.read.table(hiveT)
 
       //一个分组里最多50个

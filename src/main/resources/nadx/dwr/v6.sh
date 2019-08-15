@@ -4,7 +4,7 @@ spark-submit --name adx_dwr_v6 \
 --driver-memory 7g \
 --executor-memory 3g \
 --executor-cores 3 \
---num-executors 8 \
+--num-executors 9 \
 --queue default \
 --files \
 /usr/hdp/current/spark2-client/conf/hive-site.xml,\
@@ -33,7 +33,9 @@ hdfs:/libs/config-1.3.1.jar \
 --conf spark.ui.port=1111 \
 --conf spark.yarn.executor.memoryOverhead=2g \
 /apps/data-streaming/nadx/dwr/data-streaming.jar \
-overall.conf buration = 150 kill=true modules = dwr_traffic,dwr_performance version=6 \
-ex = site_app_id,placement_id,city,carrier,os_version,device_brand,device_model,bundle,site_domain,publisher_id,adomain,crid
-#offset=latest
+dwr.conf buration = 150 kill=true modules = dwr_traffic,dwr_performance version=6 \
+rate=4000000 \
+offset=latest
+#ex = site_app_id,placement_id,city,carrier,os_version,device_brand,device_model,bundle,site_domain,publisher_id,adomain,crid,app_or_site_id,bundle_or_domain
+
 

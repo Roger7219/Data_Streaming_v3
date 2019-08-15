@@ -78,9 +78,11 @@ object ArgsConfig{
   val KAFKA_OFFSET_ROLLBACK_LATEST_HOURS = "rollbackHours"
   val CLONE = "clone"
   val VERSION = "version"
-  val EX = "ex"
+  val EX = "ex" //Exclude，排除指定的维度字段
+  var VERSION_TOPIC = "version.topic" // 指定kafka topic版本
 
   val OFFSET = "offset" // earliest or latest
+  var ROLLBACK = "rollback"
 
   object Value{
     val REBRUSH_RUNNING = "running"
@@ -89,6 +91,10 @@ object ArgsConfig{
 
     val OFFSET_EARLIEST = "earliest"
     val OFFSET_LATEST = "latest"
+
+    val ROLLBACK_TRUE = "true"
+    val ROLLBACK_FALSE = "false"
+
   }
 
   def main (args: Array[String]): Unit = {

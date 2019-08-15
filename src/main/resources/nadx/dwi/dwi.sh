@@ -42,6 +42,10 @@ dwi.conf buration = 300 kill=true modules = nadx_traffic_dwi,nadx_performance_dw
  delete from  offset where module_name='nadx_traffic_dwi';
  delete from  offset where module_name='nadx_performance_dwi';
 
+delete from rollbackable_transaction_cookie where module_name = 'ssp_userv2';
+delete from  offset where module_name='ssp_userv2';
+
+
 
 [program:nadx_dwi]
 directory=/apps/data-streaming/nadx/dwi

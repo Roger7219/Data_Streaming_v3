@@ -99,6 +99,7 @@ class HiveDWRPersistDayHandler extends Handler with Persistence {
       unionAggExprsAndAlias,
       overwriteAggFields,
       groupByExprsAlias,
+      null,
       partitionFields.head,
       partitionFields.tail:_*
     )

@@ -11,7 +11,7 @@ class UUIDFilterDwrHandler extends BeforeFilterHandler {
   def this(uuidFilter: UuidFilter) {
     this()
     this.uuidFilter = uuidFilter
-    // 预处理必须是同步的
+    // 预处理可以是同步或异步
     isAsynchronous = false
   }
 

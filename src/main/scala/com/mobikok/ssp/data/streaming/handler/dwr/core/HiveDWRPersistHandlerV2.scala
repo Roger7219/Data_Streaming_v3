@@ -1,20 +1,19 @@
 package com.mobikok.ssp.data.streaming.handler.dwr.core
 
 import java.util
-import java.util.List
 
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.client.cookie.{HiveTransactionCookie, TransactionCookie}
+import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
 import com.mobikok.ssp.data.streaming.handler.dwr.Handler
 import com.mobikok.ssp.data.streaming.util._
 import com.typesafe.config.Config
+import org.apache.spark.sql.functions.{col, expr}
 import org.apache.spark.sql.{Column, DataFrame}
-import org.apache.spark.sql.functions.expr
 
 import scala.collection.JavaConversions._
 
-@deprecated
-class HiveDWRPersistHandler extends Handler with Persistence {
+class HiveDWRPersistHandlerV2 extends Handler with Persistence {
 
   val LOG: Logger = new Logger(moduleName, getClass.getName, System.currentTimeMillis())
 //  val COOKIE_KIND_DWR_T = "dwrT"
@@ -40,6 +39,9 @@ class HiveDWRPersistHandler extends Handler with Persistence {
   var partitionFields: Array[String] = _
 
   val batchTransactionCookiesCache = new util.ArrayList[TransactionCookie]()
+
+  var subversionTables: List[(String, Array[String], String)] = _
+  @volatile var currentBatchCookies: util.List[TransactionCookie] = _
 
   override def init(moduleName: String, transactionManager: TransactionManager, hbaseClient: HBaseClient, hiveClient: HiveClient, clickHouseClient: ClickHouseClient, handlerConfig: Config, globalConfig: Config, exprString: String, as: String): Unit = {
     super.init(moduleName, transactionManager, hbaseClient, hiveClient, clickHouseClient, handlerConfig, globalConfig, exprString, as)
@@ -91,104 +93,130 @@ class HiveDWRPersistHandler extends Handler with Persistence {
     needCounterMapFields = counterAliasMaps.map{ case(_, map)=>
       StringUtil.getMatcher("\\$(.+?)\\.", map)
     }.flatMap{x=>x}.toSet
+
+    val SUBVERSION_DEFAULT = "0"
+    subversionTables = if(globalConfig.hasPath(s"modules.$moduleName.dwr.tables")) {
+      val ts = s"modules.$moduleName.dwr.tables"
+      globalConfig.getConfig(ts).root().map { x =>
+        (
+          if (SUBVERSION_DEFAULT.equals(x._1)) table else s"${table}_${x._1}",
+          if(globalConfig.hasPath(s"$ts.${x._1}.select"))
+            globalConfig.getString(s"$ts.${x._1}.select").split(",").map(_.trim).filter(StringUtil.notEmpty(_))
+          else null,
+          if(globalConfig.hasPath(s"$ts.${x._1}.where"))
+            globalConfig.getString(s"$ts.${x._1}.where")
+          else null
+        )
+      }.toList
+
+    }else {
+      List((
+        table,
+        null.asInstanceOf[Array[String]],
+        null.asInstanceOf[String]
+      ))
+    }
+
+    // 确保创建了对应的表
+    subversionTables.foreach{ case(dwrSubversionTable, groupByFields, where)=>
+      // subversion=0的dwr表名无子版本后缀，因此有table==dwrSubversionTable的情况
+      if(dwrSubversionTable != table) {
+        sql(s"create table if not exists $dwrSubversionTable like $table")
+      }
+    }
+
   }
 
   override def rollback(cookies: TransactionCookie*): Cleanable = {
     hiveClient.rollback(cookies:_*)
   }
 
-  var borrowedCounters: util.ArrayList[DataFrame] = _
-
   override def handle(persistenceDwr: DataFrame): DataFrame = {
 
-    borrowedCounters = new util.ArrayList[DataFrame]()
+    currentBatchCookies = new util.ArrayList[TransactionCookie]()
 
-    cookie = hiveClient.overwriteUnionSum(
-      transactionManager.asInstanceOf[MixTransactionManager].getCurrentTransactionParentId(),
-      table,
-      persistenceDwr,
-      aggExprsAlias,
-      unionAggExprsAndAlias,
-      overwriteAggFields,
-      groupByExprsAlias,
-      { df =>
-        if(counterWhereExprs.nonEmpty) {
-          var joinedDF = df.as("dwr")
-
-          counterWhereExprs.foreach{ case(gsExpr, whereTableAlias, _)=>
-
-            val c = HiveCounterHandler.borrowCounter(table, whereTableAlias, hiveClient.emptyDF(persistenceDwr.schema))
-
-            joinedDF = joinedDF.join(
-              c,
-              expr(gsExpr
-                .split(",")
-                .map{g=>s"dwr.$g = `$whereTableAlias`.$g"}
-                .mkString("(", " and ", s") and dwr.b_time = `$whereTableAlias`.b_time ")),
-              "left_outer"
-            )
-
-            borrowedCounters.add(c)
-          }
-
-          joinedDF.select(df.schema.fieldNames.map{x=>expr(counterAliasReplacedMap.getOrElse(x, s"dwr.`$x`")).as(x)}:_*)
-
-        }else {
-          df
+    val ts = partitionFields
+    val ps = persistenceDwr
+      .dropDuplicates(ts)
+      .collect()
+      .map { x =>
+        ts.map { y =>
+          HivePartitionPart(y, x.getAs[String](y))
         }
-      },
-      partitionFields.head,
-      partitionFields.tail:_*
-    )
+      }
+//    moduleTracer.trace("        count partitions")
 
-    batchTransactionCookiesCache.add(cookie)
+    subversionTables.par.foreach{case(dwrSubversionTable, groupByFields, where)=>
+
+      var resultDF: DataFrame = persistenceDwr
+
+      if(StringUtil.notEmpty(where)) {
+        resultDF = resultDF.where(where)
+      }
+
+      if(groupByFields != null && groupByFields.length > 0) {
+
+        resultDF = resultDF
+          .groupBy((groupByFields ++ partitionFields).map(col(_)):_*)
+          .agg(unionAggExprsAndAlias.head, unionAggExprsAndAlias.tail: _*)
+          .select(
+            persistenceDwr.schema.fields.map { f =>
+              // 是维度字段 且 无需单维度统计的字段 置为null
+              if(groupByExprsAlias.contains(f.name) && !groupByFields.contains(f.name))
+                expr("null").cast(f.dataType).as(f.name)
+              else
+                col(f.name)
+            }: _*
+          )
+      }
+
+      currentBatchCookies.add(
+        hiveClient.overwriteUnionSum(
+          transactionManager.asInstanceOf[MixTransactionManager].getCurrentTransactionParentId(),
+          dwrSubversionTable,
+          resultDF,
+          aggExprsAlias,
+          unionAggExprsAndAlias,
+          overwriteAggFields,
+          groupByExprsAlias,
+          ps,
+          null,
+          partitionFields.head,
+          partitionFields.tail:_*
+        )
+      )
+
+      batchTransactionCookiesCache.addAll(currentBatchCookies)
+    }
+
     persistenceDwr
   }
 
   override def prepare(dwi: DataFrame): DataFrame = {
     dwi
-//    if(counterMaps.nonEmpty) {
-//
-//      var joinedDwi = dwi.as("dwi")
-//      counterMaps.foreach{case (f, _)=>
-//
-//        joinedDwi = joinedDwi.join(
-//          HiveCounterHandler.borrowCounter(table, f, hiveClient.emptyDF(_)).as(s"$counterTablePrefix$f"),
-//          expr(s"dwi.$f = $counterTablePrefix$f.$f and dwi.b_time = $counterTablePrefix$f.b_time "),
-//          "left_outer"
-//        )
-//      }
-//
-//      joinedDwi.select(dwi.schema.fieldNames.map{x=>
-//        expr(counterMaps
-//          .getOrElse(x, s"dwi.`$x`")
-//          .replaceAll("\\$", counterTablePrefix)
-//        ).as(x)
-//      }:_*)
-//
-//    }else {
-//      dwi
-//    }
   }
 
   override def commit(c: TransactionCookie): Unit = {
-    hiveClient.commit(cookie)
 
-    HiveCounterHandler.revertCounters(borrowedCounters)
+    currentBatchCookies.par.foreach{cookie=>
 
-    // push message
-    val dwrT = cookie.asInstanceOf[HiveTransactionCookie]
-    val topic = dwrT.targetTable
-    if (dwrT != null && dwrT.partitions != null && dwrT.partitions.nonEmpty) {
-      val key = OM.toJOSN(dwrT.partitions.map { x => x.sortBy { y => y.name + y.value } }.sortBy { x => OM.toJOSN(x) })
-      ThreadPool.LOCK.synchronized {
-        MC.push(PushReq(topic, key))
+      hiveClient.commit(cookie)
+
+      // push message
+      val dwrT = cookie.asInstanceOf[HiveTransactionCookie]
+      val topic = dwrT.targetTable
+      if (dwrT != null && dwrT.partitions != null && dwrT.partitions.nonEmpty) {
+        val key = OM.toJOSN(dwrT.partitions.map { x => x.sortBy { y => y.name + y.value } }.sortBy { x => OM.toJOSN(x) })
+        ThreadPool.LOCK.synchronized {
+          MC.push(PushReq(topic, key))
+        }
+        //      messageClient.pushMessage(new MessagePushReq(topic, key))
+        LOG.warn(s"MessageClient push done", s"topic: $topic, \nkey: $key")
+      } else {
+        LOG.warn(s"MessageClient dwr no hive partitions to push", s"topic: $topic")
       }
-      //      messageClient.pushMessage(new MessagePushReq(topic, key))
-      LOG.warn(s"MessageClient push done", s"topic: $topic, \nkey: $key")
-    } else {
-      LOG.warn(s"MessageClient dwr no hive partitions to push", s"topic: $topic")
     }
+    currentBatchCookies = null
   }
 
 

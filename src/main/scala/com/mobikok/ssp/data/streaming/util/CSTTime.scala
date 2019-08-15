@@ -118,7 +118,7 @@ object CSTTime {
       DF_DATE.get().format(new Date(new Date().getTime + (hour*1000*60*60).toLong))
     }
 
-    def modifyHourAsTime(hour: Double):String={
+    def modifyHourAsBTime(hour: Double):String={
       B_TIME.get().format(new Date(new Date().getTime + (hour*1000*60*60).toLong))
     }
 

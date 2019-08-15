@@ -6,7 +6,7 @@ import java.util.Date
 
 import com.mobikok.message.client.MessageClient
 import com.mobikok.ssp.data.streaming.client._
-import com.mobikok.ssp.data.streaming.config.RDBConfig
+import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.exception.HandlerException
 import com.mobikok.ssp.data.streaming.util._
 import com.mysql.jdbc.Driver
@@ -37,9 +37,9 @@ class ImageHandler extends Handler {
   val TOPIC = "ssp_report_overall_dwr"
   val CONSUMER = "ImageHandler_cer"
 
-  override def init (moduleName: String, bigQueryClient:BigQueryClient, greenplumClient:GreenplumClient,rDBConfig:RDBConfig, kafkaClient: KafkaClient,messageClient: MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext, handlerConfig: Config): Unit = {
+  override def init (moduleName: String, bigQueryClient:BigQueryClient, greenplumClient:GreenplumClient,rDBConfig:RDBConfig, kafkaClient: KafkaClient,messageClient: MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config): Unit = {
 
-    super.init(moduleName, bigQueryClient,greenplumClient, rDBConfig, kafkaClient: KafkaClient,messageClient, kylinClientV2, hbaseClient, hiveContext, handlerConfig)
+    super.init(moduleName, bigQueryClient,greenplumClient, rDBConfig, kafkaClient: KafkaClient,messageClient, kylinClientV2, hbaseClient, hiveContext, argsConfig, handlerConfig)
 
 //    dwrTable = handlerConfig.getString("dm.table")
 

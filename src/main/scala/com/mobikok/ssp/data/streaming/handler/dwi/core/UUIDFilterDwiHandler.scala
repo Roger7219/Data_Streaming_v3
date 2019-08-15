@@ -56,7 +56,7 @@ class UUIDFilterDwiHandler extends Handler {
           s"'$dwiLTimeExpr' as l_time",
           s"cast(to_date($businessTimeExtractBy) as string)  as b_date",
           s"from_unixtime(unix_timestamp($businessTimeExtractBy), '$dwiBTimeFormat')  as b_time",
-          s"'${version}' as b_version"
+          s"'0' as b_version"
       )
     } else {
       uuidDwi = newDwi
@@ -67,9 +67,13 @@ class UUIDFilterDwiHandler extends Handler {
           s"'$dwiLTimeExpr' as l_time",
           s"cast(to_date($businessTimeExtractBy) as string)  as b_date",
           s"from_unixtime(unix_timestamp($businessTimeExtractBy), '$dwiBTimeFormat')  as b_time",
-          s"'${version}' as b_version"
+          s"'0' as b_version"
         )
     }
+
+    // 只处理最近3小时的数据
+    uuidDwi = uuidDwi.where("b_time >= date_format(current_timestamp() + INTERVAL -2 HOUR, 'yyyy-MM-dd HH:00:00')")
+
     LOG.warn("uuid handler after dwi schema", uuidDwi.schema.fieldNames)
 //    this.uuidDwi = uuidDwi
 //    uuidDwi.persist(StorageLevel.MEMORY_ONLY_SER)
