@@ -72,7 +72,7 @@ if [ "$downloadBundlefilePath" ]; then
        echo "black.ivt.appId redis start"
          redisFileName="bundle/clickhouse_redis.txt"
          echo "del black.ivt.appId " > $redisFileName
-         awk -F, '{print "sadd black.ivt.appId "$1}' bundle/clickhouse.csv >> $redisFileName
+         awk -F, '{print "sadd black.ivt.appId "  tolower($1)}' bundle/clickhouse.csv >> $redisFileName
          if [ -f $redisFileName ]; then
            cat $redisFileName | redis-cli -h nadx-redis1g.redis.rds.aliyuncs.com --pipe
          fi        
@@ -132,7 +132,7 @@ if [ "$downloadDomainfilePath" ]; then
        echo "black.ivt.domain redis start"
          redisFileName="domain/clickhouse_redis.txt"
          echo "del black.ivt.domain " > $redisFileName
-         awk -F, '{print "sadd black.ivt.domain "$1}' domain/clickhouse.csv >> $redisFileName     
+         awk -F, '{print "sadd black.ivt.domain " tolower($1)}' domain/clickhouse.csv >> $redisFileName     
          if [ -f $redisFileName ]; then
            cat $redisFileName | redis-cli -h nadx-redis1g.redis.rds.aliyuncs.com --pipe
          fi
@@ -203,3 +203,4 @@ do
   rm -rf  $rmFile
 done
 echo "script end at " `date "+%Y-%m-%d %H:%M:%S"`
+

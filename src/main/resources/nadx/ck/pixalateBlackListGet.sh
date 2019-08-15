@@ -51,7 +51,7 @@ sleep 10s
          echo "black.ivt.deviceId redis start"
          redisFileName="redis_"`echo "ivt_device_id.csv" | awk -F. '{print $1}'`".txt"
          echo "del black.ivt.deviceId " > $redisFileName
-         awk -F, '{print "sadd black.ivt.deviceId "$1}' ivt_device_id.csv >> $redisFileName
+         awk -F, '{print "sadd black.ivt.deviceId " tolower($1)}' ivt_device_id.csv >> $redisFileName
          if [ -f $redisFileName ]; then
            cat $redisFileName | redis-cli -h nadx-redis1g.redis.rds.aliyuncs.com --pipe
          fi
@@ -105,7 +105,7 @@ sleep 10s
         echo "black.ivt.ip redis start"
         redisFileName="redis_"`echo "ivt_ip.csv" | awk -F. '{print $1}'`".txt"
         echo "del black.ivt.ip " > $redisFileName
-        awk -F, '{print "sadd black.ivt.ip "$1}' ivt_ip.csv >> $redisFileName
+        awk -F, '{print "sadd black.ivt.ip " tolower($1)}' ivt_ip.csv >> $redisFileName
         if [ -f $redisFileName ]; then
           cat $redisFileName | redis-cli -h nadx-redis1g.redis.rds.aliyuncs.com --pipe 
         fi
@@ -138,3 +138,4 @@ do
   rm -rf $rmFile
 done
 echo "script end at " `date "+%Y-%m-%d %H:%M:%S"`
+
