@@ -1,7 +1,7 @@
 #######################################################
-## cd /apps/data-streaming/nadx/dwr/offline; (./offline.sh "2019-08-12 12:00:00" "2019-08-12 19:00:00" &);tail -f offline.log
-## cd /apps/data-streaming/nadx/dwr/offline; (./offline.sh "2019-08-13 10:00:00" "2019-08-13 13:00:00" &);tail -f offline.log
-cd /apps/data-streaming/nadx/dwr/offline; (./offline.sh "2019-08-14 22:00:00" "2019-08-14 22:00:00" &);tail -f offline.log
+## cd /apps/data-streaming/nadx/dwr/offline; (sh ./offline.sh "2019-08-12 12:00:00" "2019-08-12 19:00:00" &);tail -f offline.log
+## cd /apps/data-streaming/nadx/dwr/offline; (sh./offline.sh "2019-08-13 10:00:00" "2019-08-13 13:00:00" &);tail -f offline.log
+## cd /apps/data-streaming/nadx/dwr/offline; (sh ./offline.sh "2019-08-16 03:00:00" "2019-08-16 10:00:00" &);tail -f offline.log
 #######################################################
 
 cd /apps/data-streaming/nadx/dwr/offline
@@ -23,6 +23,34 @@ beeline -u jdbc:hive2://master:10000/default \
 --hivevar start_b_time="${start_b_time}" \
 --hivevar end_b_time="${end_b_time}" \
 -e 'alter table nadx_overall_dwr drop partition(b_time>="${start_b_time}", b_time<="${end_b_time}")' >> ./offline.log 2>&1
+
+beeline -u jdbc:hive2://master:10000/default \
+--outputformat=vertical \
+--hivevar table=nadx_overall_dwr \
+--hivevar start_b_time="${start_b_time}" \
+--hivevar end_b_time="${end_b_time}" \
+-e 'alter table nadx_overall_dwr_v6 drop partition(b_time>="${start_b_time}", b_time<="${end_b_time}")' >> ./offline.log 2>&1
+
+beeline -u jdbc:hive2://master:10000/default \
+--outputformat=vertical \
+--hivevar table=nadx_overall_dwr \
+--hivevar start_b_time="${start_b_time}" \
+--hivevar end_b_time="${end_b_time}" \
+-e 'alter table nadx_overall_dwr_v6_1 drop partition(b_time>="${start_b_time}", b_time<="${end_b_time}")' >> ./offline.log 2>&1
+
+beeline -u jdbc:hive2://master:10000/default \
+--outputformat=vertical \
+--hivevar table=nadx_overall_dwr \
+--hivevar start_b_time="${start_b_time}" \
+--hivevar end_b_time="${end_b_time}" \
+-e 'alter table nadx_overall_dwr_v6_2 drop partition(b_time>="${start_b_time}", b_time<="${end_b_time}")' >> ./offline.log 2>&1
+
+beeline -u jdbc:hive2://master:10000/default \
+--outputformat=vertical \
+--hivevar table=nadx_overall_dwr \
+--hivevar start_b_time="${start_b_time}" \
+--hivevar end_b_time="${end_b_time}" \
+-e 'alter table nadx_overall_dwr_v6_3 drop partition(b_time>="${start_b_time}", b_time<="${end_b_time}")' >> ./offline.log 2>&1
 
 
 spark-sql --master yarn \

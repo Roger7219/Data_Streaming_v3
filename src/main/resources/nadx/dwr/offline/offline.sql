@@ -612,8 +612,27 @@ group by
 --   ssp_token
 ;
 
-set log = "MAKE nadx_overall_dwr done!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
+set log = "MAKE nadx_overall_dwr DONE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
 
+set log = "Overwrite nadx_overall_dwr_v6 START!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
+
+insert overwrite table nadx_overall_dwr_v6
+select * from nadx_overall_dwr
+where b_time >= ${start_b_time} and b_time <= ${end_b_time};
+
+insert overwrite table nadx_overall_dwr_v6_1
+select * from nadx_overall_dwr
+where b_time >= ${start_b_time} and b_time <= ${end_b_time};
+
+insert overwrite table nadx_overall_dwr_v6_2
+select * from nadx_overall_dwr
+where b_time >= ${start_b_time} and b_time <= ${end_b_time};
+
+insert overwrite table nadx_overall_dwr_v6_3
+select * from nadx_overall_dwr
+where b_time >= ${start_b_time} and b_time <= ${end_b_time};
+
+set log = "Overwrite nadx_overall_dwr_v6 DONE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
 
 -- site_app_id,
 -- placement_id,
@@ -754,7 +773,10 @@ set log = "MAKE nadx_overall_dwr done!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
 
 ----------------------------------
 -- set hive.exec.dynamic.partition.mode=nonstrict;
---
+-- alter table nadx_overall_dwr_v6 drop partition (b_time='2019-08-14 22:00:00');
+-- alter table nadx_overall_dwr_v6_1 drop partition (b_time='2019-08-14 22:00:00');
+-- alter table nadx_overall_dwr_v6_2 drop partition (b_time='2019-08-14 22:00:00');
+-- alter table nadx_overall_dwr_v6_3 drop partition (b_time='2019-08-14 22:00:00');
 -- insert overwrite table nadx_overall_dwr_v6
 -- select * from nadx_overall_dwr
 -- where b_time in(
