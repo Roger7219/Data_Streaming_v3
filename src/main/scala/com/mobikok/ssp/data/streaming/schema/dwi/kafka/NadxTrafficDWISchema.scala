@@ -27,7 +27,7 @@ object NadxTrafficDWISchema{
     StructField("position",           IntegerType) ::
 
     StructField("country",            StringType) ::
-    StructField("state",              StringType) ::
+    StructField("state",              StringType) :: //省/州
     StructField("city",               StringType) ::
 
     StructField("carrier",            StringType) ::
@@ -86,6 +86,7 @@ object NadxTrafficDWISchema{
     StructField("demand_win_count",                  LongType) ::
     StructField("demand_win_price_revenue_currency", DoubleType) ::
     StructField("demand_win_price",                  DoubleType) ::
+    // 已弃用，用tip_type功能实现
     StructField("demand_timeout_count",              LongType) ::
 
     StructField("impression_count",                  LongType) ::
@@ -102,7 +103,7 @@ object NadxTrafficDWISchema{
     StructField("conversion_price",                  DoubleType) ::
     StructField("saveCount",                         IntegerType) ::
 
-    StructField("bidfloor",                          DoubleType) ::
+    StructField("bidfloor",                          DoubleType) :: //ssp bid请求的底价
     // 已弃用，用app_or_site_id代替
     StructField("site_id",                           StringType) ::
     StructField("site_cat",                          StringType) ::
@@ -113,7 +114,7 @@ object NadxTrafficDWISchema{
     StructField("app_id",                            StringType) ::
     StructField("tmax",                              IntegerType) ::
     StructField("ip",                                StringType) ::
-    StructField("crid",                              StringType) ::
+    StructField("crid",                              StringType) :: // 素材id
     // 该数据来源节点
     StructField("node",                              StringType) ::
     // 已弃用，用tip_type代替
@@ -142,7 +143,7 @@ object NadxTrafficDWISchema{
     // 2019.7.22 新增
     StructField("app_or_site_id",                    StringType) ::
     StructField("bundle_or_domain",                  StringType) ::
-    StructField("cid",                               StringType) ::
+    StructField("cid",                               StringType) :: // campaign id
 
       Nil)
 }
