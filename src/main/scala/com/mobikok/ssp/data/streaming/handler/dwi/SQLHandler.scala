@@ -88,7 +88,7 @@ class SQLHandler extends Handler {
       })
     }
 
-    if(resultDF != null) resultDF = resultDF.where("b_time >= date_format(current_timestamp() + INTERVAL -2 HOUR, 'yyyy-MM-dd HH:00:00')");
+    if(resultDF != null) resultDF = resultDF.where("b_time >= date_format(current_timestamp() + INTERVAL -5 HOUR, 'yyyy-MM-dd HH:00:00')");
 
     LOG.warn(s"SQLHandler handle done")
     (resultDF, Array())

@@ -2,7 +2,7 @@ spark-submit --name adx_dwr_v6 \
 --class com.mobikok.ssp.data.streaming.OptimizedMixApp \
 --master yarn-cluster \
 --driver-memory 7g \
---executor-memory 3g \
+--executor-memory 4g \
 --executor-cores 3 \
 --num-executors 9 \
 --queue default \
@@ -34,7 +34,7 @@ hdfs:/libs/config-1.3.1.jar \
 --conf spark.yarn.executor.memoryOverhead=2g \
 /apps/data-streaming/nadx/dwr/data-streaming.jar \
 dwr.conf buration = 150 kill=true modules = dwr_traffic,dwr_performance version=6 \
-rate=4000000 \
+rate=6000000 \
 offset=latest
 #ex = site_app_id,placement_id,city,carrier,os_version,device_brand,device_model,bundle,site_domain,publisher_id,adomain,crid,app_or_site_id,bundle_or_domain
 

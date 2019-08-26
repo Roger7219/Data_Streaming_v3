@@ -881,7 +881,7 @@ ALTER TABLE nadx_overall_performance_matched_dwi_v20 ADD COLUMNS (media_type STR
 ALTER TABLE nadx_overall_dwr ADD COLUMNS (demand_name STRING);
 ALTER TABLE nadx_overall_dwr ADD COLUMNS (supply_name STRING);
 
-//2019-07-23
+-- 2019-07-23
 ALTER TABLE nadx_overall_dwr ADD COLUMNS (app_or_site_id STRING);
 ALTER TABLE nadx_overall_dwr_v9 ADD COLUMNS (app_or_site_id STRING);
 ALTER TABLE nadx_overall_traffic_dwi ADD COLUMNS (app_or_site_id STRING);
@@ -897,7 +897,7 @@ ALTER TABLE nadx_traffic_dwi_40000 ADD COLUMNS (bundle_or_domain STRING);
 ALTER TABLE nadx_overall_performance_matched_dwi_v9 ADD COLUMNS (bundle_or_domain STRING);
 
 
-//2019-07-26 bundle爬虫bundle数据表
+-- 2019-07-26 bundle爬虫bundle数据表
 drop table nadx_scraper_bundle_dwi;
 create table nadx_scraper_bundle_dwi(
   repeats                           int,
@@ -914,7 +914,7 @@ create table nadx_scraper_bundle_dwi_bak like nadx_scraper_bundle_dwi;
 set hive.exec.dynamic.partition.mode=nonstrict;insert overwrite  table nadx_scraper_bundle_dwi_bak select max(repeats) as repeats, max(rowkey) as rowkey, max(timestamp) as timestamp, bundle, max(repeated) as  repeated, max(l_time) as  l_time, max(b_date) as  b_date, max(b_time) as  b_time, max(b_version) as  b_version from nadx_scraper_bundle_dwi group by bundle;
 insert overwrite  table nadx_scraper_bundle_dwi select * from nadx_scraper_bundle_dwi_bak;
 
-//2019-07-26 domain爬虫domain数据表
+-- 2019-07-26 domain爬虫domain数据表
 drop table nadx_scraper_domain_dwi;
 create table nadx_scraper_domain_dwi(
   repeats                           int,

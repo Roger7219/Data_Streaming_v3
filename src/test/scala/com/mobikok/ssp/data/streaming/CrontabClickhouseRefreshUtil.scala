@@ -184,25 +184,32 @@ object CrontabClickhouseRefreshUtil {
 
 
     // 刷新adx ck数据--------------------------------------------------
-//    sendMsg_btimes_for_ck("nadx_overall_dwr",    "2019-08-12 08:00:00", "2019-08-12 08:00:00", "nadx_ck")
-//    sendMsg_btimes_for_ck("nadx_overall_dwr_v6",    "2019-08-12 12:00:00", "2019-08-12 19:00:00", "nadx_ck")
-//    sendMsg_btimes_for_ck("nadx_overall_dwr_v6",    "2019-08-13 10:00:00", "2019-08-13 13:00:00", "nadx_ck")
-//
-//    sendMsg_btimes_for_ck("nadx_overall_dwr_v6_1",    "2019-08-12 12:00:00", "2019-08-12 19:00:00", "nadx_ck")
-//    sendMsg_btimes_for_ck("nadx_overall_dwr_v6_1",    "2019-08-13 10:00:00", "2019-08-13 13:00:00", "nadx_ck")
-//
-//    sendMsg_btimes_for_ck("nadx_overall_dwr_v6_2",    "2019-08-12 12:00:00", "2019-08-12 19:00:00", "nadx_ck")
-//    sendMsg_btimes_for_ck("nadx_overall_dwr_v6_2",    "2019-08-13 10:00:00", "2019-08-13 13:00:00", "nadx_ck")
-//
-//    sendMsg_btimes_for_ck("nadx_overall_dwr_v6_3",    "2019-08-12 12:00:00", "2019-08-12 19:00:00", "nadx_ck")
-//    sendMsg_btimes_for_ck("nadx_overall_dwr_v6_3",    "2019-08-13 10:00:00", "2019-08-13 13:00:00", "nadx_ck")
+    sendMsg_btimes_for_nadx("nadx_overall_dwr",    "2019-08-21 19:00:00",    "2019-08-21 20:00:00", "nadx_ck")
+    sendMsg_btimes_for_nadx("nadx_overall_dwr_v6",    "2019-08-21 19:00:00", "2019-08-21 20:00:00", "nadx_ck")
+    sendMsg_btimes_for_nadx("nadx_overall_dwr_v6",    "2019-08-21 19:00:00", "2019-08-21 20:00:00", "nadx_ck")
+
+    sendMsg_btimes_for_nadx("nadx_overall_dwr_v6_1",    "2019-08-21 19:00:00", "2019-08-21 20:00:00", "nadx_ck")
+    sendMsg_btimes_for_nadx("nadx_overall_dwr_v6_1",    "2019-08-21 19:00:00", "2019-08-21 20:00:00", "nadx_ck")
+
+    sendMsg_btimes_for_nadx("nadx_overall_dwr_v6_2",    "2019-08-21 19:00:00", "2019-08-21 20:00:00", "nadx_ck")
+    sendMsg_btimes_for_nadx("nadx_overall_dwr_v6_2",    "2019-08-21 19:00:00", "2019-08-21 20:00:00", "nadx_ck")
+
+    sendMsg_btimes_for_nadx("nadx_overall_dwr_v6_3",    "2019-08-21 19:00:00", "2019-08-21 20:00:00", "nadx_ck")
+    sendMsg_btimes_for_nadx("nadx_overall_dwr_v6_3",    "2019-08-21 19:00:00", "2019-08-21 20:00:00", "nadx_ck")
 
 //    -----------------
 
-    sendMsg_btimes_for_ck("nadx_overall_dwr_v6",    "2019-08-14 22:00:00", "2019-08-14 22:00:00", "nadx_ck")
-    sendMsg_btimes_for_ck("nadx_overall_dwr_v6_1",    "2019-08-14 22:00:00", "2019-08-14 22:00:00", "nadx_ck")
-    sendMsg_btimes_for_ck("nadx_overall_dwr_v6_2",    "2019-08-14 22:00:00", "2019-08-14 22:00:00", "nadx_ck")
-    sendMsg_btimes_for_ck("nadx_overall_dwr_v6_3",    "2019-08-14 22:00:00", "2019-08-14 22:00:00", "nadx_ck")
+//    sendMsg_btimes_for_ck("nadx_overall_dwr_v6",    "2019-08-14 22:00:00", "2019-08-14 22:00:00", "nadx_ck")
+//    sendMsg_btimes_for_ck("nadx_overall_dwr_v6_1",    "2019-08-14 22:00:00", "2019-08-14 22:00:00", "nadx_ck")
+//    sendMsg_btimes_for_ck("nadx_overall_dwr_v6_2",    "2019-08-14 22:00:00", "2019-08-14 22:00:00", "nadx_ck")
+//    sendMsg_btimes_for_ck("nadx_overall_dwr_v6_3",    "2019-08-14 22:00:00", "2019-08-14 22:00:00", "nadx_ck")
+
+//      sendMsg_btimes_for_ck("nadx_overall_dwr_v6",    "2019-08-16 03:00:00", "2019-08-16 10:00:00", "nadx_ck")
+//      sendMsg_btimes_for_ck("nadx_overall_dwr_v6_1",    "2019-08-16 03:00:00", "2019-08-16 10:00:00", "nadx_ck")
+//      sendMsg_btimes_for_ck("nadx_overall_dwr_v6_2",    "2019-08-16 03:00:00", "2019-08-16 10:00:00", "nadx_ck")
+//      sendMsg_btimes_for_ck("nadx_overall_dwr_v6_3",    "2019-08-16 03:00:00", "2019-08-16 10:00:00", "nadx_ck")
+
+//    sendMsg_btimes_for_nadx("nadx_traffic_dwi", "2019-08-19 08:00:00", "2019-08-19 08:00:00", "adx_dwr_v6")
 
     //    "2019-08-13 13:00:00",
 //    "2019-08-13 12:00:00",
@@ -530,7 +537,7 @@ object CrontabClickhouseRefreshUtil {
     messageClient.pushMessage(s: _*);
   }
 
-  def sendMsg_btimes_for_ck(topic: String, startBTime: String, endBTime: String, appName: String): Unit = {
+  def sendMsg_btimes_for_nadx(topic: String, startBTime: String, endBTime: String, appName: String): Unit = {
 
     var startT = CSTTime.ms(startBTime)
     var endT = CSTTime.ms(endBTime)

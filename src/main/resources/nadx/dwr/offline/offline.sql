@@ -773,28 +773,34 @@ set log = "Overwrite nadx_overall_dwr_v6 DONE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 
 ----------------------------------
 -- set hive.exec.dynamic.partition.mode=nonstrict;
--- alter table nadx_overall_dwr_v6 drop partition (b_time='2019-08-14 22:00:00');
--- alter table nadx_overall_dwr_v6_1 drop partition (b_time='2019-08-14 22:00:00');
--- alter table nadx_overall_dwr_v6_2 drop partition (b_time='2019-08-14 22:00:00');
--- alter table nadx_overall_dwr_v6_3 drop partition (b_time='2019-08-14 22:00:00');
+-- alter table nadx_overall_dwr_v6 drop partition   (b_time='2019-08-21 19:00:00');
+-- alter table nadx_overall_dwr_v6_1 drop partition (b_time='2019-08-21 19:00:00');
+-- alter table nadx_overall_dwr_v6_2 drop partition (b_time='2019-08-21 19:00:00');
+-- alter table nadx_overall_dwr_v6_3 drop partition (b_time='2019-08-21 19:00:00');
+--
+-- alter table nadx_overall_dwr_v6 drop partition   (b_time='2019-08-21 20:00:00');
+-- alter table nadx_overall_dwr_v6_1 drop partition (b_time='2019-08-21 20:00:00');
+-- alter table nadx_overall_dwr_v6_2 drop partition (b_time='2019-08-21 20:00:00');
+-- alter table nadx_overall_dwr_v6_3 drop partition (b_time='2019-08-21 20:00:00');
+--
 -- insert overwrite table nadx_overall_dwr_v6
 -- select * from nadx_overall_dwr
 -- where b_time in(
--- "2019-08-14 22:00:00"
+-- "2019-08-21 19:00:00", "2019-08-21 20:00:00"
 -- );
 -- insert overwrite table nadx_overall_dwr_v6_1
 -- select * from nadx_overall_dwr
 -- where b_time in(
--- "2019-08-14 22:00:00"
+-- "2019-08-21 19:00:00", "2019-08-21 20:00:00"
 -- );
 -- insert overwrite table nadx_overall_dwr_v6_2
 -- select * from nadx_overall_dwr
 -- where b_time in(
--- "2019-08-14 22:00:00"
+-- "2019-08-21 19:00:00", "2019-08-21 20:00:00"
 -- );
 -- insert overwrite table nadx_overall_dwr_v6_3
 -- select * from nadx_overall_dwr
 -- where b_time in(
--- "2019-08-14 22:00:00"
+-- "2019-08-21 19:00:00", "2019-08-21 20:00:00"
 -- );
 
