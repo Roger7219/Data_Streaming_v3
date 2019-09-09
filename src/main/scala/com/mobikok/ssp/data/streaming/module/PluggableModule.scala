@@ -716,8 +716,8 @@ class PluggableModule(globalConfig: Config,
             dwi = dwi.select(expr(s"null as $dwiUuidFieldsAlias"), col("*"))
           }
 
-          dwi = dwi.alias("dwi").persist(StorageLevel.MEMORY_ONLY_SER)
-          dwi.count()
+          dwi = dwi.persist(StorageLevel.MEMORY_ONLY_SER).alias("dwi")
+//          dwi.count()
           moduleTracer.trace("read kafka")
           moduleReadingKafkaMarks.put(moduleName, false)
 
@@ -1062,7 +1062,7 @@ class PluggableModule(globalConfig: Config,
                 //------------------------------------------------------------------------------------
                 // Commit Transaction
                 //------------------------------------------------------------------------------------
-                // Synchronous handler commit transaction
+                // Synchronous(同步) handler commit transaction
                 if(dwiHandlers != null) {
                   dwiHandlers
                     .filter{ x => !x.isAsynchronous }

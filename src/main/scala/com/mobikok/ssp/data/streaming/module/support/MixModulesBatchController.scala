@@ -172,7 +172,7 @@ class MixModulesBatchController(config:Config, runnableModuleNames: Array[String
 
       cacheGroupByDwr.persist(StorageLevel.MEMORY_ONLY_SER)
 
-      cacheGroupByDwr.count()//触发persist
+//      cacheGroupByDwr.count()//触发persist
       currBatchUnionAllAndPersisted = true
       LOG.warn("MixModulesBatchController persist final df done")
 

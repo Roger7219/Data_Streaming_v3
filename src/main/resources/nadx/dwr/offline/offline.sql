@@ -615,22 +615,22 @@ group by
 set log = "MAKE nadx_overall_dwr DONE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
 
 set log = "Overwrite nadx_overall_dwr_v6 START!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
---
--- insert overwrite table nadx_overall_dwr_v6
--- select * from nadx_overall_dwr
--- where b_time >= ${start_b_time} and b_time <= ${end_b_time};
---
--- insert overwrite table nadx_overall_dwr_v6_1
--- select * from nadx_overall_dwr
--- where b_time >= ${start_b_time} and b_time <= ${end_b_time};
---
--- insert overwrite table nadx_overall_dwr_v6_2
--- select * from nadx_overall_dwr
--- where b_time >= ${start_b_time} and b_time <= ${end_b_time};
---
--- insert overwrite table nadx_overall_dwr_v6_3
--- select * from nadx_overall_dwr
--- where b_time >= ${start_b_time} and b_time <= ${end_b_time};
+
+insert overwrite table nadx_overall_dwr_v6
+select * from nadx_overall_dwr
+where b_time >= ${start_b_time} and b_time <= ${end_b_time};
+
+insert overwrite table nadx_overall_dwr_v6_1
+select * from nadx_overall_dwr
+where b_time >= ${start_b_time} and b_time <= ${end_b_time};
+
+insert overwrite table nadx_overall_dwr_v6_2
+select * from nadx_overall_dwr
+where b_time >= ${start_b_time} and b_time <= ${end_b_time};
+
+insert overwrite table nadx_overall_dwr_v6_3
+select * from nadx_overall_dwr
+where b_time >= ${start_b_time} and b_time <= ${end_b_time};
 
 set log = "Overwrite nadx_overall_dwr_v6 DONE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
 

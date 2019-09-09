@@ -1,5 +1,5 @@
 #######################################################
-## cd /apps/data-streaming/nadx/dwr/offline; (sh ./offline.sh "2019-08-21 19:00:00" "2019-08-21 20:00:00" &);tail -f offline.log
+## cd /apps/data-streaming/nadx/dwr/offline; (sh ./offline.sh "2019-09-04 15:00:00" "2019-09-04 15:00:00" &);tail -f offline.log
 #######################################################
 
 cd /apps/data-streaming/nadx/dwr/offline

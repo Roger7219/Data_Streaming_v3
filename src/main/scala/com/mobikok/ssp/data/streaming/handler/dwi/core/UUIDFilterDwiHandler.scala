@@ -71,7 +71,7 @@ class UUIDFilterDwiHandler extends Handler {
         )
     }
 
-    // 只处理最近3小时的数据
+    // 只处理最近6小时的数据
     uuidDwi = uuidDwi.where("b_time >= date_format(current_timestamp() + INTERVAL -5 HOUR, 'yyyy-MM-dd HH:00:00')")
 
     LOG.warn("uuid handler after dwi schema", uuidDwi.schema.fieldNames)

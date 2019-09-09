@@ -88,13 +88,14 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
       val fileNumber = aHivePartitionRecommendedFileNumber("HiveClient into repartition", shufflePartitions, df.rdd.getNumPartitions, ps.length)
 //      val parts = sparkPartitionNum("HiveClient into repartition", shufflePartitions, df.rdd.getNumPartitions, ps.length)
       moduleTracer.trace(s"        into repartition rs: ${df.rdd.getNumPartitions}, ps: ${ps.length}, fs: $fileNumber")
-      moduleTracer.trace(s"${makeShowPartition(ps).mkString("\n", "\n", "")}")
+      moduleTracer.trace(s"${makeShowPartition(ps).mkString("\n        ", "\n        ", "")}")
       LOG.warn("Into partitions", makeShowPartition(ps).mkString("\n"))
 
       if(!transactionManager.needTransactionalAction()) {
 
         df.selectExpr(fs:_*)
-          .repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
+          .coalesce(fileNumber)
+          //.repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
           .write
           .format("orc")
           .mode(SaveMode.Append)
@@ -259,7 +260,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
         val fileNumber = aHivePartitionRecommendedFileNumber("HiveClient unionSum repartition", shufflePartitions, updated.rdd.getNumPartitions, ps.length)
   //      val parts = sparkPartitionNum("HiveClient unionSum repartition", shufflePartitions, updated.rdd.getNumPartitions, ps.length)
         moduleTracer.trace(s"        union sum repartition rs: ${updated.rdd.getNumPartitions}, ps: ${ps.length}, fs: ${fileNumber}")
-        moduleTracer.trace(s"${makeShowPartition(ps).mkString("\n", "\n", "")}")
+        moduleTracer.trace(s"${makeShowPartition(ps).mkString("\n        ", "\n        ", "")}")
         LOG.warn("Union sum partitions", makeShowPartition(ps).mkString("\n"))
 
         if(transactionManager.needTransactionalAction()) {
@@ -280,8 +281,8 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
         }else {
           //非事务，直接写入目标表
           updated
-  //          .coalesce(1)
-            .repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
+            .coalesce(fileNumber)
+            //.repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
             .write
             .format("orc")
             .mode(SaveMode.Overwrite)
@@ -353,12 +354,13 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 
       val fileNumber = aHivePartitionRecommendedFileNumber("HiveClient overwrite repartition", shufflePartitions, df.rdd.getNumPartitions, ps.length)
       moduleTracer.trace(s"        overwrite repartition fs: $fileNumber, ps: ${ps.length}, rs: ${df.rdd.getNumPartitions}")
-      moduleTracer.trace(s"            ${makeShowPartition(ps).mkString("\n", "\n", "")}")
+      moduleTracer.trace(s"            ${makeShowPartition(ps).mkString("\n        ", "\n        ", "")}")
       LOG.warn("Overwrite partitions", makeShowPartition(ps).mkString("\n"))
 
       if(!transactionManager.needTransactionalAction()) {
         df.selectExpr(fs:_*)
-          .repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
+          .coalesce(fileNumber)
+          //.repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
           .write
           .format("orc")
           .mode(SaveMode.Overwrite)
@@ -493,11 +495,12 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
         val fileNumber = aHivePartitionRecommendedFileNumber("HiveClient read for backup repartition", shufflePartitions, df.rdd.getNumPartitions, backPss)
 //        val parts = sparkPartitionNum("HiveClient read for backup repartition", shufflePartitions, df.rdd.getNumPartitions, df.rdd.getNumPartitions)
         moduleTracer.trace(s"        read for backup rs: ${df.rdd.getNumPartitions}, ps: ${backPss}, fs: $fileNumber")
-        moduleTracer.trace(s"            ${backPs.mkString("\n")}")
+        moduleTracer.trace(s"            ${backPs.mkString("\n        ", "\n        ", "")}")
         LOG.warn("Read for backup partitions", backPs.mkString("\n"))
 
         // 待优化，文件直接复制
-        df.repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
+        df//.coalesce(fileNumber)
+          //.repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
           .write
           .format("orc")
           .mode(SaveMode.Overwrite)
@@ -515,11 +518,11 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
         val fileNumber2 = aHivePartitionRecommendedFileNumber("HiveClient read table repartition", shufflePartitions, df2.rdd.getNumPartitions, c.partitions.length)
 //        val parts2 = sparkPartitionNum("HiveClient read pluggable table repartition", shufflePartitions, df2.rdd.getNumPartitions, c.partitions.length)
         moduleTracer.trace(s"        read transactional tmp table rs: ${df2.rdd.getNumPartitions}, fs: $fileNumber2, ps: ${c.partitions.length}")
-        moduleTracer.trace(s"            ${makeShowPartition(c.partitions).mkString("\n", "\n", "")}")
+        moduleTracer.trace(s"            ${makeShowPartition(c.partitions).mkString("\n        ", "\n        ", "")}")
         LOG.warn(s"Read transactional tmp table partitions", makeShowPartition(c.partitions).mkString("\n"))
 
-        df2
-          .repartition(fileNumber2*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber2}) ) )"))
+        df2.coalesce(fileNumber2)
+          //.repartition(fileNumber2*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber2}) ) )"))
           .write
           .format("orc")
           .mode(c.saveMode)
@@ -891,7 +894,8 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
                 val fileNumber = aHivePartitionRecommendedFileNumber("HiveClient read backup table repartition", shufflePartitions, df.rdd.getNumPartitions, ps.length)
 //                val parts = sparkPartitionNum("HiveClient read backup table repartition", shufflePartitions, df.rdd.getNumPartitions, ps.length)
 
-                df.repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
+                df.coalesce(fileNumber)
+                  //.repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
                   .write
                   .format("orc")
                   .mode(SaveMode.Overwrite)
@@ -1023,9 +1027,9 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
   def aHivePartitionRecommendedFileNumber(logTip: String, shufflePartitions: Int, rddPartitions: Int, hivePartitions: Int): Int ={
     var result = 0
     if(rddPartitions == 0 || hivePartitions == 0) {
-      result = 8 //Math.ceil(8.0/hivePartitions).toInt
+      result = 10 //Math.ceil(8.0/hivePartitions).toInt
     }else {
-      result = 8;//Math.ceil(8.0/hivePartitions).toInt //Math.ceil(1.0*shufflePartitions/hivePartitions).toInt
+      result = 10;//Math.ceil(8.0/hivePartitions).toInt //Math.ceil(1.0*shufflePartitions/hivePartitions).toInt
     }
 
     LOG.warn(logTip, "aHivePartitionRecommendedFileNumber", result, "shufflePartitions", shufflePartitions, "rddPartitions", rddPartitions, "hivePartition", hivePartitions)
