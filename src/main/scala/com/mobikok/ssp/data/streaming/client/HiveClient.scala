@@ -470,7 +470,8 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
         LOG.warn(s"Hive before commit backup table ${c.targetTable} where: ", lts)
 
         //For transactional rollback overwrite original empty partitions
-        partitionsAlterSQL(c.partitions).foreach{x=>
+        val tranPs = c.partitions.filter{x=>x.filter(y=> ("l_time".equals(y.name) && y.value.equals(HiveClient.OVERWIRTE_FIXED_L_TIME))).isEmpty}.filter{x=>x.nonEmpty}
+        partitionsAlterSQL(tranPs).foreach{x=>
           sql(s"alter table ${c.transactionalProgressingBackupTable} add partition($x)")
         }
 
