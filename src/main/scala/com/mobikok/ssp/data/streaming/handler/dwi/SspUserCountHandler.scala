@@ -13,8 +13,8 @@ import org.apache.spark.storage.StorageLevel
 class SspUserCountHandler extends Handler {
 
   var userIdHistoryTable = null.asInstanceOf[String]
-  val userNewTopic = "topic_ad_user_new_test"
-  val userActiveTopic = "topic_ad_user_active_test"
+  val userNewTopic = "topic_ad_user_new_v2"
+  val userActiveTopic = "topic_ad_user_active_v2"
   val SSPUSERCOUNT_DROP_EXCEEDTABLE_CER = "sspUserCount_dropExceedTable_cer"
   val SSPUSERCOUNT_DROP_EXCEEDTABLE_TOPIC = "sspUserCount_dropExceedTable_topic"
 
@@ -78,7 +78,7 @@ class SspUserCountHandler extends Handler {
     //1. 新增（将activeTime值改为createTime值）
     val userNewSqls =
       if (res.collect().size > 0) s"select * from $userIdDfT u where not exists (select userid from $activedT where userid = u.userid)"
-        else s"select * from $userIdDf"
+        else s"select * from $userIdDfT"
 
     val userNewDf = sql(userNewSqls)
       .withColumn("activeTime", expr("createTime"))

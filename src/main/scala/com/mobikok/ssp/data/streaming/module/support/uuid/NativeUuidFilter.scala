@@ -18,7 +18,7 @@ import scala.collection.JavaConverters._
   */
 class NativeUuidFilter extends UuidFilter {
 
-  @volatile var uuidFilterMap: util.Map[String, util.ArrayList[String]] = new util.HashMap[String, util.ArrayList[String]]()
+  @volatile var uuidFilterMap: util.Map[String, util.HashSet[String]] = new util.HashMap[String, util.HashSet[String]]()
   var filterBTimeFormat = "yyyy-MM-dd HH:00:00"
 
   override def dwrNonRepeatedWhere(): String = {
@@ -116,7 +116,7 @@ class NativeUuidFilter extends UuidFilter {
         })
         LOG.warn("read dwi table uuids done", "count ", containsData.length, "b_time ", b_time)
 
-        filter = new util.ArrayList[String](containsData.toList.asJava)
+        filter = new util.HashSet[String](containsData.toList.asJava)
         uuidFilterMap.put(b_time, filter)
       }
     }
@@ -137,7 +137,7 @@ class NativeUuidFilter extends UuidFilter {
     val result = new util.ArrayList[(String, String)]()
 
     b_times.foreach { b_time =>
-      CSTTime.neighborTimes(b_time, 1.0, 1).foreach { x => result.add((x.split(" ")(0), x)) }
+      CSTTime.neighborBTimes(b_time, 1).foreach { x => result.add((x.split(" ")(0), x)) }
     }
     result.toArray(new Array[(String, String)](0))
   }
@@ -147,7 +147,7 @@ class NativeUuidFilter extends UuidFilter {
     // 获取重复的rowkey
     val repeatedIds = ids.map { case (_bt, _ids) =>
 
-      val bts = CSTTime.neighborTimes(_bt, 1.0, 1)
+      val bts = CSTTime.neighborBTimes(_bt, 1)
 //      var initS = 20 * _ids.size // Integer.MAX_VALUE*_ids.size/100000000
       LOG.warn("NativeFilter filter neighborTimes", "currBTime", _bt, "neighborTimes", bts, "sourceBTimes", ids.map(_._1), "dataCount", _ids.size)
 
@@ -177,7 +177,7 @@ class NativeUuidFilter extends UuidFilter {
       //去重后的数据加入当前小时filter中
       var filter = uuidFilterMap.get(_bt)
       if (filter == null) {
-        filter = new util.ArrayList[String]()
+        filter = new util.HashSet[String]()
         uuidFilterMap.put(_bt, filter)
       }
       repeatKeys

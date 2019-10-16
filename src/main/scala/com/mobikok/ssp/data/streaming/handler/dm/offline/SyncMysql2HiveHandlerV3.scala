@@ -104,6 +104,7 @@ class SyncMysql2HiveHandlerV3 extends Handler {
           sql(s"alter table $hiveT rename to ${hiveT}_backup") // 备份
           sql(s"alter table $syncResultTmpT rename to ${hiveT}")
           LOG.warn(s"Full table overwrite done", "mysqlTable", mysqlT, "hiveTable", hiveT)
+
         }
       }
 

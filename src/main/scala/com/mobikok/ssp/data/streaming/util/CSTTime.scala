@@ -186,10 +186,10 @@ object CSTTime {
   /**
     * @param time     当前时间，格式为：yyyy-MM-dd HH:mm:ss
     * @param spanHour 分组时间跨度，eg: 值为3，表示每3小时一个组, 从0点开始
-    * @param parts    
+    * @param parts    多少组，eg：值为0，则只有自身
     * @return
     */
-  def neighborTimes(time:String, spanHour: java.lang.Double, parts: Integer): Array[String] ={
+  private def neighborBTimes0(time:String, spanHour: java.lang.Double, parts: Integer): Array[String] ={
 //    val b_time = "2018-12-12 11:13:44"
 //    val spanHour = 2
 //    val parts = 1
@@ -200,7 +200,7 @@ object CSTTime {
     var i = 0 - parts
     while ( {i < parts + 1}) {
 
-      val t = d.getTime + (1000L * 60 * 60 * spanHour * i).toLong
+      val t = d.getTime - (1000L * 60 * 60 * spanHour * i).toLong
       result.add(CSTTime.time(new Date(t)))
 
       {i += 1}
@@ -208,11 +208,30 @@ object CSTTime {
     result.toArray(new Array[String](0))
   }
 
+  def neighborBTimes(time:String, neighborHours: Integer): Array[String] ={
+    neighborBTimes0(time, 1.0, neighborHours)
+  }
+
+  def intervalBTimes(time:String, startOffsetHour: Int, endOffsetHour: Int): Array[String] ={
+    var result = new util.ArrayList[String]()
+
+    val d = CSTTime.formatter("yyyy-MM-dd HH:mm:ss").parse(time)
+    for(i <- startOffsetHour to endOffsetHour){
+      val t = d.getTime + (1000L * 60 * 60  * i)
+      result.add(CSTTime.time(new Date(t)))
+    }
+    result.toArray(new Array[String](0))
+  }
 
   //TEST
   def main (args: Array[String]): Unit = {
 
-    println(CSTTime.now.addHourToDate(-8*24))
+//    println(OM.toJOSN(CSTTime.neighborBTimes("2018-12-12 11:13:44", 0)))
+
+//    println(OM.toJOSN(CSTTime.intervalBTimes("2018-12-12 11:13:44", -2,0)))
+
+
+    //    println(CSTTime.now.addHourToDate(-8*24))
 
 //
 //    for(i <- 0  until 12) {

@@ -5,6 +5,7 @@ import java.util.Date
 
 import com.mobikok.message.MessagePushReq
 import com.mobikok.message.client.MessageClient
+import com.mobikok.ssp.data.streaming.BigQueryRefreshUtil.{DF, daysBetween, messageClient, sendMaxWaitingTimeMS}
 import com.mobikok.ssp.data.streaming.config.DynamicConfig
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
 import com.mobikok.ssp.data.streaming.util.{CSTTime, MC, OM}
@@ -183,23 +184,31 @@ object CrontabClickhouseRefreshUtil {
 //    sendMsg_btimes_for_ck("nadx_overall_dwr_v6", "2019-06-29 19:00:00", "2019-06-29 19:00:00", "nadx_ck")
 
 
-    // 刷新adx ck数据--------------------------------------------------
-    sendMsg_btimes_for_nadx("nadx_overall_dwr",    "2019-08-21 19:00:00",    "2019-08-21 20:00:00", "nadx_ck")
-    sendMsg_btimes_for_nadx("nadx_overall_dwr_v6",    "2019-08-21 19:00:00", "2019-08-21 20:00:00", "nadx_ck")
-    sendMsg_btimes_for_nadx("nadx_overall_dwr_v6",    "2019-08-21 19:00:00", "2019-08-21 20:00:00", "nadx_ck")
+//    // 刷新adx ck数据 START --------------------------------------------------
 
-    sendMsg_btimes_for_nadx("nadx_overall_dwr_v6_1",    "2019-08-21 19:00:00", "2019-08-21 20:00:00", "nadx_ck")
-    sendMsg_btimes_for_nadx("nadx_overall_dwr_v6_1",    "2019-08-21 19:00:00", "2019-08-21 20:00:00", "nadx_ck")
+//    sendMsg_btimes_for_nadx("nadx_overall_dwr",         "2019-09-15 15:00:00", "2019-09-16 04:00:00", "nadx_ck")
+//    sendMsg_btimes_for_nadx("nadx_overall_dwr_v6",      "2019-09-15 15:00:00", "2019-09-16 04:00:00", "nadx_ck")
+//    sendMsg_btimes_for_nadx("nadx_overall_dwr_v6_1",    "2019-09-15 15:00:00", "2019-09-16 04:00:00", "nadx_ck")
+//    sendMsg_btimes_for_nadx("nadx_overall_dwr_v6_2",    "2019-09-15 15:00:00", "2019-09-16 04:00:00", "nadx_ck")
+//    sendMsg_btimes_for_nadx("nadx_overall_dwr_v6_3",    "2019-09-15 15:00:00", "2019-09-16 04:00:00", "nadx_ck")
 
-    sendMsg_btimes_for_nadx("nadx_overall_dwr_v6_2",    "2019-08-21 19:00:00", "2019-08-21 20:00:00", "nadx_ck")
-    sendMsg_btimes_for_nadx("nadx_overall_dwr_v6_2",    "2019-08-21 19:00:00", "2019-08-21 20:00:00", "nadx_ck")
 
-    sendMsg_btimes_for_nadx("nadx_overall_dwr_v6_3",    "2019-08-21 19:00:00", "2019-08-21 20:00:00", "nadx_ck")
-    sendMsg_btimes_for_nadx("nadx_overall_dwr_v6_3",    "2019-08-21 19:00:00", "2019-08-21 20:00:00", "nadx_ck")
+    sendMsg_btimes_for_nadx("nadx_overall_dwr_v6_2",    "2019-10-14 12:00:00", "2019-10-14 12:00:00", "nadx_ck")
+    sendMsg_btimes_for_nadx("nadx_overall_dwr_v6_2",    "2019-10-14 16:00:00", "2019-10-14 16:00:00", "nadx_ck")
+//
+//    sendMaxWaitingTimeMS(DynamicConfig.of("nadx_ck", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(1000*60*60*100L)) // 4小时
+//    // 刷新adx ck数据 END   --------------------------------------------------
 
-//    -----------------
+//    messageResetToLastest("nadx_overall_dm_cer", Array("nadx_overall_dwr"))
+//    messageResetToLastest("nadx_overall_dm_v6_cer", Array("nadx_overall_dwr_v6"))
+//    messageResetToLastest("nadx_overall_dm_v6_1_cer", Array("nadx_overall_dwr_v6_1"))
+//    messageResetToLastest("nadx_overall_dm_v6_2_cer", Array("nadx_overall_dwr_v6_2"))
+//    messageResetToLastest("nadx_overall_dm_v6_3_cer", Array("nadx_overall_dwr_v6_3"))
 
-//    sendMsg_btimes_for_ck("nadx_overall_dwr_v6",    "2019-08-14 22:00:00", "2019-08-14 22:00:00", "nadx_ck")
+
+
+
+    //    sendMsg_btimes_for_ck("nadx_overall_dwr_v6",    "2019-08-14 22:00:00", "2019-08-14 22:00:00", "nadx_ck")
 //    sendMsg_btimes_for_ck("nadx_overall_dwr_v6_1",    "2019-08-14 22:00:00", "2019-08-14 22:00:00", "nadx_ck")
 //    sendMsg_btimes_for_ck("nadx_overall_dwr_v6_2",    "2019-08-14 22:00:00", "2019-08-14 22:00:00", "nadx_ck")
 //    sendMsg_btimes_for_ck("nadx_overall_dwr_v6_3",    "2019-08-14 22:00:00", "2019-08-14 22:00:00", "nadx_ck")
@@ -236,6 +245,8 @@ object CrontabClickhouseRefreshUtil {
     // 刷新campaign/publisher表
 //    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2018-06-01", "2018-06-10")
 //    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2018-05-01", "2018-05-31")
+
+//    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2018-06-01", "2018-06-10", "")
 
 //    sendMsg_btime("ssp_report_overall_dwr", "2019-08-08 12:00:00")
 //    sendMsg_btime("ssp_report_overall_dwr", "2019-08-08 13:00:00")
@@ -293,6 +304,7 @@ object CrontabClickhouseRefreshUtil {
 //    sendMaxWaitingTimeMS(DynamicConfig.of("ssp_send ", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(1000*60*60*100L)) // 4小时
 
 //    sendMaxWaitingTimeMS(DynamicConfig.of("bq_report_overall2", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(1000*60*60*100L)) // 4小时
+
 
 //    nadx_performance_dwi", "nadx_traffic_dwi", "nadx_overall_traffic_dwi_v2
 //    messageResetToLastest("nadx_p_matched_dwi_cer_v6", Array("nadx_performance_dwi"))
@@ -521,6 +533,23 @@ object CrontabClickhouseRefreshUtil {
     sendMsg_l_time(topic, incrStartTime)
 
     sendMaxWaitingTimeMS(DynamicConfig.of(appName, DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(1000*60*60*100L)) // 4小时
+  }
+
+  //含startDay和endDay
+  def sendMsg_btime_00_00_00 (topic: String, startDay: String, endDay: String, appName:String): Unit = {
+
+    val days =daysBetween(startDay, endDay) + 1
+    val s = (0 until days).map { x =>
+      new MessagePushReq(
+        topic,
+        OM.toJOSN(Array(Array(HivePartitionPart("b_time", DF.format(new Date(DF.parse(endDay).getTime - x * 1000 * 60 * 60 * 24L)) + " 00:00:00"))))
+      )
+    }
+    println(s)
+    messageClient.pushMessage(s: _*);
+
+    sendMaxWaitingTimeMS(DynamicConfig.of(appName, DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(1000*60*5*days*2)) // 4小时
+
   }
 
   //不含startDate

@@ -19,7 +19,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
 /**
-  * Created by admin on 2017/9/4.
+  * For ssp 最新版
   */
 class SyncMysql2HiveHandlerV2_2 extends Handler {
 

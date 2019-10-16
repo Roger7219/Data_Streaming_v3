@@ -363,7 +363,7 @@ object QuartzApp {
         LOG.warn("reset maxRatePerPartition !")
 
         val partitionNum = config.getConfig("modules").root().map{x =>
-          config.getList(s"modules.${x._1}.kafka.consumer.partitoins").size()
+          config.getList(s"modules.${x._1}.kafka.consumer.partitions").size()
         }.max
 
         val maxRatePerPartition = Integer.valueOf(argsConfig.get(ArgsConfig.RATE))/Integer.valueOf(argsConfig.get(ArgsConfig.STREAMING_BATCH_BURATION))/partitionNum

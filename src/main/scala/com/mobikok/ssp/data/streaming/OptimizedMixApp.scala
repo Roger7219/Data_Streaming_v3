@@ -348,24 +348,24 @@ object OptimizedMixApp {
 
         // 给kafka partitions中的topic加上对应的version信息
         var vTps = allModulesConfig
-          .getConfigList(s"modules.${vName}.kafka.consumer.partitoins")
+          .getConfigList(s"modules.${vName}.kafka.consumer.partitions")
           .map{y=>
             var tp = new java.util.HashMap[String, Any]()
             tp.put("topic", versionFeaturesKafkaTopicName(kafkaTopicVersion, y.getString("topic")))
             if(y.hasPath("partition")) tp.put("partition", y.getInt("partition"))
             tp
           }
-        allModulesConfig = allModulesConfig.withValue(s"modules.${vName}.kafka.consumer.partitoins", ConfigValueFactory.fromIterable(vTps))
+        allModulesConfig = allModulesConfig.withValue(s"modules.${vName}.kafka.consumer.partitions", ConfigValueFactory.fromIterable(vTps))
 
         // 读取kafka服务器，获取tipic对应的partition并补全配置
         var tps = allModulesConfig
-          .getConfigList(s"modules.${vName}.kafka.consumer.partitoins")
+          .getConfigList(s"modules.${vName}.kafka.consumer.partitions")
           .filter{y=> !y.hasPath("partition")}
           .map{y=> y.getString("topic")}
           .map{y=> KafkaOffsetTool.getTopicPartitions(allModulesConfig.getString("kafka.consumer.set.bootstrap.servers"), java.util.Collections.singletonList(y))}
           .flatMap{y=> y}
           .map{y=> y.asTuple}
-          .union(allModulesConfig.getConfigList(s"modules.${vName}.kafka.consumer.partitoins")
+          .union(allModulesConfig.getConfigList(s"modules.${vName}.kafka.consumer.partitions")
             .filter{y=> y.hasPath("partition")}
             .map{y=> (y.getString("topic"), y.getInt("partition"))})
           .distinct
@@ -375,7 +375,7 @@ object OptimizedMixApp {
             tp.put("partition", y._2)
             tp
           }
-        allModulesConfig = allModulesConfig.withValue(s"modules.${vName}.kafka.consumer.partitoins", ConfigValueFactory.fromIterable(tps))
+        allModulesConfig = allModulesConfig.withValue(s"modules.${vName}.kafka.consumer.partitions", ConfigValueFactory.fromIterable(tps))
 
         if(argsConfig.has(ArgsConfig.EX)) {
           //拿到用户配置的ex
@@ -473,11 +473,11 @@ object OptimizedMixApp {
         LOG.warn("reset maxRatePerPartition !")
 
         val partitionNum = argsModuleNames(argsConfig).map { x =>
-          allModulesConfig.getList(s"modules.${x}.kafka.consumer.partitoins").size()
+          allModulesConfig.getList(s"modules.${x}.kafka.consumer.partitions").size()
         }.sum
 
         /*val partitionNum = allModulesConfig.getConfig("modules").root().map{x =>
-          allModulesConfig.getList(s"modules.${x._1}.kafka.consumer.partitoins").size()
+          allModulesConfig.getList(s"modules.${x._1}.kafka.consumer.partitions").size()
         }.max*/
 
         val maxRatePerPartition = Math.ceil(java.lang.Double.valueOf(argsConfig.get(ArgsConfig.RATE))/Integer.valueOf(argsConfig.get(ArgsConfig.STREAMING_BATCH_BURATION))/partitionNum).toInt

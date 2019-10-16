@@ -224,7 +224,7 @@ class QuartzModule(config: Config,
     }
   }
 
-  val topics = config.getConfigList(s"modules.$moduleName.kafka.consumer.partitoins").map { x => x.getString("topic") }.toArray[String]
+  val topics = config.getConfigList(s"modules.$moduleName.kafka.consumer.partitions").map { x => x.getString("topic") }.toArray[String]
 
   //==
   var dwrGroupbyExtendedFields:List[com.mobikok.ssp.data.streaming.handler.dwr.Handler] = null

@@ -53,6 +53,3 @@ stdout_logfile_maxbytes=100MB
 stdout_logfile_backups=10
 
 
-
-delete from rollbackable_transaction_cookie where module_name = 'nadx_audit';
-delete from  offset where module_name='nadx_audit';

@@ -1,28 +1,27 @@
 package com.mobikok.ssp.data.streaming.module.support.uuid
 
-import java.text.DateFormat
 import java.util
-import java.util.Date
 
 import com.mobikok.ssp.data.streaming.entity.UuidStat
 import com.mobikok.ssp.data.streaming.udf.UserAgentBrowserKernelUDF.StringUtil
 import com.mobikok.ssp.data.streaming.util.{BloomFilterWrapper, CSTTime, OM, RunAgainIfError}
 import org.apache.hadoop.util.bloom.{BloomFilter, Key}
 import org.apache.hadoop.util.hash.Hash
-import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
-import org.apache.spark.storage.StorageLevel
 
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
+
 /**
   * Created by Administrator on 2018/4/17.
   */
-class DefaultUuidFilter(dwiBTimeFormat: String = "yyyy-MM-dd HH:00:00") extends UuidFilter{
+class BTimeRangeUuidFilter(dwiBTimeFormat: String = "yyyy-MM-dd HH:00:00", bTimeRange: List[Int]) extends UuidFilter{
 
   @volatile var uuidBloomFilterMap:util.Map[String, BloomFilterWrapper] = new util.HashMap[String, BloomFilterWrapper]()
-  var bloomFilteBTimeformat: String = dwiBTimeFormat //_ //"yyyy-MM-dd HH:00:00"
+  var bloomFilterBTimeFormat: String = dwiBTimeFormat
+  val startOffsetHour = bTimeRange(0)
+  val endOffsetHour = bTimeRange(1)
 
   override def dwrNonRepeatedWhere (): String = {
     "repeated = 'N'"
@@ -37,7 +36,7 @@ class DefaultUuidFilter(dwiBTimeFormat: String = "yyyy-MM-dd HH:00:00") extends 
       .dropDuplicates(dwiUuidFieldsAlias)
       .select(
         expr(s"$dwiUuidFieldsAlias"),
-        expr(s"from_unixtime(unix_timestamp($businessTimeExtractBy), '${bloomFilteBTimeformat}')").as("b_time")
+        expr(s"from_unixtime(unix_timestamp($businessTimeExtractBy), '${bloomFilterBTimeFormat}')").as("b_time")
       )
       .rdd
       .map { x =>
@@ -65,7 +64,7 @@ class DefaultUuidFilter(dwiBTimeFormat: String = "yyyy-MM-dd HH:00:00") extends 
     val b_dates = dwi
       .select(
         to_date(expr(businessTimeExtractBy)).cast("string").as("b_date"),
-        expr(s"from_unixtime(unix_timestamp($businessTimeExtractBy), '${bloomFilteBTimeformat}')").as("b_time")
+        expr(s"from_unixtime(unix_timestamp($businessTimeExtractBy), '${bloomFilterBTimeFormat}')").as("b_time")
       )
       .dropDuplicates("b_date", "b_time")
       .rdd.map{
@@ -123,22 +122,18 @@ class DefaultUuidFilter(dwiBTimeFormat: String = "yyyy-MM-dd HH:00:00") extends 
     //cacheUuidRepeats
   }
 
-  def neighborBTimes(b_times: Array[String]): Array[(String, String)] ={
+  def intervalBTimes(b_times: Array[String]): Array[(String, String)] ={
     var result = new util.ArrayList[(String, String)]()
-
     b_times.foreach{bt=>
-      // CSTTime.neighborTimes(bt, 1.0, 1).foreach{x=> result.add((x.split(" ")(0), x))}
-      // for nadx
-      CSTTime.neighborBTimes(bt, 0).foreach{ x=> result.add((x.split(" ")(0), x))}
+      CSTTime.intervalBTimes(bt, startOffsetHour, endOffsetHour).foreach{ x=> result.add((x.split(" ")(0), x))}
     }
     result.toArray(new Array[(String, String)](0))
   }
 
-
   def loadUuidsIfNonExists(dwiTable: String, b_dates:Array[(String, String)]): Unit = {
     LOG.warn("BloomFilter try load uuids if not exists start", s"contained b_date: ${OM.toJOSN(uuidBloomFilterMap.keySet())}\ndwi table: $dwiTable\ntry apppend b_dates: ${OM.toJOSN(b_dates)}")
 
-    var bts = neighborBTimes(b_dates.map(_._2).filter{x=>StringUtil.notEmpty(x)})
+    var bts = intervalBTimes(b_dates.map(_._2).filter{x=>StringUtil.notEmpty(x)})
     LOG.warn("BloomFilter try load history uuids neighborBTimes", bts)
 
     bts.foreach{case(b_date, b_time)=>
@@ -157,7 +152,7 @@ class DefaultUuidFilter(dwiBTimeFormat: String = "yyyy-MM-dd HH:00:00") extends 
           c = hiveContext
             .read
             .table(dwiTable)
-            .where(s"repeated = 'N' and b_date = '${b_date}' and from_unixtime(unix_timestamp($businessTimeExtractBy), '${bloomFilteBTimeformat}') = '${b_time}' ")
+            .where(s"repeated = 'N' and b_date = '${b_date}' and from_unixtime(unix_timestamp($businessTimeExtractBy), '${bloomFilterBTimeFormat}') = '${b_time}' ")
             .select(col(a))
             .rdd
             .map{x=>
@@ -210,9 +205,7 @@ class DefaultUuidFilter(dwiBTimeFormat: String = "yyyy-MM-dd HH:00:00") extends 
     //Uuid BloomFilter 去重（重复的rowkey）
     val repeatedIds = ids.map{ case(_bt, _ids) =>
 
-      // var bts = CSTTime.neighborTimes(_bt, 1.0, 1)
-      // for nadx
-      var bts = CSTTime.neighborBTimes(_bt, 0)
+      var bts = CSTTime.intervalBTimes(_bt, startOffsetHour, endOffsetHour)
 
       val vectorSize = if(_ids.size == 0) 40 else _ids.size * 40
       // Integer.MAX_VALUE*_ids.size/100000000

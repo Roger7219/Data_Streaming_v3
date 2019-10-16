@@ -478,7 +478,7 @@
 //
 //  def getConfigTopicPartitions (module: String, config: Config): Array[org.apache.kafka.common.TopicPartition] = {
 //
-//    val x = config.getConfigList(s"modules.$module.kafka.consumer.partitoins").map { x =>
+//    val x = config.getConfigList(s"modules.$module.kafka.consumer.partitions").map { x =>
 //      new org.apache.kafka.common.TopicPartition(x.getString("topic"), x.getInt("partition"))
 //    }
 //    x.toArray

@@ -19,7 +19,7 @@ import com.mobikok.ssp.data.streaming.handler.Handler
 import com.mobikok.ssp.data.streaming.handler.dm.offline.{ClickHouseQueryByBDateHandler, ClickHouseQueryByBTimeHandler, ClickHouseQueryMonthHandler}
 import com.mobikok.ssp.data.streaming.handler.dwi.core.{HBaseDWIPersistHandler, HiveDWIPersistHandler, UUIDFilterDwiHandler}
 import com.mobikok.ssp.data.streaming.handler.dwr.core._
-import com.mobikok.ssp.data.streaming.module.support.uuid.{DefaultUuidFilter, UuidFilter}
+import com.mobikok.ssp.data.streaming.module.support.uuid.{BTimeRangeUuidFilter, DefaultUuidFilter, UuidFilter}
 import com.mobikok.ssp.data.streaming.module.support.{HiveContextGenerater, MixModulesBatchController, SQLContextGenerater}
 import com.mobikok.ssp.data.streaming.util._
 import com.typesafe.config.Config
@@ -114,8 +114,12 @@ class PluggableModule(globalConfig: Config,
       //兼容历史代码
       try{
         businessTimeExtractBy = globalConfig.getString(s"modules.$moduleName.business.date.extract.by")
-      }catch {case e:Throwable=>
-        businessTimeExtractBy = globalConfig.getString(s"modules.$moduleName.b_time.input")
+      }catch {case _:Throwable=>
+        try {
+          businessTimeExtractBy = globalConfig.getString(s"modules.$moduleName.b_time.input")
+        }catch {case _:Throwable=>
+          businessTimeExtractBy = globalConfig.getString(s"modules.$moduleName.b_time.by")
+        }
       }
   }
 
@@ -125,7 +129,7 @@ class PluggableModule(globalConfig: Config,
   }
 
   val monitorClient = new MonitorClient(messageClient)
-  val topics = globalConfig.getConfigList(s"modules.$moduleName.kafka.consumer.partitoins").map { x => x.getString("topic") }.toArray[String]
+  val topics = globalConfig.getConfigList(s"modules.$moduleName.kafka.consumer.partitions").map { x => x.getString("topic") }.toArray[String]
 
   var isExcludeOfflineRebrushPart = false
   if (ArgsConfig.Value.REBRUSH_RUNNING.equals(argsConfig.get(ArgsConfig.REBRUSH))) {
@@ -269,7 +273,10 @@ class PluggableModule(globalConfig: Config,
   if (globalConfig.hasPath(s"modules.$moduleName.uuid.filter.class")) {
     val f = globalConfig.getString(s"modules.$moduleName.uuid.filter.class")
     uuidFilter = Class.forName(f).newInstance().asInstanceOf[UuidFilter]
-  } else {
+  } else if(globalConfig.hasPath(s"dwi.uuid.b_time.range")){
+    // b_time小时级别
+    uuidFilter = new BTimeRangeUuidFilter(dwiBTimeFormat, globalConfig.getStringList("dwi.uuid.b_time.range").map(_.toInt).toList)
+  }else {
     uuidFilter = new DefaultUuidFilter(dwiBTimeFormat)
   }
   uuidFilter.init(moduleName, globalConfig, hiveContext, moduleTracer, dwiUuidFieldsAlias, businessTimeExtractBy, dwiTable)

@@ -1,14 +1,13 @@
-spark-submit --name adx_dwr_v6 \
+spark-submit \
+--name sdk_dyn_dwr \
 --class com.mobikok.ssp.data.streaming.OptimizedMixApp \
 --master yarn-cluster \
 --driver-memory 7g \
---executor-memory 4g \
---executor-cores 3 \
---num-executors 9 \
+--executor-memory 7g \
+--executor-cores 1 \
+--num-executors 2 \
 --queue default \
---files \
-/usr/hdp/current/spark2-client/conf/hive-site.xml,\
-/apps/data-streaming/nadx/dwr/dwr.conf \
+--files /usr/hdp/current/spark2-client/conf/hive-site.xml,/apps/data-streaming/sdk/dwr/dwr.conf \
 --jars \
 file:///apps/data-streaming/libs/metrics-core-2.2.0.jar,\
 file:///apps/data-streaming/libs/spark-streaming-kafka-0-10_2.11-2.2.0.jar,\
@@ -31,14 +30,6 @@ hdfs:/libs/kafka-clients-0.10.1.0.jar,\
 hdfs:/libs/config-1.3.1.jar \
 --verbose \
 --conf spark.ui.port=1111 \
---conf spark.yarn.executor.memoryOverhead=2g \
-/apps/data-streaming/nadx/dwr/data-streaming.jar \
-dwr.conf buration = 150 kill=true modules = dwr_traffic,dwr_performance version=6 \
-rate=6000000 \
-offset=latest
-#ex = site_app_id,placement_id,city,carrier,os_version,device_brand,device_model,bundle,site_domain,publisher_id,adomain,crid,app_or_site_id,bundle_or_domain
-
-
-
-
-select * from
+--conf spark.yarn.executor.memoryOverhead=1g \
+/apps/data-streaming/sdk/dwi/data-streaming.jar \
+dwr.conf buration = 30 kill=true modules = sdk_dyn_traffic,sdk_dyn_user_active,sdk_dyn_user_new

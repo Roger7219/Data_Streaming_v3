@@ -26,7 +26,7 @@ object SspShowDWRSchema {
       StructField("deviceBrand", StringType)::
       StructField("deviceType", StringType)::
       StructField("browserKernel", StringType)::
-      StructField("b_time", StringType)::
+//      StructField("b_time", StringType)::
 
       StructField("times", LongType) ::
       StructField("cpmTimes", LongType) ::

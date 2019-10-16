@@ -228,7 +228,7 @@ class GenericModule (config: Config,
   }catch {case e:Exception=>}
 
   val businessDateExtractBy = config.getString(s"modules.$moduleName.business.date.extract.by")
-  val topics = config.getConfigList(s"modules.$moduleName.kafka.consumer.partitoins").map { x => x.getString("topic") }.toArray[String]
+  val topics = config.getConfigList(s"modules.$moduleName.kafka.consumer.partitions").map { x => x.getString("topic") }.toArray[String]
 
   var dwiPhoenixEnable = false
   var dwiPhoenixTable = null.asInstanceOf[String]

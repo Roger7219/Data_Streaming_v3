@@ -128,7 +128,7 @@ class FasterModule(config: Config,
   }
 
   val monitorclient = new MonitorClient(messageClient)
-  val topics = config.getConfigList(s"modules.$moduleName.kafka.consumer.partitoins").map { x => x.getString("topic") }.toArray[String]
+  val topics = config.getConfigList(s"modules.$moduleName.kafka.consumer.partitions").map { x => x.getString("topic") }.toArray[String]
 
   var isExcludeOfflineRebrushPart = false
   if (ArgsConfig.Value.REBRUSH_RUNNING.equals(argsConfig.get(ArgsConfig.REBRUSH))) {

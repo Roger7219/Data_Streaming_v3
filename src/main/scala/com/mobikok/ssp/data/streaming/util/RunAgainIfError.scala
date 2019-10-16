@@ -20,8 +20,17 @@ object RunAgainIfError {
   def run[T](func: => T, errorCallback: Throwable =>Unit): T = {
     run(func, "", errorCallback)
   }
+
   def run[T](func: => T, errorTip: String, errorCallback: Throwable =>Unit): T = {
     run(func, errorTip, errorCallback, Integer.MAX_VALUE)
+  }
+//
+//  def run[T](func: => T, errorTip: String, maxTries: Int): T = {
+//    run(func, errorTip, null, maxTries)
+//  }
+
+  def runForJava[T](func: Action[T], errorTip: String, maxTries: Int): T = {
+    run({func.doAction()}, errorTip, {x=>}, maxTries)
   }
 
   def run[T](func: => T, errorTip: String, errorCallback: Throwable =>Unit, maxTries: Int): T = {

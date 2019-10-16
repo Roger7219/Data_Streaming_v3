@@ -180,7 +180,7 @@ class ModuleTracer(moduleName: String, config: Config, mixModulesBatchController
                   var maxWaitingTimeMS = Math.max(1000*b, 1000*60*45)
 //                  var maxWaitingTimeMS = Math.max(1000*b, 1000*60*60*24)
                   val c = DynamicConfig.of(n, DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS)
-                  MC.pull("batch_processing_timeout_checker_cer", Array(c), { x=>
+                  MC.pull(s"${moduleName}_batch_processing_timeout_checker_cer", Array(c), { x=>
                     if(x.nonEmpty) {
                       try {
                         maxWaitingTimeMS = Integer.parseInt(x.last.getKeyBody)

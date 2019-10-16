@@ -10,11 +10,18 @@ public class MessagePullReq extends JavaJSONSerializable {
     private String consumer;
     private String[] topics;
 
+    private Integer size;
+
 //    public MessagePullReq(){ }
 
     public MessagePullReq(String consumer, String[] topics){
+        this(consumer, topics, null);
+    }
+
+    public MessagePullReq(String consumer, String[] topics, Integer size){
         this.consumer = consumer;
         this.topics = topics;
+        this.size = size;
     }
     public String getConsumer() {
         return consumer;
@@ -31,4 +38,11 @@ public class MessagePullReq extends JavaJSONSerializable {
         return this;
     }
 
+    public Integer getSize() {
+        return size;
+    }
+
+    public void setSize(Integer size) {
+        this.size = size;
+    }
 }

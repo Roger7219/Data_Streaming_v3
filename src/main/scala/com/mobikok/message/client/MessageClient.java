@@ -2,11 +2,12 @@ package com.mobikok.message.client;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.mobikok.message.*;
-import com.mobikok.ssp.data.streaming.util.Logger;
-import com.mobikok.ssp.data.streaming.util.OM;
-import com.mobikok.ssp.data.streaming.util.StringUtil;
+import com.mobikok.ssp.data.streaming.util.*;
 import com.mobikok.ssp.data.streaming.util.http.Requests;
 import org.apache.tools.ant.taskdefs.EchoXML;
+import scala.Function0;
+import scala.Unit;
+import scala.tools.nsc.util.EmptyAction;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -16,6 +17,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.util.*;
+import java.util.function.Supplier;
 
 /**
  * Created by Administrator on 2017/8/17.
@@ -38,62 +40,50 @@ public class MessageClient {
 
     //拉取
     public Resp<List<Message>> pullMessage(MessagePullReq req){
-        return pullMessage(false, req);
-    }
-    public Resp<List<Message>> pullMessage(boolean fastFail, MessagePullReq req){
-        Resp<List<Message>> res = new Resp<List<Message>>();
-        if(req.getTopics() == null || req.getTopics().length ==0  || StringUtil.isEmpty(req.getConsumer())) return res;
 
-        boolean doCall = true;
-        while (doCall) {
-            try {
-                StringBuffer bf = new StringBuffer();
-                for (String t : req.getTopics()) {
-                    if (bf.length() > 0) {
-                        bf.append("&");
-                    }
-                    try {
-                        bf.append("topics=").append(URLEncoder.encode(t, "UTF-8"));
-                    } catch (UnsupportedEncodingException e) {
-                        throw new RuntimeException(e);
-                    }
+        return RunAgainIfError.runForJava(() -> {
+            Resp<List<Message>> res = new Resp<List<Message>>();
+            if(req.getTopics() == null || req.getTopics().length ==0  || StringUtil.isEmpty(req.getConsumer())) return res;
+
+            StringBuffer bf = new StringBuffer();
+            for (String t : req.getTopics()) {
+                if (bf.length() > 0) {
+                    bf.append("&");
                 }
-
-                String url = apiBase + "/Api/Message?consumer=" + req.getConsumer() + "&" + bf.toString();
-                LOG.warnForJava("MessageClient pullMessage rest api request", url);
-
-                String resp = callRestApi(url, null, "GET");
-
-                LOG.warnForJava("MessageClient pullMessage rest api response", resp);
-
-                res = OM.toBean(resp, new TypeReference<Resp<List<Message>>>() {});
-
-                //升序
-                Collections.sort(res.getPageData(), new Comparator<Message>() {
-                    public int compare(Message a, Message b) {
-                        return a.getOffset().compareTo(b.getOffset());
-                    }
-                });
-
-                if (res.getStatus() != 1) {
-                    throw new RuntimeException(res.getError());
-                } else {
-                    doCall = false;
-                }
-            }catch (Exception ex) {
-                if(fastFail) {
-                    throw new RuntimeException(ex);
-                }else {
-                    LOG.warnForJava("MessageClient pushMessage error, Will try again!! ", ex);
-                    try {
-                        Thread.sleep(1000*60);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
+                try {
+                    bf.append("topics=").append(URLEncoder.encode(t, "UTF-8"));
+                } catch (UnsupportedEncodingException e) {
+                    throw new RuntimeException(e);
                 }
             }
-        }
-        return res;
+            if(req.getSize() != null) {
+                if(bf.length() > 0){
+                    bf.append("&");
+                }
+                bf.append("size=").append(req.getSize());
+            }
+
+            String url = apiBase + "/Api/Message?consumer=" + req.getConsumer() + "&" + bf.toString();
+            LOG.warnForJava("MessageClient pullMessage rest api request","url: " + url + ", req: " + OM.toJOSN(req));
+
+            String resp = callRestApi(url, null, "GET");
+
+            LOG.warnForJava("MessageClient pullMessage rest api response", resp);
+
+            res = OM.toBean(resp, new TypeReference<Resp<List<Message>>>() {});
+
+            //升序
+            Collections.sort(res.getPageData(), new Comparator<Message>() {
+                public int compare(Message a, Message b) {
+                    return a.getOffset().compareTo(b.getOffset());
+                }
+            });
+
+            if (res.getStatus() != 1) {
+                throw new RuntimeException(res.getError());
+            }
+            return res;
+        },"MessageClient pushMessage error",40);
     }
 
     //推x送
@@ -225,8 +215,8 @@ public class MessageClient {
         try {
             URL url = new URL(addr);
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-            connection.setConnectTimeout(20*1000);// 20秒
-            connection.setReadTimeout(20*1000);   // 20秒
+            connection.setConnectTimeout(200*1000);// 20秒
+            connection.setReadTimeout(200*1000);   // 20秒
             connection.setRequestMethod(requestMethod/*"PUT"*/);
             connection.setDoOutput(true);
             connection.setRequestProperty("Content-Type",

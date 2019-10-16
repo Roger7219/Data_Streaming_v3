@@ -361,7 +361,7 @@ object MixApp {
         LOG.warn("reset maxRatePerPartition !")
 
         val partitionNum = argsConfig.get(ArgsConfig.MODULES).trim.split(",").map { x =>
-          config.getList(s"modules.${x}.kafka.consumer.partitoins").size()
+          config.getList(s"modules.${x}.kafka.consumer.partitions").size()
         }.sum
 
         val maxRatePerPartition = Integer.valueOf(argsConfig.get(ArgsConfig.RATE))/Integer.valueOf(argsConfig.get(ArgsConfig.STREAMING_BATCH_BURATION))/partitionNum

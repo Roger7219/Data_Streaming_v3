@@ -1,5 +1,7 @@
 #######################################################
-## cd /apps/data-streaming/nadx/dwr/offline; (sh ./offline.sh "2019-09-04 15:00:00" "2019-09-04 15:00:00" &);tail -f offline.log
+## cd /apps/data-streaming/nadx/dwr/offline; (sh ./offline.sh "2019-09-14 10:00:00" "2019-09-16 12:00:00" &);tail -f offline.log
+## cd /apps/data-streaming/nadx/dwr/offline; (sh ./offline.sh "2019-10-14 12:00:00" "2019-10-14 16:00:00" &);tail -f offline.log
+## cd /apps/data-streaming/nadx/dwr/offline; (sh ./offline.sh "2019-09-15 15:00:00" "2019-09-16 04:00:00" &);tail -f offline.log
 #######################################################
 
 cd /apps/data-streaming/nadx/dwr/offline
@@ -51,7 +53,7 @@ beeline -u jdbc:hive2://master:10000/default \
 -e 'alter table nadx_overall_dwr_v6_3 drop partition(b_time>="${start_b_time}", b_time<="${end_b_time}")' >> ./offline.log 2>&1
 
 
-spark-sql --master yarn \
+spark-sql \
 --executor-cores 4 \
 --driver-memory  3g  \
 --executor-memory 3G \
