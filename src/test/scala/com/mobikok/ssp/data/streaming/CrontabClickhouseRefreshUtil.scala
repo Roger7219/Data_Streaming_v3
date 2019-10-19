@@ -193,8 +193,9 @@ object CrontabClickhouseRefreshUtil {
 //    sendMsg_btimes_for_nadx("nadx_overall_dwr_v6_3",    "2019-09-15 15:00:00", "2019-09-16 04:00:00", "nadx_ck")
 
 
-    sendMsg_btimes_for_nadx("nadx_overall_dwr_v6_2",    "2019-10-14 12:00:00", "2019-10-14 12:00:00", "nadx_ck")
-    sendMsg_btimes_for_nadx("nadx_overall_dwr_v6_2",    "2019-10-14 16:00:00", "2019-10-14 16:00:00", "nadx_ck")
+    sendMsg_btimes_for_nadx("nadx_overall_dwr_v6_2",    "2019-10-16 15:00:00", "2019-10-16 15:00:00", "nadx_ck")
+    sendMsg_btimes_for_nadx("nadx_overall_dwr_v6_2",    "2019-10-16 20:00:00", "2019-10-16 20:00:00", "nadx_ck")
+    sendMsg_btimes_for_nadx("nadx_overall_dwr_v6_2",    "2019-10-16 21:00:00", "2019-10-16 21:00:00", "nadx_ck")
 //
 //    sendMaxWaitingTimeMS(DynamicConfig.of("nadx_ck", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(1000*60*60*100L)) // 4小时
 //    // 刷新adx ck数据 END   --------------------------------------------------

@@ -52,7 +52,7 @@ class ClickHouseQueryByBTimeHandler extends Handler {
       RunAgainIfError.run {
         viewConsumerTopics.par.foreach { case(hiveView, ckTable, minBtExpr, consumer, topics, isDay) =>
           val pageData = messageClient
-            .pullMessage(new MessagePullReq(consumer, topics, 2))
+            .pullMessage(new MessagePullReq(consumer, topics, 1))
             .getPageData
 
           var ms = pageData.map { data =>

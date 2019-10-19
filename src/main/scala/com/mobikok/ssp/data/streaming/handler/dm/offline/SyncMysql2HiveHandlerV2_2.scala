@@ -75,10 +75,16 @@ class SyncMysql2HiveHandlerV2_2 extends Handler {
         val hiveT = x.getKey
         val mysqlT = x.getValue._1
         val uuidField = x.getValue._2
+        var hiveBackupT = s"${hiveT}_backup"
         val syncResultTmpT = s"${hiveT}_sync_result_tmp"
         val hiveDF = hiveContext.read.table(hiveT)
         val lastIdCer = s"${LAST_ID_CER_PREFIX}_${hiveT}"
         val lastIdTopic = s"${LAST_ID_TOPIC_PREFIX}_${hiveT}"
+
+        // 如果上次写入到syncResultTmpT表成功，但rename syncResultTmpT to hiveT失败了，则继续尝试rename
+        if(sql(s"show table '$hiveBackupT").take(1).nonEmpty && sql(s"show table '$syncResultTmpT'").take(1).nonEmpty) {
+          sql(s"alter table $syncResultTmpT rename to ${hiveT}")
+        }
 
         // 全量刷新
         if (StringUtil.isEmpty(uuidField)) {
@@ -170,10 +176,9 @@ class SyncMysql2HiveHandlerV2_2 extends Handler {
                 .mode(SaveMode.Overwrite)
                 .insertInto(syncResultTmpT)
 
-              sql(s"drop table if exists ${hiveT}_backup")         // 删除上次备份
-              sql(s"alter table $hiveT rename to ${hiveT}_backup") // 备份
+              sql(s"drop table if exists $hiveBackupT")         // 删除上次备份
+              sql(s"alter table $hiveT rename to $hiveBackupT") // 备份
               sql(s"alter table $syncResultTmpT rename to ${hiveT}")
-
 
               // 记录新的last id
               MC.push(new UpdateReq(lastIdTopic, uniqueAllDF

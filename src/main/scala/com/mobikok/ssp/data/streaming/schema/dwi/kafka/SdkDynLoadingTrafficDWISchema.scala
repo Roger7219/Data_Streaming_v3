@@ -14,7 +14,7 @@ object SdkDynLoadingTrafficDWISchema{
   val structType = StructType(
       StructField("timestamp",     LongType)      ::
       StructField("adv",           IntegerType)   ::
-      StructField("adv_db",        IntegerType)   ::
+      StructField("adv_bd",        IntegerType)   ::
       StructField("jar",           IntegerType)   ::
       StructField("pub",           IntegerType)   ::
       StructField("pub_bd",        IntegerType)   ::
