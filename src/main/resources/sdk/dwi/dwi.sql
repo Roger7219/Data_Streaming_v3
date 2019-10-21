@@ -4,7 +4,7 @@ CREATE TABLE sdk_dyn_traffic_dwi(
 
   timestamp     bigint      ,
   adv           int         ,
-  adv_db        int         ,
+  adv_bd        int         ,
   jar           string      ,
   pub           int         ,
   pub_bd        int         ,
@@ -22,6 +22,25 @@ CREATE TABLE sdk_dyn_traffic_dwi(
 )
 PARTITIONED BY (repeated string, l_time STRING, b_date STRING, b_time STRING, b_version STRING)
 STORED AS ORC;
+
+CREATE TABLE sdk_dyn_download_dwi(
+  repeats           int   ,
+  rowkey            string,
+
+  timestamp         bigint,
+  imei              string,
+  app               int   ,
+  jar               string,
+  country           string,
+  model             string,
+  brand             string,
+  version           string,
+  downloads         bigint,
+  success_downloads bigint
+)
+PARTITIONED BY (repeated string, l_time STRING, b_date STRING, b_time STRING, b_version STRING)
+STORED AS ORC;
+
 
 CREATE TABLE sdk_dyn_user_active_dwi(
   repeats       int   ,

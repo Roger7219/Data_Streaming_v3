@@ -204,16 +204,16 @@ class SyncMysql2HiveHandlerV2_2 extends Handler {
 
   }
 
-    private def updateDFByWhere(tableWheres: mutable.Map[String, ListBuffer[String]], mysqlT: String, hiveT: String): DataFrame ={
+  private def updateDFByWhere(tableWheres: mutable.Map[String, ListBuffer[String]], mysqlT: String, hiveT: String): DataFrame ={
 
-      var allWs = tableWheres.getOrElse(mysqlT, ListBuffer[String]())
+    var allWs = tableWheres.getOrElse(mysqlT, ListBuffer[String]())
 //      var hiveT = hiveTableDetails.get(mysqlT).get._1
-      var df = hiveContext.read.table(hiveT)
+    var df = hiveContext.read.table(hiveT)
 
-      //一个分组里最多50个
-      var gSize = 50
-      //共有分组数量
-      var gCount = Math.ceil(1.0*allWs.size / gSize) ;
+    //一个分组里最多50个
+    var gSize = 50
+    //共有分组数量
+    var gCount = Math.ceil(1.0*allWs.size / gSize) ;
       LOG.warn(s"SyncMysql2HiveHandler updateDFByWhere start", "mysqlTable", mysqlT, "hiveTable", hiveT, "allWsSize", allWs.size, "allWs", OM.toJOSN(allWs.asJava))
 
       var allNeedUpdatedDF: DataFrame = null

@@ -31,5 +31,6 @@ hdfs:/libs/config-1.3.1.jar \
 --verbose \
 --conf spark.ui.port=1111 \
 --conf spark.yarn.executor.memoryOverhead=1g \
-/apps/data-streaming/sdk/dwi/data-streaming.jar \
-dwr.conf buration = 30 kill=true modules = sdk_dyn_traffic,sdk_dyn_user_active,sdk_dyn_user_new
+/apps/data-streaming/sdk/dwr/data-streaming.jar \
+dwr.conf buration = 300 kill=true modules = sdk_dyn_traffic,sdk_dyn_user_active,sdk_dyn_user_new,sdk_dyn_download \
+#offset=earliest

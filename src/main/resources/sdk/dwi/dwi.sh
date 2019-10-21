@@ -32,4 +32,5 @@ hdfs:/libs/config-1.3.1.jar \
 --conf spark.ui.port=1111 \
 --conf spark.yarn.executor.memoryOverhead=1g \
 /apps/data-streaming/sdk/dwi/data-streaming.jar \
-dwi.conf buration = 300 kill=true modules = sdk_dyn_traffic_dwi
+dwi.conf buration = 300 kill=true modules = sdk_dyn_traffic_dwi,sdk_dyn_download_dwi \
+#offset=earliest

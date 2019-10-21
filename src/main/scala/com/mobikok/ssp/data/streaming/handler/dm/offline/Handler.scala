@@ -8,7 +8,9 @@ import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.util.Logger
 import com.mobikok.ssp.data.streaming.util.RunAgainIfError
 import com.typesafe.config.Config
+import org.apache.log4j.Level
 import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.execution.command.DropTableCommand
 import org.apache.spark.sql.hive.HiveContext
 
 /**
@@ -54,9 +56,29 @@ trait Handler extends com.mobikok.ssp.data.streaming.handler.Handler {
   def sql(sqlText: String): DataFrame = {
     var res: DataFrame = null
     RunAgainIfError.run({
-      LOG.warn("Executing HQL", sqlText)
-      res = hiveContext.sql(sqlText)
+      res = sql0(sqlText)
     })
     res
+  }
+
+  def sql0(sqlText: String): DataFrame ={
+    LOG.warn("Execute HQL", sqlText)
+
+    // Fix bug: https://issues.apache.org/jira/browse/SPARK-22686
+    var level: Level = null;
+    var log: org.apache.log4j.Logger = null
+    if(sqlText.contains("if exists")) {
+      level = org.apache.log4j.Logger.getLogger(classOf[DropTableCommand]).getLevel
+      log = org.apache.log4j.Logger.getLogger(classOf[DropTableCommand])
+      log.setLevel(Level.ERROR)
+    }
+
+    var result = hiveContext.sql(sqlText)
+
+    // Fix bug: https://issues.apache.org/jira/browse/SPARK-22686
+    if(sqlText.contains("if exists")) {
+      log.setLevel(level)
+    }
+    result
   }
 }
