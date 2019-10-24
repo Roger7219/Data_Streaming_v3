@@ -5,6 +5,7 @@ import org.apache.spark.sql.types._
 class SdkDynLoadingUserDWISchema{
   def structType = SdkDynLoadingUserDWISchema.structType
 }
+// 用户明细
 object SdkDynLoadingUserDWISchema{
 
   //注意字段名两边不要含空格！！
