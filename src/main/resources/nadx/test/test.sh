@@ -9,6 +9,7 @@ spark-submit \
 --queue default \
 --files /usr/hdp/current/spark2-client/conf/hive-site.xml,/apps/data-streaming/nadx/test/test.conf \
 --jars \
+file:///apps/data-streaming/libs/alluxio-2.0.1-client.jar,\
 file:///apps/data-streaming/libs/metrics-core-2.2.0.jar,\
 file:///apps/data-streaming/libs/spark-streaming-kafka-0-10_2.11-2.2.0.jar,\
 file:///apps/data-streaming/libs/kafka_2.11-0.10.1.0.jar,\
@@ -47,6 +48,7 @@ spark-submit \
 --queue default \
 --files /usr/hdp/current/spark2-client/conf/hive-site.xml,/apps/data-streaming/nadx/test/dwi.conf \
 --jars \
+file:///apps/data-streaming/libs/alluxio-2.0.1-client.jar,\
 file:///apps/data-streaming/libs/metrics-core-2.2.0.jar,\
 file:///apps/data-streaming/libs/spark-streaming-kafka-0-10_2.11-2.2.0.jar,\
 file:///apps/data-streaming/libs/kafka_2.11-0.10.1.0.jar,\
@@ -114,6 +116,7 @@ spark-submit \
 --queue default \
 --files /usr/hdp/current/spark2-client/conf/hive-site.xml,/apps/data-streaming/nadx/test/dwr.conf \
 --jars \
+file:///apps/data-streaming/libs/alluxio-2.0.1-client.jar,\
 file:///apps/data-streaming/libs/metrics-core-2.2.0.jar,\
 file:///apps/data-streaming/libs/spark-streaming-kafka-0-10_2.11-2.2.0.jar,\
 file:///apps/data-streaming/libs/kafka_2.11-0.10.1.0.jar,\
@@ -167,6 +170,7 @@ spark-submit \
 --queue default \
 --files /usr/hdp/current/spark2-client/conf/hive-site.xml,/apps/data-streaming/nadx/test/dwr.conf \
 --jars \
+file:///apps/data-streaming/libs/alluxio-2.0.1-client.jar,\
 file:///apps/data-streaming/libs/metrics-core-2.2.0.jar,\
 file:///apps/data-streaming/libs/spark-streaming-kafka-0-10_2.11-2.2.0.jar,\
 file:///apps/data-streaming/libs/kafka_2.11-0.10.1.0.jar,\
@@ -210,6 +214,7 @@ spark-submit \
 --queue default \
 --files /usr/hdp/current/spark2-client/conf/hive-site.xml,/apps/data-streaming/nadx/test/dwr.conf \
 --jars \
+file:///apps/data-streaming/libs/alluxio-2.0.1-client.jar,\
 file:///apps/data-streaming/libs/metrics-core-2.2.0.jar,\
 file:///apps/data-streaming/libs/spark-streaming-kafka-0-10_2.11-2.2.0.jar,\
 file:///apps/data-streaming/libs/kafka_2.11-0.10.1.0.jar,\
