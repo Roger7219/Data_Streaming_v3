@@ -370,3 +370,10 @@ select t.*,d.name as demand_name,s.name as supply_name
 from nadx_overall_dwr_v6_3 t
 left join tb_demand_account d on t.demand_id=d.id
 left join tb_supply_account s on t.supply_id=s.id;
+
+drop view if exists nadx_traffic_sample_dm;
+create view nadx_traffic_sample_dm as
+select t.*,d.name as demand_name,s.name as supply_name
+from nadx_traffic_sample_dwi t
+left join tb_demand_account d on t.demand_id=d.id
+left join tb_supply_account s on t.supply_id=s.id;
