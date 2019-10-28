@@ -2,7 +2,6 @@ package com.mobikok.ssp.data.streaming.handler.dm.offline
 
 import java.sql.ResultSet
 
-import com.fasterxml.jackson.core.`type`.TypeReference
 import com.mobikok.message.client.MessageClient
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
@@ -19,11 +18,12 @@ import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
 /**
-  * For SSP 最新版
+  * For SDK动态加载
   */
-class SyncMysql2HiveHandlerV2_2 extends Handler {
+class SyncMysql2HiveHandlerV4 extends Handler {
 
-  var hiveTableDetails: Map[String, (String, String)] = null //[hiveTable(mysqlTable,uuid)]
+  //case(hiveT, (mysqlT, uuidField, incrField, defaultIncrValueIfNull)
+  var hiveTableDetails: Map[String, (String, String, String, Any)] = null
 
   var rdbUrl: String = null
   var rdbUser: String = null
@@ -44,8 +44,43 @@ class SyncMysql2HiveHandlerV2_2 extends Handler {
     super.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient, kylinClientV2, hbaseClient, hiveContext, argsConfig, handlerConfig)
 
     hiveTableDetails = handlerConfig.getConfigList("tables").map { x =>
-      x.getString("hive") -> (x.getString("mysql"), if(x.hasPath("uuid")) x.getString("uuid") else null)
+
+      val defaultIncrValueIfNull = if(x.hasPath("incr")) {
+
+        val hiveT = x.getString("hive")
+        val incr = x.getString("incr")
+        val t = hiveContext.read.table(hiveT).schema.fields.map{x=>(x.name->x)}.toMap
+          .get(incr)
+          .get
+          .dataType
+          .simpleString
+          .toLowerCase
+
+        if("string".equals(t)) {
+          ""
+        }else if("int".equals(t) || "bigint".equals(t)) {
+          0L
+        }else {
+          throw new RuntimeException("Unsupported incr field type: " + t +", incr field: "+ incr + ", hive table: " + hiveT)
+        }
+      }else{
+        null
+      }
+
+      x.getString("hive") -> (
+        x.getString("mysql"),
+        if(x.hasPath("uuid")) x.getString("uuid") else null,
+        if(x.hasPath("incr")) x.getString("incr") else null,
+        defaultIncrValueIfNull)
     }.toMap
+
+    //检查设置,uuid和incr要么都设置，要么都不设置
+    hiveTableDetails.foreach{case(_, (_, uuid, incr, _))=>
+      if(!((StringUtil.isEmpty(incr) && StringUtil.isEmpty(uuid)) || (StringUtil.notEmpty(incr) && StringUtil.notEmpty(uuid)))) {
+        throw new RuntimeException("The 'uuid' and 'incr' must both set value or both not, Current uuid: " + uuid  +", incr: " + incr)
+      }
+
+    }
 
     LOG.warn("Sync hiveTableDetails", hiveTableDetails)
 
@@ -69,77 +104,67 @@ class SyncMysql2HiveHandlerV2_2 extends Handler {
   override def handle(): Unit = {
     // 上个批次还在处理时，等待当前批次
     LOCK.synchronized{
-      LOG.warn(s"${classOf[SyncMysql2HiveHandlerV2_2].getSimpleName} start")
+      LOG.warn(s"${classOf[SyncMysql2HiveHandlerV4].getSimpleName} start")
 
-      hiveTableDetails.entrySet().foreach { x=>
-        val hiveT = x.getKey
-        val mysqlT = x.getValue._1
-        val uuidField = x.getValue._2
+      hiveTableDetails.foreach{ case(hiveT, (mysqlT, uuidField, incrField, defaultIncrValueIfNull)) =>
         var hiveBackupT = s"${hiveT}_backup"
         val syncResultTmpT = s"${hiveT}_sync_result_tmp"
         val hiveDF = hiveContext.read.table(hiveT)
-        val lastIdCer = s"${LAST_ID_CER_PREFIX}_${hiveT}"
-        val lastIdTopic = s"${LAST_ID_TOPIC_PREFIX}_${hiveT}"
+        val lastIncrCer = s"${LAST_ID_CER_PREFIX}_${hiveT}"
+        val lastIncrTopic = s"${LAST_ID_TOPIC_PREFIX}_${hiveT}"
 
         // 如果上次写入到syncResultTmpT表成功，但rename syncResultTmpT to hiveT失败了，则继续尝试rename
-        if(sql(s"show table '$hiveBackupT").take(1).nonEmpty && sql(s"show table '$syncResultTmpT'").take(1).nonEmpty) {
+        if(sql(s"show tables like '$hiveBackupT'").take(1).nonEmpty && sql(s"show tables like '$syncResultTmpT'").take(1).nonEmpty) {
           sql(s"alter table $syncResultTmpT rename to ${hiveT}")
         }
 
         // 全量刷新
-        if (StringUtil.isEmpty(uuidField)) {
+        if (StringUtil.isEmpty(incrField)) {
           LOG.warn(s"Full table overwrite start", "mysqlTable", mysqlT, "hiveTable", hiveT)
-          var unc = hiveContext.read.table(hiveT)
 
-          hiveContext
+          //写入hive
+          insertOverwriteTable(hiveT, hiveContext
             .read
             .jdbc(rdbUrl, s"$mysqlT as sync_full_table", rdbProp) //需全表查
-            .selectExpr(unc.schema.fieldNames.map(x => s"`$x`"): _*)
             .coalesce(1)
-            .write
-            .format("orc")
-            .mode(SaveMode.Overwrite)
-            .insertInto(hiveT)
+          )
+
           LOG.warn(s"Full table overwrite done", "mysqlTable", mysqlT, "hiveTable", hiveT)
         }
         // 增量刷新
         else {
 
           LOG.warn(s"Incr table append start", "mysqlTable", mysqlT, "hiveTable", hiveT)
-          val incrAndUpdateT = s"${hiveT}_incr_and_update_temp_view"
 
-          var lastId = 0L
+          MC.pull(lastIncrCer, Array(lastIncrTopic), {x=>
 
-          // 初始化
-          val hiveLastId = sql(s"select cast( nvl( max(id), 0) as bigint) as lastId from $hiveT")
-            .first()
-            .getAs[Long]("lastId")
+            val hiveTableIsEmpty = sql(s"select 1 from from $hiveT limit 1").take(1).isEmpty
 
-          MC.pull(lastIdCer, Array(lastIdTopic), {x=>
-            // hive空表，全量同步
-            lastId = if(hiveLastId == 0 ) {
-              0L
-            }
-            // 首次运行，消息队列为空，全量同步
-            else if(x.isEmpty) {
-              0L
-            }
-            else {
-              x.head.getData.toLong
+            var lastIncr: Any = if(hiveTableIsEmpty) {// hive空表，全量同步
+              null
+            } else if(x.isEmpty) {                    // 首次运行，消息队列为空，全量同步
+              null
+            } else {
+              x.head.getData                          // json格式的，例如时间格式化的字符串："2010-12-12 00:00:00"（注意两边包含引号）
             }
 
-            LOG.warn("Incr table ","hiveTable", hiveT, "lastId", lastId)
+            lastIncr = if(lastIncr != null) lastIncr else defaultIncrValueIfNull
+
+            // 验证，不能为null值
+            if(lastIncr == null) throw new RuntimeException("lastIncr value cannot be null")
+            LOG.warn("Incr table ","hiveTable", hiveT, "lastIncr", lastIncr)
 
             val incrDF =
               hiveContext
                 .read
-                .jdbc(rdbUrl, s"(select * from $mysqlT where id > $lastId) as sync_incr_table", rdbProp)
+                .jdbc(rdbUrl, s"(select * from $mysqlT where $incrField > $lastIncr) as sync_incr_table", rdbProp)
                 .selectExpr(hiveDF.schema.fieldNames.map(x => s"`$x`"): _*)
 
             val updateDF = null // updateDFByWhere(tablesUpdateWhere, mysqlT, hiveT)
 
             val incrAndUpdateDF = if(updateDF == null) incrDF else incrDF.union(updateDF)
 
+            val incrAndUpdateT = s"${hiveT}_incr_and_update_temp_view"
             incrAndUpdateDF.createOrReplaceTempView(incrAndUpdateT)
 
             if(incrAndUpdateDF.head(1).nonEmpty) {
@@ -152,7 +177,7 @@ class SyncMysql2HiveHandlerV2_2 extends Handler {
                    |from(
                    |  select
                    |    *,
-                   |    row_number() over(partition by $uuidField order by 1 desc) row_num
+                   |    row_number() over(partition by $uuidField order by $incrField desc) row_num
                    |  from (
                    |    select * from $incrAndUpdateT
                    |    union all
@@ -162,30 +187,17 @@ class SyncMysql2HiveHandlerV2_2 extends Handler {
                    |where row_num = 1
             """.stripMargin)
 
-              //必须缓存，不然延迟读mysql，会现后读两次，导致数据错误
+              // 必须缓存，不然延迟读mysql，会现后读两次，导致数据错误
               uniqueAllDF.persist()
 
-              sql(s"drop table if exists $syncResultTmpT")
-              sql(s"create table $syncResultTmpT like $hiveT")
-              sql(s"truncate table $syncResultTmpT") // 确保没数据
-
-              uniqueAllDF
-                .selectExpr(hiveDF.schema.fieldNames.map(x => s"`$x`"): _*)
-                .coalesce(4)
-                .write
-                .format("orc")
-                .mode(SaveMode.Overwrite)
-                .insertInto(syncResultTmpT)
-
-              sql(s"drop table if exists $hiveBackupT")         // 删除上次备份
-              sql(s"alter table $hiveT rename to $hiveBackupT") // 备份
-              sql(s"alter table $syncResultTmpT rename to ${hiveT}")
+              //写入hive
+              insertOverwriteTable(hiveT, uniqueAllDF)
 
               // 记录新的last id
-              MC.push(new UpdateReq(lastIdTopic, uniqueAllDF
-                .selectExpr(s"cast( nvl( max(id), 0) as bigint) as lastId")
+              MC.push(new UpdateReq(lastIncrTopic, OM.toJOSN(uniqueAllDF
+                .selectExpr(s"max($incrField) as lastIncr")
                 .first()
-                .getAs[Long]("lastId").toString
+                .getAs[Object]("lastIncr"))
               ))
 
               uniqueAllDF.unpersist()
@@ -200,8 +212,30 @@ class SyncMysql2HiveHandlerV2_2 extends Handler {
 
       }
 
-      LOG.warn(s"${classOf[SyncMysql2HiveHandlerV2_2].getSimpleName} done")
+      LOG.warn(s"${classOf[SyncMysql2HiveHandlerV4].getSimpleName} done")
     }
+
+  }
+
+  private def insertOverwriteTable(hiveT: String, df: DataFrame): Unit ={
+
+    var hiveBackupT = s"${hiveT}_backup"
+    val syncResultTmpT = s"${hiveT}_sync_result_tmp"
+
+    sql(s"drop table if exists $syncResultTmpT")
+    sql(s"create table $syncResultTmpT like $hiveT")
+
+    df
+      .selectExpr(hiveContext.read.table(hiveT).schema.fieldNames.map(x => s"`$x`"): _*)
+      .coalesce(4)
+      .write
+      .format("orc")
+      .mode(SaveMode.Overwrite)
+      .insertInto(syncResultTmpT)
+
+    sql(s"drop table if exists $hiveBackupT")         // 删除上次备份
+    sql(s"alter table $hiveT rename to $hiveBackupT") // 备份
+    sql(s"alter table $syncResultTmpT rename to ${hiveT}")
 
   }
 
