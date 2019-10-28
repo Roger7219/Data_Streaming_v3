@@ -335,3 +335,9 @@ CREATE TABLE nadx_traffic_sample_dm AS nadx_overall_dm_v9;
 CREATE TABLE nadx_traffic_sample_dm_all AS nadx_traffic_sample_dm ENGINE = Distributed(bip_ck_cluster, default, nadx_traffic_sample_dm, rand());
 CREATE TABLE nadx_traffic_sample_dm_for_select AS nadx_overall_dm_v9;
 CREATE TABLE nadx_traffic_sample_dm_for_select_all AS nadx_traffic_sample_dm ENGINE = Distributed(bip_ck_cluster, default, nadx_traffic_sample_dm_for_select, rand());
+
+
+ALTER TABLE nadx_traffic_sample_dm                add column cid Nullable(String);
+ALTER TABLE nadx_traffic_sample_dm_all            add column cid Nullable(String);
+ALTER TABLE nadx_traffic_sample_dm_for_select     add column cid Nullable(String);
+ALTER TABLE nadx_traffic_sample_dm_for_select_all add column cid Nullable(String);
