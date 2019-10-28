@@ -187,6 +187,7 @@ class SyncMysql2HiveHandlerV4 extends Handler {
                    |where row_num = 1
             """.stripMargin)
 
+              // 必须缓存，不然延迟读mysql，会现后读两次，导致数据错误
               uniqueAllDF.persist()
 
               //写入hive
