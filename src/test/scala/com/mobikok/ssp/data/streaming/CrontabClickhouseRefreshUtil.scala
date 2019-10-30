@@ -193,9 +193,9 @@ object CrontabClickhouseRefreshUtil {
 //    sendMsg_btimes_for_nadx("nadx_overall_dwr_v6_3",    "2019-09-15 15:00:00", "2019-09-16 04:00:00", "nadx_ck")
 
 
-    sendMsg_btimes_for_nadx("nadx_overall_dwr_v6_2",    "2019-10-16 15:00:00", "2019-10-16 15:00:00", "nadx_ck")
-    sendMsg_btimes_for_nadx("nadx_overall_dwr_v6_2",    "2019-10-16 20:00:00", "2019-10-16 20:00:00", "nadx_ck")
-    sendMsg_btimes_for_nadx("nadx_overall_dwr_v6_2",    "2019-10-16 21:00:00", "2019-10-16 21:00:00", "nadx_ck")
+//    sendMsg_btimes_for_nadx("nadx_overall_dwr_v6_2",    "2019-10-16 15:00:00", "2019-10-16 15:00:00", "nadx_ck")
+//    sendMsg_btimes_for_nadx("nadx_overall_dwr_v6_2",    "2019-10-16 20:00:00", "2019-10-16 20:00:00", "nadx_ck")
+//    sendMsg_btimes_for_nadx("nadx_overall_dwr_v6_2",    "2019-10-16 21:00:00", "2019-10-16 21:00:00", "nadx_ck")
 //
 //    sendMaxWaitingTimeMS(DynamicConfig.of("nadx_ck", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(1000*60*60*100L)) // 4小时
 //    // 刷新adx ck数据 END   --------------------------------------------------
@@ -218,6 +218,12 @@ object CrontabClickhouseRefreshUtil {
 //      sendMsg_btimes_for_ck("nadx_overall_dwr_v6_1",    "2019-08-16 03:00:00", "2019-08-16 10:00:00", "nadx_ck")
 //      sendMsg_btimes_for_ck("nadx_overall_dwr_v6_2",    "2019-08-16 03:00:00", "2019-08-16 10:00:00", "nadx_ck")
 //      sendMsg_btimes_for_ck("nadx_overall_dwr_v6_3",    "2019-08-16 03:00:00", "2019-08-16 10:00:00", "nadx_ck")
+
+
+      sendMsg_btimes_for_ck("nadx_overall_dwr_v6",    "2019-10-29 19:00:00", "2019-10-29 19:00:00", "nadx_ck")
+      sendMsg_btimes_for_ck("nadx_overall_dwr_v6_1",  "2019-10-29 19:00:00", "2019-10-29 19:00:00", "nadx_ck")
+      sendMsg_btimes_for_ck("nadx_overall_dwr_v6_2",  "2019-10-29 19:00:00", "2019-10-29 19:00:00", "nadx_ck")
+      sendMsg_btimes_for_ck("nadx_overall_dwr_v6_3",  "2019-10-29 19:00:00", "2019-10-29 19:00:00", "nadx_ck")
 
 //    sendMsg_btimes_for_nadx("nadx_traffic_dwi", "2019-08-19 08:00:00", "2019-08-19 08:00:00", "adx_dwr_v6")
 
@@ -244,10 +250,11 @@ object CrontabClickhouseRefreshUtil {
 //    sendMsg_btimes_for_ck("nadx_overall_dwr", "2019-07-17 12:00:00", "2019-07-17 12:00:00", "nadx_ck")
 
     // 刷新campaign/publisher表
-//    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2018-06-01", "2018-06-10")
-//    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2018-05-01", "2018-05-31")
+//    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-06-01", "2019-06-10")
+//    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-05-01", "2019-05-31")
+//    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-09-01", "2019-09-30")
 
-//    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2018-06-01", "2018-06-10", "")
+//    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-06-01", "2019-06-10", "")
 
 //    sendMsg_btime("ssp_report_overall_dwr", "2019-08-08 12:00:00")
 //    sendMsg_btime("ssp_report_overall_dwr", "2019-08-08 13:00:00")
@@ -553,10 +560,10 @@ object CrontabClickhouseRefreshUtil {
 
   }
 
-  //不含startDate
+  //含startDate
   def sendMsg_btime_00_00_00 (topic: String, startDay: String, endDay: String): Unit = {
 
-    val days =daysBetween(startDay, endDay)
+    val days =daysBetween(startDay, endDay) +1
     val s = (0 until days).map { x =>
       new MessagePushReq(
         topic,
@@ -567,7 +574,7 @@ object CrontabClickhouseRefreshUtil {
     messageClient.pushMessage(s: _*);
   }
 
-  def sendMsg_btimes_for_nadx(topic: String, startBTime: String, endBTime: String, appName: String): Unit = {
+  def sendMsg_btimes_for_ck(topic: String, startBTime: String, endBTime: String, appName: String): Unit = {
 
     var startT = CSTTime.ms(startBTime)
     var endT = CSTTime.ms(endBTime)
