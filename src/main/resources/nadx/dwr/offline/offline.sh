@@ -1,7 +1,7 @@
 #######################################################
 ## cd /apps/data-streaming/nadx/dwr/offline; (sh ./offline.sh "2019-09-14 10:00:00" "2019-09-16 12:00:00" &);tail -f offline.log
 ## cd /apps/data-streaming/nadx/dwr/offline; (sh ./offline.sh "2019-10-14 12:00:00" "2019-10-14 16:00:00" &);tail -f offline.log
-## cd /apps/data-streaming/nadx/dwr/offline; (sh ./offline.sh "2019-09-15 15:00:00" "2019-09-16 04:00:00" &);tail -f offline.log
+## cd /apps/data-streaming/nadx/dwr/offline; (sh ./offline.sh "2019-10-29 13:00:00" "2019-10-29 13:00:00" &);tail -f offline.log
 #######################################################
 
 cd /apps/data-streaming/nadx/dwr/offline
@@ -62,4 +62,4 @@ spark-sql \
 --hivevar end_b_time="${end_b_time}" \
 -f ./offline.sql  >> ./offline.log 2>&1
 
-java -cp data-streaming.jar com.mobikok.ssp.data.streaming.CrontabClickhouseRefreshUtil "`date "+%Y-%m-%d" -d "-1 days"`" >>  ./offline.log
+java -cp ../data-streaming.jar com.mobikok.ssp.data.streaming.CrontabClickhouseRefreshUtil "`date "+%Y-%m-%d" -d "-1 days"`" >>  ./offline.log
