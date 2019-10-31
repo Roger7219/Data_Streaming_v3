@@ -107,18 +107,18 @@ class SyncMysql2HiveHandlerV4 extends Handler {
       LOG.warn(s"${classOf[SyncMysql2HiveHandlerV4].getSimpleName} start")
 
       hiveTableDetails.foreach{ case(hiveT, (mysqlT, uuidField, incrField, defaultIncrValueIfNull)) =>
-        var hiveBackupT = s"${hiveT}_backup"
-        val syncResultTmpT = s"${hiveT}_sync_result_tmp"
+        val hiveBackupT = s"${hiveT}_backup"
+        val syncProcessingT = s"${hiveT}_sync_processing"
+        val syncProcessedT = s"${hiveT}_sync_processed"
         val hiveDF = hiveContext.read.table(hiveT)
         val lastIncrCer = s"${LAST_ID_CER_PREFIX}_${hiveT}"
         val lastIncrTopic = s"${LAST_ID_TOPIC_PREFIX}_${hiveT}"
 
-        // 如果上次写入到syncResultTmpT表成功，但rename syncResultTmpT to hiveT失败了，则继续尝试rename
-        if(sql(s"show tables like '$hiveBackupT'").take(1).nonEmpty
-          && sql(s"show tables like '$syncResultTmpT'").take(1).nonEmpty
-          && sql(s"show tables like '$hiveT'").take(1).isEmpty)
-        {
-          sql(s"alter table $syncResultTmpT rename to ${hiveT}")
+        // 如果上次写入临时表成功，并将hiveT rename to hiveBackupT表了，但未执行rename syncProcessedT to hiveT，则继续尝试rename
+        if(sql(s"show tables like '$syncProcessedT'").take(1).nonEmpty
+           && sql(s"show tables like '$hiveT'").take(1).isEmpty
+        ) {
+          sql(s"alter table $syncProcessedT rename to ${hiveT}")
         }
 
         // 全量刷新
@@ -226,11 +226,13 @@ class SyncMysql2HiveHandlerV4 extends Handler {
 
   private def insertOverwriteTable(hiveT: String, df: DataFrame): Unit ={
 
-    var hiveBackupT = s"${hiveT}_backup"
-    val syncResultTmpT = s"${hiveT}_sync_result_tmp"
+    val hiveBackupT = s"${hiveT}_backup"
+    val syncProcessingT = s"${hiveT}_sync_processing"
+    val syncProcessedT = s"${hiveT}_sync_processed"
 
-    sql(s"drop table if exists $syncResultTmpT")
-    sql(s"create table $syncResultTmpT like $hiveT")
+    sql(s"drop table if exists $syncdProcessedT")
+    sql(s"drop table if exists $syncProcessingT")
+    sql(s"create table $syncProcessingT like $hiveT")
 
     df
       .selectExpr(hiveContext.read.table(hiveT).schema.fieldNames.map(x => s"`$x`"): _*)
@@ -238,11 +240,14 @@ class SyncMysql2HiveHandlerV4 extends Handler {
       .write
       .format("orc")
       .mode(SaveMode.Overwrite)
-      .insertInto(syncResultTmpT)
+      .insertInto(syncProcessingT)
 
-    sql(s"drop table if exists $hiveBackupT")         // 删除上次备份
-    sql(s"alter table $hiveT rename to $hiveBackupT") // 备份
-    sql(s"alter table $syncResultTmpT rename to ${hiveT}")
+    // 原子性操作，标记写入完成，syncProcessedT表是完整的数据
+    sql(s"alter table $syncProcessingT rename to ${syncProcessedT}")
+
+    sql(s"drop table if exists $hiveBackupT")              // 删除上次备份
+    sql(s"alter table $hiveT rename to $hiveBackupT")      // 正式表转为备份表
+    sql(s"alter table $syncProcessedT rename to ${hiveT}") // 更新表转正
 
   }
 

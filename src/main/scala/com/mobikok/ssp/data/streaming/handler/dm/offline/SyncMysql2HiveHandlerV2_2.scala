@@ -75,18 +75,18 @@ class SyncMysql2HiveHandlerV2_2 extends Handler {
         val hiveT = x.getKey
         val mysqlT = x.getValue._1
         val uuidField = x.getValue._2
-        var hiveBackupT = s"${hiveT}_backup"
-        val syncResultTmpT = s"${hiveT}_sync_result_tmp"
+        val hiveBackupT = s"${hiveT}_backup"
+        val syncProcessingT = s"${hiveT}_sync_processing"
+        val syncProcessedT = s"${hiveT}_sync_processed"
         val hiveDF = hiveContext.read.table(hiveT)
         val lastIdCer = s"${LAST_ID_CER_PREFIX}_${hiveT}"
         val lastIdTopic = s"${LAST_ID_TOPIC_PREFIX}_${hiveT}"
 
-        // 如果上次写入到syncResultTmpT表成功，但rename syncResultTmpT to hiveT失败了，则继续尝试rename
-        if(sql(s"show tables like '$hiveBackupT'").take(1).nonEmpty
-          && sql(s"show tables like '$syncResultTmpT'").take(1).nonEmpty
-          && sql(s"show tables like '$hiveT'").take(1).isEmpty)
-        {
-          sql(s"alter table $syncResultTmpT rename to ${hiveT}")
+        // 如果上次写入临时表成功，并将hiveT rename to hiveBackupT表了，但未执行rename syncProcessedT to hiveT，则继续尝试rename
+        if(sql(s"show tables like '$syncProcessedT'").take(1).nonEmpty
+           && sql(s"show tables like '$hiveT'").take(1).isEmpty
+        ) {
+          sql(s"alter table $syncProcessedT rename to ${hiveT}")
         }
 
         // 全量刷新
@@ -171,9 +171,9 @@ class SyncMysql2HiveHandlerV2_2 extends Handler {
               //必须缓存，不然延迟读mysql，会现后读两次，导致数据错误
               uniqueAllDF.persist()
 
-              sql(s"drop table if exists $syncResultTmpT")
-              sql(s"create table $syncResultTmpT like $hiveT")
-              sql(s"truncate table $syncResultTmpT") // 确保没数据
+              sql(s"drop table if exists $syncProcessedT")
+              sql(s"drop table if exists $syncProcessingT")
+              sql(s"create table $syncProcessingT like $hiveT")
 
               uniqueAllDF
                 .selectExpr(hiveDF.schema.fieldNames.map(x => s"`$x`"): _*)
@@ -181,11 +181,14 @@ class SyncMysql2HiveHandlerV2_2 extends Handler {
                 .write
                 .format("orc")
                 .mode(SaveMode.Overwrite)
-                .insertInto(syncResultTmpT)
+                .insertInto(syncProcessingT)
 
-              sql(s"drop table if exists $hiveBackupT")         // 删除上次备份
-              sql(s"alter table $hiveT rename to $hiveBackupT") // 备份
-              sql(s"alter table $syncResultTmpT rename to ${hiveT}")
+              // 原子性操作，标记写入完成，syncProcessedT表是完整的数据
+              sql(s"alter table $syncProcessingT rename to ${syncProcessedT}")
+
+              sql(s"drop table if exists $hiveBackupT")              // 删除上次备份
+              sql(s"alter table $hiveT rename to $hiveBackupT")      // 正式表转为备份表
+              sql(s"alter table $syncProcessedT rename to ${hiveT}") // 更新表转正
 
               // 记录新的last id
               MC.push(new UpdateReq(lastIdTopic, incrDF
