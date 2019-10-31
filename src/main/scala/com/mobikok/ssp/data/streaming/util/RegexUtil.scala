@@ -71,12 +71,13 @@ object RegexUtil {
 //    println(RegexUtil.matchedGroups("SELECT * FROM test s union select * from dual as s", "(?i)from\\s+([\\S]*)"))
 //
 
-    RegexUtil.matchedGroups("ssp_overall_postback_dwi_test_m_overall_postback_test_trans_20190931_171612_863__0", "([0-9]{4}[0-1][0-9][0-3][0-9]_[0-2][0-9][0-6][0-9][0-6][0-9])_[0-9]{3}__[0-9]")
+    RegexUtil.matchedGroups("offset_m_overall_fill_test_bc_20180525_185008_109__16", "([0-9]{4}[0-1][0-9][0-3][0-9]_[0-2][0-9][0-6][0-9][0-6][0-9])_[0-9]{3}__[0-9]")
       .map{x=>
         println(x)
         println(CSTTime.ms(x,"yyyyMMdd_HHmmss"))
         println(System.currentTimeMillis())
         println(System.currentTimeMillis() - CSTTime.ms(x,"yyyyMMdd_HHmmss"))
+        println(30*24*60*60*1000L)
         if(System.currentTimeMillis() - CSTTime.ms(x,"yyyyMMdd_HHmmss") > 30L*24*60*60*1000) {
 //          mySqlJDBCClient.execute(s"drop table if exists ${t}")
           print("xxx")

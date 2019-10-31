@@ -288,7 +288,7 @@ class KafkaClient (moduleName: String, config: Config /*databaseUrl: String, use
       val cleanable = new Cleanable()
       //      val bt = table + transactionalLegacyDataBackupTableSign
 
-      cleanLongTimeAgoAllAppModuleBackupAndTmpTable()
+      cleanHistoryAllAppModuleBackupAndTmpTable()
 
       if (cookies.isEmpty) {
         LOG.warn(s"KafkaClient rollback started(cookies is empty)")
@@ -448,13 +448,13 @@ class KafkaClient (moduleName: String, config: Config /*databaseUrl: String, use
   }
 
   // 清理所有模块一个月以前的backup和tmp表（为了处理老版本，不能正常删除历史表的bug）
-  def cleanLongTimeAgoAllAppModuleBackupAndTmpTable(): Unit ={
+  def cleanHistoryAllAppModuleBackupAndTmpTable(): Unit ={
 
     new Thread(new Runnable {
       override def run(): Unit = {
 
       ThreadPool.LOCK.synchronized{
-        val tabs = Array(transactionalTmpTableSign, transactionalLegacyDataBackupCompletedTableSign, transactionalLegacyDataBackupProgressingTableSign)
+        val tabs = Array("_ts_", "_bc_", "_bp_")
 
         for(t <- tabs) {
           val x= mySqlJDBCClient.executeQuery(s"""show tables like "%${t}%" """)
