@@ -82,7 +82,7 @@ class SyncMysql2HiveHandlerV2_2 extends Handler {
         val lastIdTopic = s"${LAST_ID_TOPIC_PREFIX}_${hiveT}"
 
         // 如果上次写入到syncResultTmpT表成功，但rename syncResultTmpT to hiveT失败了，则继续尝试rename
-        if(sql(s"show table '$hiveBackupT").take(1).nonEmpty && sql(s"show table '$syncResultTmpT'").take(1).nonEmpty) {
+        if(sql(s"show table '$hiveBackupT'").take(1).nonEmpty && sql(s"show table '$syncResultTmpT'").take(1).nonEmpty) {
           sql(s"alter table $syncResultTmpT rename to ${hiveT}")
         }
 
