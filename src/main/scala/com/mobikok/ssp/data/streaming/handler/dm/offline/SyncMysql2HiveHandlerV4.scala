@@ -160,6 +160,9 @@ class SyncMysql2HiveHandlerV4 extends Handler {
                 .jdbc(rdbUrl, s"(select * from $mysqlT where $incrField > $lastIncr) as sync_incr_table", rdbProp)
                 .selectExpr(hiveDF.schema.fieldNames.map(x => s"`$x`"): _*)
 
+            // 必须缓存，不然延迟读mysql，会现后读两次，导致数据错误
+            incrDF.persist()
+
             val updateDF = null // updateDFByWhere(tablesUpdateWhere, mysqlT, hiveT)
 
             val incrAndUpdateDF = if(updateDF == null) incrDF else incrDF.union(updateDF)
@@ -194,7 +197,7 @@ class SyncMysql2HiveHandlerV4 extends Handler {
               insertOverwriteTable(hiveT, uniqueAllDF)
 
               // 记录新的last id
-              MC.push(new UpdateReq(lastIncrTopic, OM.toJOSN(uniqueAllDF
+              MC.push(new UpdateReq(lastIncrTopic, OM.toJOSN(incrDF
                 .selectExpr(s"max($incrField) as lastIncr")
                 .first()
                 .getAs[Object]("lastIncr"))
@@ -202,6 +205,7 @@ class SyncMysql2HiveHandlerV4 extends Handler {
 
               uniqueAllDF.unpersist()
             }
+            incrDF.unpersist()
 
             LOG.warn(s"Incr table append done", "mysqlTable", mysqlT, "hiveTable", hiveT)
 

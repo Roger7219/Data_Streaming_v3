@@ -8,7 +8,7 @@ import com.mobikok.ssp.data.streaming.entity.{OffsetRange, TopicPartition}
 import com.mobikok.ssp.data.streaming.exception.{HiveClientException, KafkaClientException, MySQLJDBCClientException}
 import com.mobikok.ssp.data.streaming.client.cookie.{HiveRollbackableTransactionCookie, KafkaNonTransactionCookie, KafkaRollbackableTransactionCookie, TransactionCookie}
 import com.mobikok.ssp.data.streaming.module.support.TransactionalStrategy
-import com.mobikok.ssp.data.streaming.util.{KafkaOffsetTool, KafkaSender, Logger, MySqlJDBCClient}
+import com.mobikok.ssp.data.streaming.util._
 import com.mysql.jdbc.Driver
 import com.typesafe.config.{Config, ConfigException}
 import org.apache.kafka.clients.consumer.ConsumerRecord
@@ -288,6 +288,8 @@ class KafkaClient (moduleName: String, config: Config /*databaseUrl: String, use
       val cleanable = new Cleanable()
       //      val bt = table + transactionalLegacyDataBackupTableSign
 
+      cleanLongTimeAgoAllAppModuleBackupAndTmpTable()
+
       if (cookies.isEmpty) {
         LOG.warn(s"KafkaClient rollback started(cookies is empty)")
         //Revert to the legacy data!!
@@ -433,6 +435,7 @@ class KafkaClient (moduleName: String, config: Config /*databaseUrl: String, use
 //          mySqlJDBCClient.execute(s"drop table if exists ${x.transactionalTmpTable}")
         }
       }
+
       LOG.warn(s"KafkaClient($moduleName) rollback completed")
       cleanable
     } catch {
@@ -442,6 +445,37 @@ class KafkaClient (moduleName: String, config: Config /*databaseUrl: String, use
 //        }
         throw new MySQLJDBCClientException("Hive Transaction Rollback Fail, cookies: " + cookies, e)
     }
+  }
+
+  // 清理所有模块一个月以前的backup和tmp表（为了处理老版本，不能正常删除历史表的bug）
+  def cleanLongTimeAgoAllAppModuleBackupAndTmpTable(): Unit ={
+
+    new Thread(new Runnable {
+      override def run(): Unit = {
+
+      ThreadPool.LOCK.synchronized{
+        val tabs = Array(transactionalTmpTableSign, transactionalLegacyDataBackupCompletedTableSign, transactionalLegacyDataBackupProgressingTableSign)
+
+        for(t <- tabs) {
+          val x= mySqlJDBCClient.executeQuery(s"""show tables like "%${t}%" """)
+
+          while (x.next()) {
+            val t = x.getString(1)
+            // 正则匹配时间
+            RegexUtil.matchedGroups(t, "([0-9]{4}[0-1][0-9][0-3][0-9]_[0-2][0-9][0-6][0-9][0-6][0-9])_[0-9]{3}__[0-9]")
+              .map{x=>
+                // 删除15天以前的事务表
+                if( System.currentTimeMillis() - CSTTime.ms(x,"yyyyMMdd_HHmmss") > 15L*24*60*60*1000) {
+                  mySqlJDBCClient.execute(s"drop table if exists ${t}")
+                }
+              }
+          }
+        }
+
+      }
+    }
+    }).start()
+
   }
 
   override def clean (cookies: TransactionCookie*): Unit = {

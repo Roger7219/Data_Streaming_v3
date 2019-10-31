@@ -94,6 +94,9 @@ object CSTTime {
     DF_TIME.get().parse(time).getTime
   }
 
+  def ms(time: String, timeFormat: String): Long ={
+   formatter(timeFormat).parse(time).getTime
+  }
 
 //  def timeObject(time: Long): Date  = {
 //    new Date(time)

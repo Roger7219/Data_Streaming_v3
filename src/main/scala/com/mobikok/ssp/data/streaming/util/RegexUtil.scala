@@ -70,47 +70,63 @@ object RegexUtil {
 //    println(RegexUtil.matchedGroups("我的QQ是:456456 我的电话是:0532214 我的邮箱是:aaa123@aaa.com", "(\\d+).*?"))
 //    println(RegexUtil.matchedGroups("SELECT * FROM test s union select * from dual as s", "(?i)from\\s+([\\S]*)"))
 //
-  var s = "\000"
-      RegexUtil.matchedGroups(
-      s"""
-        |SELECT
-        | f1,
-        | sum(f2) as f2,
-        | f3 as f3
-        | FROM test s
-         """
-      .stripMargin.replaceAll("\\s*,\n", s),
-      "(?i)SELECT\\s*(.*?)\\s+FROM", s"\\s*([^$s]+)"
-     ).foreach(println(_))
 
-    println("---------------")
-    RegexUtil.matchedGroups(
-      s"""
-         |SELECT
-         | f1,
-         | sum(f2) as f2,
-         | f3 as f3
-         | FROM test s
-         """
-        .stripMargin.replaceAll("\\s*,\n", s),
-      "(?i)select\\s*(.*?)\\s+from", s"\\s*([^$s]+)", "\\s*(\\S+)$"
-    ).foreach(println(_))
+    RegexUtil.matchedGroups("ssp_overall_postback_dwi_test_m_overall_postback_test_trans_20190931_171612_863__0", "([0-9]{4}[0-1][0-9][0-3][0-9]_[0-2][0-9][0-6][0-9][0-6][0-9])_[0-9]{3}__[0-9]")
+      .map{x=>
+        println(x)
+        println(CSTTime.ms(x,"yyyyMMdd_HHmmss"))
+        println(System.currentTimeMillis())
+        println(System.currentTimeMillis() - CSTTime.ms(x,"yyyyMMdd_HHmmss"))
+        if(System.currentTimeMillis() - CSTTime.ms(x,"yyyyMMdd_HHmmss") > 30L*24*60*60*1000) {
+//          mySqlJDBCClient.execute(s"drop table if exists ${t}")
+          print("xxx")
+        }
+      }
 
+//   print(RegexUtil.matchedGroups("ssp_overall_postback_dwi_test_m_overall_postback_test_trans_20180526_101612_863__0",
+//   "([0-9]{4}[0-1][0-9][0-3][0-9])_[0-2][0-9][0-6][0-9][0-6][0-9]_[0-9]{3}__[0-9]"))
 
-    println("---------------")
-    RegexUtil.matchedGroups(
-      s"""
-         |SELECT f1,
-         | f2 as f2,
-         |f3 as f3
-         | FROM test s
-         | group by
-         | s2,
-         | s3 as s3,
-         | s4"""
-        .stripMargin.replaceAll("\\s*,\n", s),
-      "(?i)group by\\s*(.*?)\\s?$", s"\\s*([^$s]+)"
-      ).foreach(println(_))
+//  var s = "\000"
+//      RegexUtil.matchedGroups(
+//      s"""
+//        |SELECT
+//        | f1,
+//        | sum(f2) as f2,
+//        | f3 as f3
+//        | FROM test s
+//         """
+//      .stripMargin.replaceAll("\\s*,\n", s),
+//      "(?i)SELECT\\s*(.*?)\\s+FROM", s"\\s*([^$s]+)"
+//     ).foreach(println(_))
+//
+//    println("---------------")
+//    RegexUtil.matchedGroups(
+//      s"""
+//         |SELECT
+//         | f1,
+//         | sum(f2) as f2,
+//         | f3 as f3
+//         | FROM test s
+//         """
+//        .stripMargin.replaceAll("\\s*,\n", s),
+//      "(?i)select\\s*(.*?)\\s+from", s"\\s*([^$s]+)", "\\s*(\\S+)$"
+//    ).foreach(println(_))
+//
+//
+//    println("---------------")
+//    RegexUtil.matchedGroups(
+//      s"""
+//         |SELECT f1,
+//         | f2 as f2,
+//         |f3 as f3
+//         | FROM test s
+//         | group by
+//         | s2,
+//         | s3 as s3,
+//         | s4"""
+//        .stripMargin.replaceAll("\\s*,\n", s),
+//      "(?i)group by\\s*(.*?)\\s?$", s"\\s*([^$s]+)"
+//      ).foreach(println(_))
 
 
   }

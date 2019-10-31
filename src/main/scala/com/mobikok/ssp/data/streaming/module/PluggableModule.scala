@@ -129,7 +129,10 @@ class PluggableModule(globalConfig: Config,
   }
 
   val monitorClient = new MonitorClient(messageClient)
-  val topics = globalConfig.getConfigList(s"modules.$moduleName.kafka.consumer.partitions").map { x => x.getString("topic") }.toArray[String]
+  val topics = if(globalConfig.hasPath(s"modules.$moduleName.kafka.consumer.partitions"))
+    globalConfig.getConfigList(s"modules.$moduleName.kafka.consumer.partitions").map { x => x.getString("topic") }.toArray[String]
+    // 兼容历史版本
+  else globalConfig.getConfigList(s"modules.$moduleName.kafka.consumer.partitoins").map { x => x.getString("topic") }.toArray[String]
 
   var isExcludeOfflineRebrushPart = false
   if (ArgsConfig.Value.REBRUSH_RUNNING.equals(argsConfig.get(ArgsConfig.REBRUSH))) {
@@ -1162,7 +1165,7 @@ class PluggableModule(globalConfig: Config,
 
                 moduleTracer.trace("clean done")
 
-                // 清理上一次启动的产生的事务数据
+                // 清理上一次“启动”的产生的事务数据
                 if (!mixTransactionManager.needTransactionalAction()) {
                   if (hiveCleanable != null) {
                     hiveCleanable.doActions()
