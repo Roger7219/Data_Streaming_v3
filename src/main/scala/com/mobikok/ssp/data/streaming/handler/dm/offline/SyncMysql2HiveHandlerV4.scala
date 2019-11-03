@@ -230,7 +230,7 @@ class SyncMysql2HiveHandlerV4 extends Handler {
     val syncProcessingT = s"${hiveT}_sync_processing"
     val syncProcessedT = s"${hiveT}_sync_processed"
 
-    sql(s"drop table if exists $syncdProcessedT")
+    sql(s"drop table if exists $syncProcessedT")
     sql(s"drop table if exists $syncProcessingT")
     sql(s"create table $syncProcessingT like $hiveT")
 
