@@ -192,63 +192,63 @@ from (
     date_format(l_time, 'yyyy-MM-dd 00:00:00'),
     b_date
 
-    UNION ALL
-
-    SELECT
-    null                    as publisherId,--INT,
-    x.appid                 as appId,--INT,
-    x.countryId             as countryId,--INT,
-    null                    as carrierId,
-   "third-income"           as versionName, -- -1 as versionid,
-    -1                      as adType,
-    -1                      as campaignId,--INT,
-    -1                      as offerId,
-    -1                      as imageId,
-    "third-income"          as affSub,
-    -- null                 as packageName,
-    -- null                 as domain,
-    -- null                 as operatingSystem,
-    -- null                 as systemLanguage,
-    -- null                 as deviceBrand,
-    -- null                 as deviceType,
-    -- null                 as browserKernel,
-    0                       as respStatus,
-    -1                      as test,
-    -1                      as ruleId,
-    -1                      as smartId,
-    "third-income"          as eventName,
-    concat(date_format(statdate, 'yyyy-MM-dd'), ' 00:00:00') as b_time,
-    '2000-01-01 00:00:00'                                    as l_time,
-    x.statdate              as b_date,
-    0                       as requestCount,-- BIGINT,
-    0                       as sendCount,-- BIGINT,
-    0                       as showCount,-- BIGINT,
-    pv                      as clickCount,  -- 第三方点击
-    0                       as feeReportCount,-- BIGINT,         -- 计费条数
-    0                       as feeSendCount,--BIGINT,         -- 计费显示条数
-    0                       as feeReportPrice,-- DECIMAL(19,10), -- 计费金额(真实收益)
-    0                       as feeSendPrice,-- DECIMAL(19,10), -- 计费显示金额(收益)
-    0                       as cpcBidPrice,-- DECIMAL(19,10),
-    0                       as cpmBidPrice,-- DECIMAL(19,10),
-    0                       as conversion,-- BIGINT,         -- 转化数，目前不要含展示和点击产生的
-    0                       as allConversion,-- BIGINT,         -- 转化数，含展示和点击产生的
-    thirdsendfee            as revenue, -- 第三方显示计费
-    thirdfee                as realRevenue,     -- 第三方计费
-    0                       as feeCpcTimes, --cpc计费转化数
-    0                       as feeCpmTimes,
-    0                       as feeCpaTimes,
-    0                       as feeCpaSendTimes,  --cpc 计费下发数
-    0                       as feeCpcReportPrice,--cpc 计费上游收益
-    0                       as feeCpmReportPrice,
-    0                       as feeCpaReportPrice,
-    0                       as feeCpcSendPrice,
-    0                       as feeCpmSendPrice,
-    0                       as feeCpaSendPrice,
-    0                       as winPrice,
-    0                       as winNotices,
-    0                       as newCount,
-    0                       as activeCount
-    from ssp_report_publisher_third_income x
+--     UNION ALL
+--
+--     SELECT
+--     null                    as publisherId,--INT,
+--     x.appid                 as appId,--INT,
+--     x.countryId             as countryId,--INT,
+--     null                    as carrierId,
+--    "third-income"           as versionName, -- -1 as versionid,
+--     -1                      as adType,
+--     -1                      as campaignId,--INT,
+--     -1                      as offerId,
+--     -1                      as imageId,
+--     "third-income"          as affSub,
+--     -- null                 as packageName,
+--     -- null                 as domain,
+--     -- null                 as operatingSystem,
+--     -- null                 as systemLanguage,
+--     -- null                 as deviceBrand,
+--     -- null                 as deviceType,
+--     -- null                 as browserKernel,
+--     0                       as respStatus,
+--     -1                      as test,
+--     -1                      as ruleId,
+--     -1                      as smartId,
+--     "third-income"          as eventName,
+--     concat(date_format(statdate, 'yyyy-MM-dd'), ' 00:00:00') as b_time,
+--     '2000-01-01 00:00:00'                                    as l_time,
+--     x.statdate              as b_date,
+--     0                       as requestCount,-- BIGINT,
+--     0                       as sendCount,-- BIGINT,
+--     0                       as showCount,-- BIGINT,
+--     pv                      as clickCount,  -- 第三方点击
+--     0                       as feeReportCount,-- BIGINT,         -- 计费条数
+--     0                       as feeSendCount,--BIGINT,         -- 计费显示条数
+--     0                       as feeReportPrice,-- DECIMAL(19,10), -- 计费金额(真实收益)
+--     0                       as feeSendPrice,-- DECIMAL(19,10), -- 计费显示金额(收益)
+--     0                       as cpcBidPrice,-- DECIMAL(19,10),
+--     0                       as cpmBidPrice,-- DECIMAL(19,10),
+--     0                       as conversion,-- BIGINT,         -- 转化数，目前不要含展示和点击产生的
+--     0                       as allConversion,-- BIGINT,         -- 转化数，含展示和点击产生的
+--     thirdsendfee            as revenue, -- 第三方显示计费
+--     thirdfee                as realRevenue,     -- 第三方计费
+--     0                       as feeCpcTimes, --cpc计费转化数
+--     0                       as feeCpmTimes,
+--     0                       as feeCpaTimes,
+--     0                       as feeCpaSendTimes,  --cpc 计费下发数
+--     0                       as feeCpcReportPrice,--cpc 计费上游收益
+--     0                       as feeCpmReportPrice,
+--     0                       as feeCpaReportPrice,
+--     0                       as feeCpcSendPrice,
+--     0                       as feeCpmSendPrice,
+--     0                       as feeCpaSendPrice,
+--     0                       as winPrice,
+--     0                       as winNotices,
+--     0                       as newCount,
+--     0                       as activeCount
+--     from ssp_report_publisher_third_income x
 
 ) dwr
 left join campaign cam      on cam.id = dwr.campaignId
@@ -380,7 +380,98 @@ select
     cast(null as string) as advertiseramaaname,
     cast(null as string) as eventName
 from ssp_report_old_campaign_dm dm
-where b_date <= "2018-01-15";
+where b_date <= "2018-01-15"
+union all
+select
+    -1                   as publisherid,--INT,
+    x.appid              as appid,--INT,
+    x.countryId          as countryid,--INT,
+    -1                   as carrierid,
+    -1                   as adtype,
+    -1                   as campaignid,--INT,
+    -1                   as offerid,
+    -1                   as imageid,
+    "third-income"       as affsub,
+    0                    as requestcount,-- BIGINT,
+    0                    as sendcount,-- BIGINT,
+    0                    as showcount,-- BIGINT,
+    pv                   as clickcount,  -- 第三方点击
+    0                    as feereportcount,-- BIGINT,         -- 计费条数
+    0                    as feesendcount,--BIGINT,         -- 计费显示条数
+    0                    as feereportprice,-- DECIMAL(19,10), -- 计费金额(真实收益)
+    0                    as feesendprice,-- DECIMAL(19,10), -- 计费显示金额(收益)
+    0                    as cpcbidprice,-- DECIMAL(19,10),
+    0                    as cpmbidprice,-- DECIMAL(19,10),
+    0                    as conversion,-- BIGINT,         -- 转化数，目前不要含展示和点击产生的
+    0                    as allconversion,-- BIGINT,         -- 转化数，含展示和点击产生的
+    thirdsendfee         as revenue,     -- 第三方显示计费
+    thirdfee             as realrevenue,         -- 第三方计费
+    concat(date_format(statdate, 'yyyy-MM-dd'), ' 00:00:00') as b_time,
+    '2000-01-01 00:00:00'                                    as l_time,
+    x.statdate  as b_date,
+
+    -1                   as publisheramid,
+    -1                   as publisheramname,
+    -1                   as advertiseramid,
+    "third-income"       as advertiseramname,
+    -1                   as appmodeid,
+    "third-income"       as appmodename,
+    -1                   as adcategory1id, --INT 关联campaign.adCategory1
+    "third-income"       as adcategory1name,
+    "third-income"       as campaignname,
+    -1                   as adverid,
+    "third-income"       as advername,
+    -1                   as offeroptstatus,
+    "third-income"       as offername,
+    "third-income"       as publishername,
+    "third-income"       as appname,
+    "third-income"       as iab1name,
+    "third-income"       as iab2name,
+    "third-income"       as countryname,
+    "third-income"       as carriername,
+    -1                   as adtypeid,   --adFormatId
+    "third-income"       as adtypename,
+    -1                   as versionid,
+    "third-income"       as versionname,
+    -1                   as publisherproxyid,
+    cast(null as string) as data_type,
+    0                    as feecpctimes,--cpc计费转化数
+    0                    as feecpmtimes,
+    0                    as feecpatimes,
+    0                    as feecpasendtimes,--cpc 计费下发数
+    0                    as feecpcreportprice,--cpc 计费上游收益
+    0                    as feecpmreportprice,
+    0                    as feecpareportprice,
+    0                    as feecpcsendprice,
+    0                    as feecpmsendprice,
+    0                    as feecpasendprice,
+
+    "third-income"       as countrycode,
+    0                    as respStatus,
+    0                    as winPrice,
+    0                    as winNotices,
+    -1                   as isSecondHighPriceWin,
+    -1                   as companyid,
+    "third-income"       as companyname,
+    -1                   as test,
+    -1                   as ruleId,
+    -1                   as smartId,
+    -1                   as proxyId,
+    "third-income"       as smartName,
+    "third-income"       as ruleName,
+    -1                   as appCompanyid,
+    -1                   as offerCompanyid,
+    0                    as newCount,
+    0                    as activeCount,
+    -1                   as adcategory2id,
+    "third-income"       as adcategory2name,
+    -1                   as publisherampaid,--新角色id（渠道 AM id）区分之前DB的 am id
+    "third-income"       as publisherampaname,
+    -1                   as advertiseramaaid,
+    "third-income"       as advertiseramaaname,
+    "third-income"       as eventName
+from ssp_report_publisher_third_income x;
+
 -- union all
 -- select
 --     -1                      as publisherid,--INT,

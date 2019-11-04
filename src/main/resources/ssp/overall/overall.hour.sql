@@ -37,7 +37,7 @@ select
 --    p_am.name         as publisheramname,
     coalesce(p.amId, a_p.amId) as publisheramid,
     coalesce(p_am.name, ap_am.name) as publisheramname,
-    ad.amId           as advertiseramid,
+    ad.amId           as advertiseramid, -- Advertiser BD
     a_am.name         as advertiseramname,
     a.mode            as appmodeid,
     m.name            as appmodename,
