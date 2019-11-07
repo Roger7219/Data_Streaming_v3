@@ -220,6 +220,20 @@ select * from ndsp_overall_dwr_v2;
 
 
 
+drop table if exists ndsp_overall_day_dwr;
+CREATE TABLE ndsp_overall_day_dwr(
+  id                                string,
+  mediabuy_id                       int,
+  campaign_id                       int,
+  ad_id                             int,
+  impression_count                  bigint,
+  impression_cost                   double,
+  impression_revenue                double,
+  click_count                       bigint
+)
+PARTITIONED BY (l_time string, b_date string, b_time string, b_version STRING)
+STORED AS ORC;
 
-
-
+drop view if exists ndsp_overall_day_dm;
+create view ndsp_overall_day_dm as
+select * from ndsp_overall_day_dwr;
