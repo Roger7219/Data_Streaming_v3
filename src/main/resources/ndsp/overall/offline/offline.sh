@@ -39,5 +39,5 @@ do
         --hivevar start_b_time="${stat_time}" \
         -f ./offline.sql  >> ./offline.log 2>&1
 	start_date=$(date -d "$start_date+1days" +%Y%m%d)
-        sqoop export   --hcatalog-database default   --hcatalog-table ndsp_overall_day_dwr   --hcatalog-partition-keys b_date   --hcatalog-partition-values stat_date   --connect jdbc:mysql://218.17.186.161:3305/dsp    --username root   --password sloth --m 10  --table ndsp_overall_day_dwr --update-key id --update-mode allowinsert
+        sqoop export   --hcatalog-database default   --hcatalog-table ndsp_overall_day_dwr   --hcatalog-partition-keys b_date   --hcatalog-partition-values $stat_date   --connect jdbc:mysql://218.17.186.161:3305/dsp    --username root   --password sloth --m 10  --table ndsp_overall_day_dwr --update-key id --update-mode allowinsert
 done
