@@ -687,7 +687,7 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
       ckTableCount = queryTableCount(clickHouseBaseTable, b_date, b_time)
       b = expectedCount != ckTableCount
       times += 1
-      LOG.warn(s"Polling queryTableCount in $logInfo time", "clickHouseTable", clickHouseBaseTable, "b_date", b_date,"b_time", b_time, "ckTableCount", ckTableCount, "expectedCount", expectedCount, "checkTimes", times)
+      LOG.warn(s"Polling queryTableCount on $logInfo", "clickHouseTable", clickHouseBaseTable, "b_date", b_date,"b_time", b_time, "ckTableCount", ckTableCount, "expectedCount", expectedCount, "checkTimes", times)
       if(b) {
         Thread.sleep(3*1000L)
       }
