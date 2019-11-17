@@ -217,9 +217,3 @@ select * from ndsp_overall_dwr;
 drop view if exists ndsp_overall_dm_v2;
 create view ndsp_overall_dm_v2 as
 select * from ndsp_overall_dwr_v2;
-
-
-
-
-
-
