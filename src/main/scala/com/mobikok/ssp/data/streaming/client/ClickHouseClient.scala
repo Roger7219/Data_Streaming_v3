@@ -84,101 +84,101 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
 
   @volatile private var lastLengthMap: FixedLinkedMap[String, java.lang.Long] = new FixedLinkedMap[String, java.lang.Long](24 * 3)
 
-  @deprecated
-  def overwriteByBDate(clickHouseTable: String, hiveTable: String, hivePartitionBDates: Array[String]): Unit = {
+//  @deprecated
+//  def overwriteByBDate(clickHouseTable: String, hiveTable: String, hivePartitionBDates: Array[String]): Unit = {
+//
+//    LOG.warn(s"Overwrite clickHouseTable start", "clickHouseTable", clickHouseTable, "hiveTable", hiveTable)
+//
+//    if (hosts == null || hosts.size() == 0) {
+//      throw new NullPointerException("ClickHouse hosts length is 0")
+//    }
+//
+//    if (THREAD_POOL == null || THREAD_POOL.isShutdown) {
+//      THREAD_POOL = ExecutorServiceUtil.createdExecutorService(THREAD_COUNT)
+//    }
+//
+//    hivePartitionBDates.foreach { b_date =>
+//      val time = b_date.replace("-", "_")
+//      val gzDir = s"/root/kairenlo/data-streaming/test/${hiveTable}_${time}_gz.dir"
+//      var gzFiles = null.asInstanceOf[Array[FileStatus]]
+//      RunAgainIfError.run {
+//        val fields = hiveContext
+//          .read
+//          .table(hiveTable)
+//          .schema
+//          .fieldNames
+//          .map { name => s"$name as ${name.toLowerCase}" }
+//
+//        hiveContext
+//          .read
+//          .table(hiveTable)
+//          .selectExpr(fields: _*)
+//          .where(s""" b_date = "$b_date" """)
+//          //          .repartition(1)
+//          .coalesce(1)
+//          .write
+//          .mode(SaveMode.Overwrite)
+//          .format("json")
+//          .option("compression", "gzip")
+//          .save(gzDir)
+//
+//        LOG.warn(s"gz file saved completed at $gzDir")
+//
+//        gzFiles = fileSystem.listStatus(new Path(gzDir), new PathFilter {
+//          override def accept(path: Path): Boolean = {
+//            path.getName.startsWith("part-")
+//          }
+//        })
+//
+//        // 其实可以多个文件
+//        if (gzFiles.length > 1) {
+//          throw new RuntimeException(s"ClickHouse must upload only one file, but now it finds ${gzFiles.length} in '$gzDir' !!")
+//        }
+//
+//        // 验证数据完整性
+//        gzFiles.foreach { file =>
+//          val current = file.getLen
+//          val last = lastLengthMap.get(s"$hiveTable^$b_date")
+//          if (last != null && current * 1.5 < last) {
+//            throw new RuntimeException(s"Hive table '$hiveTable' b_date = '$b_date' reading data are incomplete, less than before.")
+//          }
+//          lastLengthMap.put(s"$hiveTable^$b_date", current)
+//        }
+//
+//        LOG.warn("ClickHouseClient generate gz file completed", gzDir)
+//
+//        val b_time = s"$b_date 00:00:00"
+//        dropPartition(clickHouseTable, b_date, b_time)
+//
+//        if (gzFiles == null || gzFiles.length <= 0) {
+//          LOG.warn("gzFiles is error!")
+//          throw new HandlerException(s"gzFiles size = ${gzFiles.length}")
+//        }
+//
+//        gzFiles.foreach { file =>
+//          // 文件在这里出现合并后找不到文件时重新导出文件
+//          val in = fileSystem.open(file.getPath)
+//          LOG.warn(file.getPath.toString)
+//          if (uploadToClickHouse(clickHouseTable, b_date, b_time, hosts.head, in, 0L)) {
+//            // 需要等待一段时间导入数据
+//            Thread.sleep(5000)
+//            LOG.warn(s"copy to ${clickHouseTable}_for_select")
+//            copyToClickHouseForSearch(clickHouseTable, s"${clickHouseTable}_for_select", b_date, b_time)
+//            dropPartition(clickHouseTable, b_date, b_time)
+//          }
+//        }
+//        LOG.warn(s"Upload success at partition ($b_date, $b_time)")
+//
+//      }
+//
+//    }
+//  }
 
-    LOG.warn(s"Overwrite clickHouseTable start", "clickHouseTable", clickHouseTable, "hiveTable", hiveTable)
-
-    if (hosts == null || hosts.size() == 0) {
-      throw new NullPointerException("ClickHouse hosts length is 0")
-    }
-
-    if (THREAD_POOL == null || THREAD_POOL.isShutdown) {
-      THREAD_POOL = ExecutorServiceUtil.createdExecutorService(THREAD_COUNT)
-    }
-
-    hivePartitionBDates.foreach { b_date =>
-      val time = b_date.replace("-", "_")
-      val gzDir = s"/root/kairenlo/data-streaming/test/${hiveTable}_${time}_gz.dir"
-      var gzFiles = null.asInstanceOf[Array[FileStatus]]
-      RunAgainIfError.run {
-        val fields = hiveContext
-          .read
-          .table(hiveTable)
-          .schema
-          .fieldNames
-          .map { name => s"$name as ${name.toLowerCase}" }
-
-        hiveContext
-          .read
-          .table(hiveTable)
-          .selectExpr(fields: _*)
-          .where(s""" b_date = "$b_date" """)
-          //          .repartition(1)
-          .coalesce(1)
-          .write
-          .mode(SaveMode.Overwrite)
-          .format("json")
-          .option("compression", "gzip")
-          .save(gzDir)
-
-        LOG.warn(s"gz file saved completed at $gzDir")
-
-        gzFiles = fileSystem.listStatus(new Path(gzDir), new PathFilter {
-          override def accept(path: Path): Boolean = {
-            path.getName.startsWith("part-")
-          }
-        })
-
-        // 其实可以多个文件
-        if (gzFiles.length > 1) {
-          throw new RuntimeException(s"ClickHouse must upload only one file, but now it finds ${gzFiles.length} in '$gzDir' !!")
-        }
-
-        // 验证数据完整性
-        gzFiles.foreach { file =>
-          val current = file.getLen
-          val last = lastLengthMap.get(s"$hiveTable^$b_date")
-          if (last != null && current * 1.5 < last) {
-            throw new RuntimeException(s"Hive table '$hiveTable' b_date = '$b_date' reading data are incomplete, less than before.")
-          }
-          lastLengthMap.put(s"$hiveTable^$b_date", current)
-        }
-
-        LOG.warn("ClickHouseClient generate gz file completed", gzDir)
-
-        val b_time = s"$b_date 00:00:00"
-        dropPartition(clickHouseTable, b_date, b_time)
-
-        if (gzFiles == null || gzFiles.length <= 0) {
-          LOG.warn("gzFiles is error!")
-          throw new HandlerException(s"gzFiles size = ${gzFiles.length}")
-        }
-
-        gzFiles.foreach { file =>
-          // 文件在这里出现合并后找不到文件时重新导出文件
-          val in = fileSystem.open(file.getPath)
-          LOG.warn(file.getPath.toString)
-          if (uploadToClickHouse(clickHouseTable, hosts.head, in)) {
-            // 需要等待一段时间导入数据
-            Thread.sleep(5000)
-            LOG.warn(s"copy to ${clickHouseTable}_for_select")
-            copyToClickHouseForSearch(clickHouseTable, s"${clickHouseTable}_for_select", b_date, b_time)
-            dropPartition(clickHouseTable, b_date, b_time)
-          }
-        }
-        LOG.warn(s"Upload success at partition ($b_date, $b_time)")
-
-      }
-
-    }
-  }
-
-  def overwriteByBTime(clickHouseTable: String, hiveTable: String, hivePartitionBTime: Array[String]): Unit = {
-    LOG.warn(s"ClickHouseTable all b_time overwrite start", "clickHouseTable", clickHouseTable, "hiveTable", hiveTable, "hivePartitionBTimes", hivePartitionBTime)
+  def overwriteByBTime(clickHouseBaseTable: String, hiveTable: String, hivePartitionBTime: Array[String]): Unit = {
+    LOG.warn(s"ClickHouseTable all b_time overwrite start", "clickHouseTable", clickHouseBaseTable, "hiveTable", hiveTable, "hivePartitionBTimes", hivePartitionBTime)
     //    taskCount.addAndGet(hivePartitionBTime.length)
 
-    var dataCount = -1L
+//    var dataCount = -1L
     if (hosts == null || hosts.size() == 0) {
       throw new NullPointerException("ClickHouse hosts length is 0")
     }
@@ -194,11 +194,12 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
         if (b_date.equals(b_time.split(" ")(0))) {
           THREAD_POOL.execute(new Runnable {
             override def run(): Unit = {
-              LOG.warn(s"ClickHouseTable a b_time overwrite start", "clickHouseTable", clickHouseTable, s"b_time", b_time, "hiveTable", hiveTable)
+              LOG.warn(s"ClickHouseTable a b_time overwrite start", "clickHouseTable", clickHouseBaseTable, s"b_time", b_time, "hiveTable", hiveTable)
               val time = b_time.replace("-", "_").replace(" ", "__").replace(":", "_")
               val gzDir = s"/root/kairenlo/data-streaming/test/${hiveTable}_${time}_gz.dir"
               var gzFiles = null.asInstanceOf[Array[FileStatus]]
 
+              var hiveDataCount = 0L
               var rows: DataFrame = null
               RunAgainIfError.run({
                 // 名称全部转为小写
@@ -222,8 +223,8 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
                   .selectExpr(fields: _*)
 
                 rows.cache()
-                dataCount = rows.count()
-                dataCountMap.put(Thread.currentThread().getName, dataCount)
+                hiveDataCount = rows.count()
+//                dataCountMap.put(Thread.currentThread().getId+"", hiveDataCount)
 
                 rows.repartition(1)//coalesce(1)
                   .write
@@ -232,7 +233,7 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
                   .option("compression", "gzip")
                   .save(gzDir)
 
-                LOG.warn(s"dataCount at $b_time is $dataCount")
+                LOG.warn(s"dataCount at $b_time is $hiveDataCount")
 
                 LOG.warn(s"gz file saved completed at $gzDir")
 
@@ -265,29 +266,32 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
 
               RunAgainIfError.run {
                 // 先删除临时表分区，确保临时表分区无数据
-                dropPartition(clickHouseTable, b_date, b_time)
+                dropPartition(clickHouseBaseTable, b_date, b_time)
 
                 // 上传到ClickHouse
                 gzFiles.foreach { file =>
                   val in = fileSystem.open(file.getPath)
-                  LOG.warn(file.getPath.toString)
-                  if (uploadToClickHouse(clickHouseTable, hosts.head, in)) {
+                  LOG.warn("File path", file.getPath.toString)
+                  if (uploadToClickHouse(clickHouseBaseTable, b_date, b_time, hosts.head, in, hiveDataCount)) {
                     // 上传完成后clickHouse会额外做一些操作，需要等待一小段时间再复制到查询表中
-                    Thread.sleep(5 * 1000)
-                    var importCount = copyToClickHouseForSearch(clickHouseTable, s"${clickHouseTable}_for_select", b_date, b_time)
-                    if (importCount == -1) {
-                      throw new HandlerException("Import to select table failed!")
-                    }
-                    // 如果数据不相等，继续等待一段时间重试
-                    var times = 6
-                    while (dataCountMap.get(Thread.currentThread().getName) != importCount && times > 0) {
-                      LOG.warn(s"dataCount = $dataCount and importCount = $importCount, times left $times")
-                      Thread.sleep(5 * 1000)
-                      importCount = copyToClickHouseForSearch(clickHouseTable, s"${clickHouseTable}_for_select", b_date, b_time)
-                      times -= 1
-                    }
+//                    Thread.sleep(5 * 1000)
+//                    checkClickhouseTmpTableCount(clickHouseTable, b_date, b_time, hiveDataCount)
+
+//                    val importCount =
+                    copyToClickHouseForSearch(clickHouseBaseTable, s"${clickHouseBaseTable}_for_select", b_date, b_time, hiveDataCount)
+//                    if (importCount == -1) {
+//                      throw new HandlerException("Import to select table failed!")
+//                    }
+//                    // 如果数据不相等，继续等待一段时间重试
+//                    var times = 6
+//                    while (/*dataCountMap.get(Thread.currentThread().getId+"")*/ hiveDataCount != importCount && times > 0) {
+//                      LOG.warn(s"dataCount = $hiveDataCount and importCount = $importCount, times left $times")
+//                      Thread.sleep(5 * 1000)
+//                      importCount = copyToClickHouseForSearch(clickHouseBaseTable, s"${clickHouseBaseTable}_for_select", b_date, b_time)
+//                      times -= 1
+//                    }
                     // 复制完成后删除临时表的分区
-                    dropPartition(clickHouseTable, b_date, b_time)
+                    //dropPartition(clickHouseTable, b_date, b_time)
                   }
                 }
 
@@ -298,14 +302,14 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
 
               }
               countDownLatch.countDown()
-              LOG.warn(s"ClickhouseTable a b_time overwrite done",  "clickHouseTable", clickHouseTable,"b_time", b_time, "hiveTable", hiveTable)
+              LOG.warn(s"ClickhouseTable a b_time overwrite done",  "clickHouseTable", clickHouseBaseTable,"b_time", b_time, "hiveTable", hiveTable)
             }
           })
         }
       }
     }
     countDownLatch.await()
-    LOG.warn(s"ClickHouseTable all b_time overwrite done", "clickHouseTable", clickHouseTable, "hiveTable", hiveTable, "hivePartitionBTimes", hivePartitionBTime)
+    LOG.warn(s"ClickHouseTable all b_time overwrite done", "clickHouseTable", clickHouseBaseTable, "hiveTable", hiveTable, "hivePartitionBTimes", hivePartitionBTime)
     //    countDownLatch.await(5, TimeUnit.MINUTES)
   }
   def createTableIfNotExists(table: String, like: String): Unit = {
@@ -316,232 +320,235 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
   }
   // TODO 临时用于写进月表里
   def hiveWriteToClickHouse(clickHouseTable: String, hiveTable: String, hivePartitionBTime: Array[String]): Unit = {
-    LOG.warn(s"clickHouseTable: $clickHouseTable, hiveTable: $hiveTable, hivePartitionBTimes: ${OM.toJOSN(hivePartitionBTime)}")
-    //    taskCount.addAndGet(hivePartitionBTime.length)
-
-    var dataCount = -1L
-    if (hosts == null || hosts.size() == 0) {
-      throw new NullPointerException("ClickHouse hosts length is 0")
-    }
-
-    val b_dates = hivePartitionBTime.map { eachTime => eachTime.split(" ")(0) }.distinct
-
-    b_dates.foreach { b_date =>
-      hivePartitionBTime.foreach { b_time =>
-        if (b_date.equals(b_time.split(" ")(0))) {
-
-          val time = b_time.replace("-", "_").replace(" ", "__").replace(":", "_")
-          val gzDir = s"/root/kairenlo/data-streaming/test/${hiveTable}_${time}_gz.dir"
-          var gzFiles = null.asInstanceOf[Array[FileStatus]]
-
-          LOG.warn(s"read data from hive at b_date: $b_date, b_time: $b_time")
-
-          RunAgainIfError.run {
-
-            val rows = hiveContext.sql(
-              s"""
-                |select
-                |    coalesce(dwr.publisherId, a.publisherId) as publisherid,
-                |    dwr.appId         as appid,
-                |    dwr.countryId     as countryid,
-                |    dwr.carrierId     as carrierid,
-                |    dwr.adType        as adtype,
-                |    dwr.campaignId    as campaignid,
-                |    dwr.offerId       as offerid,
-                |    dwr.imageId       as imageid,
-                |    dwr.affSub        as affsub,
-                |    dwr.requestCount  as requestcount,
-                |    dwr.sendCount     as sendcount,
-                |    dwr.showCount     as showcount,
-                |    dwr.clickCount    as clickcount,
-                |    dwr.feeReportCount as feereportcount,
-                |    dwr.feeSendCount   as feesendcount,
-                |    dwr.feeReportPrice as feereportprice,
-                |    dwr.feeSendPrice  as feesendprice,
-                |    dwr.cpcBidPrice   as cpcbidprice,
-                |    dwr.cpmBidPrice   as cpmbidprice,
-                |    dwr.conversion    as conversion,
-                |    dwr.allConversion as allconversion,
-                |    dwr.revenue       as revenue,
-                |    dwr.realRevenue   as realrevenue,
-                |    dwr.b_time,
-                |    dwr.l_time,
-                |    dwr.b_date,
-                |    nvl(p.amId, a_p.amId)      as publisheramid,
-                |    nvl(p_am.name, ap_am.name) as publisheramname,
-                |    ad.amId           as advertiseramid,
-                |    a_am.name         as advertiseramname,
-                |    a.mode            as appmodeid,
-                |    m.name            as appmodename,
-                |    cam.adCategory1   as adcategory1id,
-                |    adc.name          as adcategory1name,
-                |    cam.name          as campaignname,
-                |    cam.adverId       as adverid,
-                |    ad.name           as advername,
-                |    o.optStatus       as offeroptstatus,
-                |    o.name            as offername,
-                |    nvl(p.name, a_p.name ) as publishername,
-                |    a.name            as appname,
-                |    i.iab1name        as iab1name,
-                |    i.iab2name        as iab2name,
-                |    c.name            as countryname,
-                |    ca.name           as carriername,
-                |    dwr.adType        as adtypeid,
-                |    adt.name          as adtypename,
-                |    v.id              as versionid,
-                |    dwr.versionName   as versionname,
-                |    p_am.proxyId      as publisherproxyid,
-                |    cast(null as string)    as data_type,
-                |    feeCpcTimes             as feecpctimes,
-                |    feeCpmTimes             as feecpmtimes,
-                |    feeCpaTimes             as feecpatimes,
-                |    feeCpaSendTimes         as feecpasendtimes,
-                |    feeCpcReportPrice       as feecpcreportprice,
-                |    feeCpmReportPrice       as feecpmreportprice,
-                |    feeCpaReportPrice       as feecpareportprice,
-                |    feeCpcSendPrice         as feecpcsendprice,
-                |    feeCpmSendPrice         as feecpmsendprice,
-                |    feeCpaSendPrice         as feecpasendprice,
-                |    c.alpha2_code           as countrycode,
-                |    dwr.respStatus          as respstatus,
-                |    dwr.winPrice            as winprice,
-                |    dwr.winNotices          as winnotices,
-                |    a.isSecondHighPriceWin  as issecondhighpricewin,
-                |    co.id                   as companyid,
-                |    co.name                 as companyname,
-                |    dwr.test,
-                |    dwr.ruleId        as ruleid,
-                |    dwr.smartId       as smartid,
-                |    pro.id            as proxyid,
-                |    s.name            as smartname,
-                |    sr.name           as rulename,
-                |    co.id             as appcompanyid,
-                |    co_o.id           as offercompanyid,
-                |    newCount          as newcount,
-                |    activeCount       as activecount,
-                |    cam.adCategory2   as adcategory2id,
-                |    adc2.name         as adcategory2name,
-                |    coalesce(p.ampaId, a_p.ampaId)    as publisherampaid,
-                |    coalesce(p_amp.name, ap_amp.name) as publisherampaname,
-                |    ad.amaaId                         as advertiseramaaid,
-                |    a_ama.name                        as advertiseramaaname,
-                |    dwr.eventName                     as eventname,
-                |    dwr.recommender                   as recommender
-                |from ${hiveTable} dwr
-                |    left join campaign cam      on cam.id = dwr.campaignId
-                |    left join advertiser ad     on ad.id = cam.adverId
-                |    left join employee a_am     on a_am.id = ad.amid
-                |    left join offer o           on o.id = dwr.offerId
-                |    left join publisher p       on p.id = dwr.publisherId
-                |    left join employee p_am     on p_am.id = p.amid
-                |    left join app a             on a.id = dwr.appId
-                |    left join iab i             on i.iab1 = a.iab1 and i.iab2 = a.iab2
-                |    left join app_mode m        on m.id = a.mode
-                |    left join country c         on c.id = dwr.countryId
-                |    left join carrier ca        on ca.id = dwr.carrierId
-                |    left join ad_type adt       on adt.id = dwr.adType
-                |    left join version_control v on v.version = dwr.versionName
-                |    left join ad_category1 adc  on adc.id =  cam.adCategory1
-                |    left join ad_category2 adc2 on adc2.id =  cam.adCategory2
-                |    left join publisher a_p     on  a_p.id = a.publisherId
-                |    left join employee ap_am    on  ap_am.id  = a_p.amId
-                |    left join proxy pro         on  pro.id  = ap_am.proxyId
-                |    left join company co        on  co.id = pro.companyId
-                |    left join other_smart_link s  on s.ID = dwr.smartId
-                |    left join smartlink_rules sr  on sr.ID = dwr.ruleId
-                |    left join campaign cam_o    on cam_o.id = o.campaignId
-                |    left join advertiser ad_o   on ad_o.id = cam_o.adverId
-                |    left join employee em_o     on em_o.id = ad_o.amId
-                |    left join company co_o      on co_o.id = em_o.companyId
-                |    left join employee p_amp    on p_amp.id = p.ampaId
-                |    left join employee ap_amp   on  ap_amp.id  = a_p.ampaId
-                |    left join employee a_ama    on a_ama.id = ad.amaaId
-                |where v.id is not null and b_date='$b_date' and b_time='$b_time'
-              """.stripMargin)
-
-            rows.cache()
-            dataCount = rows.count()
-
-            dataCountMap.put(Thread.currentThread().getName, dataCount)
-
-            rows.coalesce(1)
-              .write
-              .mode(SaveMode.Overwrite)
-              .format("json")
-              .option("compression", "gzip")
-              .save(gzDir)
-
-            rows.unpersist()
-            LOG.warn(s"dataCount at $b_time is $dataCount")
-
-            LOG.warn(s"gz file saved completed at $gzDir")
-
-            gzFiles = fileSystem.listStatus(new Path(gzDir), new PathFilter {
-              override def accept(path: Path): Boolean = {
-                path.getName.startsWith("part-")
-              }
-            })
-            // 最好一个文件
-            if (gzFiles.length > 1) {
-              throw new RuntimeException(s"ClickHouse must upload only one file, but now it finds ${gzFiles.length} in '$gzDir' !!")
-            }
-
-            // 验证数据完整性
-            gzFiles.foreach { file =>
-              val current = file.getLen
-              val last = lastLengthMap.get(s"$hiveTable^$b_time")
-              if (last != null && current * 1.5 < last) {
-                throw new RuntimeException(s"Hive table '$hiveTable' b_time = '$b_time' reading data are incomplete, less than before.")
-              }
-              lastLengthMap.put(s"$hiveTable^$b_time", current)
-            }
-          }
-
-          LOG.warn("ClickHouseClient generate gz file completed", gzDir)
-
-          RunAgainIfError.run {
-            // 先删除分区
-            dropPartition(clickHouseTable, b_date, b_time)
-
-            // 上传到ClickHouse
-            gzFiles.foreach { file =>
-              val in = fileSystem.open(file.getPath)
-              LOG.warn(file.getPath.toString)
-              if (uploadToClickHouse(clickHouseTable, hosts.head, in)) {
-                // 上传完成后clickHouse会额外做一些操作，需要等待一小段时间再复制到查询表中
-                Thread.sleep(5 * 1000)
-                var importCount = copyToClickHouseForSearch(clickHouseTable, s"${clickHouseTable}_for_select", b_date, b_time)
-                if (importCount == -1) {
-                  throw new HandlerException("Import to select table failed!")
-                }
-                // 如果数据不相等，继续等待一段时间重试
-                var times = 6
-                while (dataCountMap.get(Thread.currentThread().getName) != importCount && times > 0) {
-                  LOG.warn(s"dataCount = $dataCount and importCount = $importCount, times left $times")
-                  Thread.sleep(5 * 1000)
-                  importCount = copyToClickHouseForSearch(clickHouseTable, s"${clickHouseTable}_for_select", b_date, b_time)
-                  times -= 1
-                }
-                // 复制完成后删除原表的分区
-                dropPartition(clickHouseTable, b_date, b_time)
-              }
-            }
-          }
-
-        }
-      }
-    }
+//    LOG.warn(s"clickHouseTable: $clickHouseTable, hiveTable: $hiveTable, hivePartitionBTimes: ${OM.toJOSN(hivePartitionBTime)}")
+//    //    taskCount.addAndGet(hivePartitionBTime.length)
+//
+//    var dataCount = -1L
+//    if (hosts == null || hosts.size() == 0) {
+//      throw new NullPointerException("ClickHouse hosts length is 0")
+//    }
+//
+//    val b_dates = hivePartitionBTime.map { eachTime => eachTime.split(" ")(0) }.distinct
+//
+//    b_dates.foreach { b_date =>
+//      hivePartitionBTime.foreach { b_time =>
+//        if (b_date.equals(b_time.split(" ")(0))) {
+//
+//          val time = b_time.replace("-", "_").replace(" ", "__").replace(":", "_")
+//          val gzDir = s"/root/kairenlo/data-streaming/test/${hiveTable}_${time}_gz.dir"
+//          var gzFiles = null.asInstanceOf[Array[FileStatus]]
+//
+//          LOG.warn(s"read data from hive at b_date: $b_date, b_time: $b_time")
+//
+//          RunAgainIfError.run {
+//
+//            val rows = hiveContext.sql(
+//              s"""
+//                |select
+//                |    coalesce(dwr.publisherId, a.publisherId) as publisherid,
+//                |    dwr.appId         as appid,
+//                |    dwr.countryId     as countryid,
+//                |    dwr.carrierId     as carrierid,
+//                |    dwr.adType        as adtype,
+//                |    dwr.campaignId    as campaignid,
+//                |    dwr.offerId       as offerid,
+//                |    dwr.imageId       as imageid,
+//                |    dwr.affSub        as affsub,
+//                |    dwr.requestCount  as requestcount,
+//                |    dwr.sendCount     as sendcount,
+//                |    dwr.showCount     as showcount,
+//                |    dwr.clickCount    as clickcount,
+//                |    dwr.feeReportCount as feereportcount,
+//                |    dwr.feeSendCount   as feesendcount,
+//                |    dwr.feeReportPrice as feereportprice,
+//                |    dwr.feeSendPrice  as feesendprice,
+//                |    dwr.cpcBidPrice   as cpcbidprice,
+//                |    dwr.cpmBidPrice   as cpmbidprice,
+//                |    dwr.conversion    as conversion,
+//                |    dwr.allConversion as allconversion,
+//                |    dwr.revenue       as revenue,
+//                |    dwr.realRevenue   as realrevenue,
+//                |    dwr.b_time,
+//                |    dwr.l_time,
+//                |    dwr.b_date,
+//                |    nvl(p.amId, a_p.amId)      as publisheramid,
+//                |    nvl(p_am.name, ap_am.name) as publisheramname,
+//                |    ad.amId           as advertiseramid,
+//                |    a_am.name         as advertiseramname,
+//                |    a.mode            as appmodeid,
+//                |    m.name            as appmodename,
+//                |    cam.adCategory1   as adcategory1id,
+//                |    adc.name          as adcategory1name,
+//                |    cam.name          as campaignname,
+//                |    cam.adverId       as adverid,
+//                |    ad.name           as advername,
+//                |    o.optStatus       as offeroptstatus,
+//                |    o.name            as offername,
+//                |    nvl(p.name, a_p.name ) as publishername,
+//                |    a.name            as appname,
+//                |    i.iab1name        as iab1name,
+//                |    i.iab2name        as iab2name,
+//                |    c.name            as countryname,
+//                |    ca.name           as carriername,
+//                |    dwr.adType        as adtypeid,
+//                |    adt.name          as adtypename,
+//                |    v.id              as versionid,
+//                |    dwr.versionName   as versionname,
+//                |    p_am.proxyId      as publisherproxyid,
+//                |    cast(null as string)    as data_type,
+//                |    feeCpcTimes             as feecpctimes,
+//                |    feeCpmTimes             as feecpmtimes,
+//                |    feeCpaTimes             as feecpatimes,
+//                |    feeCpaSendTimes         as feecpasendtimes,
+//                |    feeCpcReportPrice       as feecpcreportprice,
+//                |    feeCpmReportPrice       as feecpmreportprice,
+//                |    feeCpaReportPrice       as feecpareportprice,
+//                |    feeCpcSendPrice         as feecpcsendprice,
+//                |    feeCpmSendPrice         as feecpmsendprice,
+//                |    feeCpaSendPrice         as feecpasendprice,
+//                |    c.alpha2_code           as countrycode,
+//                |    dwr.respStatus          as respstatus,
+//                |    dwr.winPrice            as winprice,
+//                |    dwr.winNotices          as winnotices,
+//                |    a.isSecondHighPriceWin  as issecondhighpricewin,
+//                |    co.id                   as companyid,
+//                |    co.name                 as companyname,
+//                |    dwr.test,
+//                |    dwr.ruleId        as ruleid,
+//                |    dwr.smartId       as smartid,
+//                |    pro.id            as proxyid,
+//                |    s.name            as smartname,
+//                |    sr.name           as rulename,
+//                |    co.id             as appcompanyid,
+//                |    co_o.id           as offercompanyid,
+//                |    newCount          as newcount,
+//                |    activeCount       as activecount,
+//                |    cam.adCategory2   as adcategory2id,
+//                |    adc2.name         as adcategory2name,
+//                |    coalesce(p.ampaId, a_p.ampaId)    as publisherampaid,
+//                |    coalesce(p_amp.name, ap_amp.name) as publisherampaname,
+//                |    ad.amaaId                         as advertiseramaaid,
+//                |    a_ama.name                        as advertiseramaaname,
+//                |    dwr.eventName                     as eventname,
+//                |    dwr.recommender                   as recommender
+//                |from ${hiveTable} dwr
+//                |    left join campaign cam      on cam.id = dwr.campaignId
+//                |    left join advertiser ad     on ad.id = cam.adverId
+//                |    left join employee a_am     on a_am.id = ad.amid
+//                |    left join offer o           on o.id = dwr.offerId
+//                |    left join publisher p       on p.id = dwr.publisherId
+//                |    left join employee p_am     on p_am.id = p.amid
+//                |    left join app a             on a.id = dwr.appId
+//                |    left join iab i             on i.iab1 = a.iab1 and i.iab2 = a.iab2
+//                |    left join app_mode m        on m.id = a.mode
+//                |    left join country c         on c.id = dwr.countryId
+//                |    left join carrier ca        on ca.id = dwr.carrierId
+//                |    left join ad_type adt       on adt.id = dwr.adType
+//                |    left join version_control v on v.version = dwr.versionName
+//                |    left join ad_category1 adc  on adc.id =  cam.adCategory1
+//                |    left join ad_category2 adc2 on adc2.id =  cam.adCategory2
+//                |    left join publisher a_p     on  a_p.id = a.publisherId
+//                |    left join employee ap_am    on  ap_am.id  = a_p.amId
+//                |    left join proxy pro         on  pro.id  = ap_am.proxyId
+//                |    left join company co        on  co.id = pro.companyId
+//                |    left join other_smart_link s  on s.ID = dwr.smartId
+//                |    left join smartlink_rules sr  on sr.ID = dwr.ruleId
+//                |    left join campaign cam_o    on cam_o.id = o.campaignId
+//                |    left join advertiser ad_o   on ad_o.id = cam_o.adverId
+//                |    left join employee em_o     on em_o.id = ad_o.amId
+//                |    left join company co_o      on co_o.id = em_o.companyId
+//                |    left join employee p_amp    on p_amp.id = p.ampaId
+//                |    left join employee ap_amp   on  ap_amp.id  = a_p.ampaId
+//                |    left join employee a_ama    on a_ama.id = ad.amaaId
+//                |where v.id is not null and b_date='$b_date' and b_time='$b_time'
+//              """.stripMargin)
+//
+//            rows.cache()
+//            dataCount = rows.count()
+//
+//            dataCountMap.put(Thread.currentThread().getId+"", dataCount)
+//
+//            rows.coalesce(1)
+//              .write
+//              .mode(SaveMode.Overwrite)
+//              .format("json")
+//              .option("compression", "gzip")
+//              .save(gzDir)
+//
+//            rows.unpersist()
+//            LOG.warn(s"dataCount at $b_time is $dataCount")
+//
+//            LOG.warn(s"gz file saved completed at $gzDir")
+//
+//            gzFiles = fileSystem.listStatus(new Path(gzDir), new PathFilter {
+//              override def accept(path: Path): Boolean = {
+//                path.getName.startsWith("part-")
+//              }
+//            })
+//            // 最好一个文件
+//            if (gzFiles.length > 1) {
+//              throw new RuntimeException(s"ClickHouse must upload only one file, but now it finds ${gzFiles.length} in '$gzDir' !!")
+//            }
+//
+//            // 验证数据完整性
+//            gzFiles.foreach { file =>
+//              val current = file.getLen
+//              val last = lastLengthMap.get(s"$hiveTable^$b_time")
+//              if (last != null && current * 1.5 < last) {
+//                throw new RuntimeException(s"Hive table '$hiveTable' b_time = '$b_time' reading data are incomplete, less than before.")
+//              }
+//              lastLengthMap.put(s"$hiveTable^$b_time", current)
+//            }
+//          }
+//
+//          LOG.warn("ClickHouseClient generate gz file completed", gzDir)
+//
+//          RunAgainIfError.run {
+//            // 先删除分区
+//            dropPartition(clickHouseTable, b_date, b_time)
+//
+//            // 上传到ClickHouse
+//            gzFiles.foreach { file =>
+//              val in = fileSystem.open(file.getPath)
+//              LOG.warn(file.getPath.toString)
+//              if (uploadToClickHouse(clickHouseTable, hosts.head, in)) {
+//                // 上传完成后clickHouse会额外做一些操作，需要等待一小段时间再复制到查询表中
+//                Thread.sleep(5 * 1000)
+//                var importCount = copyToClickHouseForSearch(clickHouseTable, s"${clickHouseTable}_for_select", b_date, b_time)
+//                if (importCount == -1) {
+//                  throw new HandlerException("Import to select table failed!")
+//                }
+//                // 如果数据不相等，继续等待一段时间重试
+//                var times = 6
+//                while (dataCountMap.get(Thread.currentThread().getId+"") != importCount && times > 0) {
+//                  LOG.warn(s"dataCount = $dataCount and importCount = $importCount, times left $times")
+//                  Thread.sleep(5 * 1000)
+//                  importCount = copyToClickHouseForSearch(clickHouseTable, s"${clickHouseTable}_for_select", b_date, b_time)
+//                  times -= 1
+//                }
+//                // 复制完成后删除原表的分区
+//                dropPartition(clickHouseTable, b_date, b_time)
+//              }
+//            }
+//          }
+//
+//        }
+//      }
+//    }
 
   }
 
-  def dropPartition(clickHouseTable: String, b_date: String, b_time: String): Unit = {
-    LOG.warn(s"Drop partition at all host start", "table", clickHouseTable, "b_time", b_time, "hosts", hosts)
+  def dropPartition(clickHouseBaseTable: String, b_date: String, b_time: String): Unit = {
+    LOG.warn(s"Drop partition at all host start", "table", clickHouseBaseTable, "b_time", b_time, "hosts", hosts)
     hosts.foreach { host =>
       RunAgainIfError.run {
+
+        LOG.warn(this.getClass.getSimpleName, s"ALTER TABLE $clickHouseBaseTable DROP PARTITION ('$b_date', '$b_time') at $host START")
+
         val request = new Requests(1)
         request.post(s"http://$host:8123/?password=9036011d8fa79028f99488c2de6fdfb09d66beb5e4b8ca5178ee9ff9179ed6a8", new Entity {
           {
-            this.setStr(s"ALTER TABLE $clickHouseTable DROP PARTITION ('$b_date', '$b_time')", Entity.CONTENT_TYPE_TEXT)
+            this.setStr(s"ALTER TABLE $clickHouseBaseTable DROP PARTITION ('$b_date', '$b_time')", Entity.CONTENT_TYPE_TEXT)
           }
         }, new Callback {
           override def prepare(conn: HttpURLConnection): Unit = {}
@@ -558,10 +565,15 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
             throw new HandlerException(ex.getMessage)
           }
         }, false)
-        LOG.warn(this.getClass.getSimpleName, s"DROP PARTITION($b_date, $b_time) at $host")
+        LOG.warn(this.getClass.getSimpleName, s"ALTER TABLE $clickHouseBaseTable DROP PARTITION ('$b_date', '$b_time') at $host DONE")
       }
     }
-    LOG.warn(s"Drop partition all host done", "table", clickHouseTable, "b_time", b_time, "hosts", hosts)
+
+    // 确保数据清零了
+    awaitCheckClickhouseTableCount(clickHouseBaseTable, b_date, b_time, 0, "drop partition")
+
+    LOG.warn(s"Drop partition all host done", "table", clickHouseBaseTable, "b_time", b_time, "hosts", hosts)
+
   }
 
   def dropPartition(clickHouseTable: String, partition: String, hosts: String*): Unit = {
@@ -591,8 +603,8 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
   /**
     * 更新至上传表
     */
-  def uploadToClickHouse(clickHouseTable: String, host: String, is: InputStream): Boolean = {
-    val query = URLEncoder.encode(s"INSERT INTO ${clickHouseTable}_all FORMAT JSONEachRow", "utf-8")
+  def uploadToClickHouse(clickHouseBaseTable: String, b_date: String, b_time: String, host: String, is: InputStream, hiveDataCount: Long): Boolean = {
+    val query = URLEncoder.encode(s"INSERT INTO ${clickHouseBaseTable}_all FORMAT JSONEachRow", "utf-8")
     val conn = new URL(s"http://$host:8123/?password=9036011d8fa79028f99488c2de6fdfb09d66beb5e4b8ca5178ee9ff9179ed6a8&enable_http_compression=1&query=$query")
       .openConnection()
       .asInstanceOf[HttpURLConnection]
@@ -608,6 +620,7 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
     buffer.close()
     try {
       conn.getInputStream
+      awaitCheckClickhouseTableCount(clickHouseBaseTable, b_date, b_time, hiveDataCount, "upload to tmp table")
       return true
       //      val source = Okio.buffer(Okio.source(conn.getInputStream))
       //      val result = source.readString(Charset.forName("utf-8"))
@@ -622,26 +635,27 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
         errorSource.close()
         throw new HandlerException(error)
     }
+    awaitCheckClickhouseTableCount(clickHouseBaseTable, b_date, b_time, hiveDataCount, "upload to tmp table")
     false
   }
 
   /**
     * 将上传表数据复制到查询表中
     *
-    * @param sourceTable 原表(上传表)
-    * @param destTable   复制表(查询表)
+    * @param sourceBaseTable 原表(上传表)
+    * @param destBaseTable   复制表(查询表)
     */
-  def copyToClickHouseForSearch(sourceTable: String, destTable: String, b_date: String, b_time: String): Long = {
+  def copyToClickHouseForSearch(sourceBaseTable: String, destBaseTable: String, b_date: String, b_time: String, hiveDataCount: Long): Unit = {
     val request = new Requests(1)
 
     RunAgainIfError.run {
       // 上传出现异常时，可能数据已经上传到clickhouse中，但是异常引发第二次上传，会导致上传两次的情况
       // 上传出现异常时，重新drop partition后再上传
-      dropPartition(s"$destTable", b_date, b_time)
+      dropPartition(s"$destBaseTable", b_date, b_time)
 
       request.post(s"http://${hosts.head}:8123/?password=9036011d8fa79028f99488c2de6fdfb09d66beb5e4b8ca5178ee9ff9179ed6a8", new Entity {
         {
-          val sql = s"INSERT INTO ${destTable}_all SELECT * FROM ${sourceTable}_all WHERE b_date='$b_date' AND b_time='$b_time'"
+          val sql = s"INSERT INTO ${destBaseTable}_all SELECT * FROM ${sourceBaseTable}_all WHERE b_date='$b_date' AND b_time='$b_time'"
           LOG.warn("sql=", sql)
           this.setStr(sql, Entity.CONTENT_TYPE_TEXT)
         }
@@ -658,18 +672,37 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
         }
       }, false)
     }
-    // 查询select表中的数据总数
-    checkTableCount(destTable, b_date, b_time)
+//    // 查询select表中的数据总数
+//    queryTableCount(destTable, b_date, b_time)
+    awaitCheckClickhouseTableCount(destBaseTable, b_date, b_time, hiveDataCount, "copy to clickHouse select table")
+
   }
 
-  def checkTableCount(checkTable: String, b_date: String, b_time: String): Long = {
-    Thread.sleep(5 * 1000)
+  def awaitCheckClickhouseTableCount(clickHouseBaseTable: String, b_date: String, b_time: String, expectedCount: Long, logInfo: String): Unit ={
+
+    var ckTableCount = 0L
+    var times = 0L
+    var b = true
+    while(b){
+      ckTableCount = queryTableCount(clickHouseBaseTable, b_date, b_time)
+      b = expectedCount != ckTableCount
+      times += 1
+      LOG.warn(s"Polling queryTableCount in $logInfo time", "clickHouseTable", clickHouseBaseTable, "b_date", b_date,"b_time", b_time, "ckTableCount", ckTableCount, "expectedCount", expectedCount, "checkTimes", times)
+      if(b) {
+        Thread.sleep(3*1000L)
+      }
+    }
+
+  }
+
+  def queryTableCount(clickHouseBaseTable: String, b_date: String, b_time: String): Long = {
+//    Thread.sleep(5 * 1000)
     val request = new Requests(1)
-    var importCount = -1L
+    var importCount = 0L
     RunAgainIfError.run {
       request.post(s"http://${hosts.head}:8123/?password=9036011d8fa79028f99488c2de6fdfb09d66beb5e4b8ca5178ee9ff9179ed6a8", new Entity {
         {
-          val sql = s"SELECT SUM(1) FROM ${checkTable}_all WHERE b_date='$b_date' AND b_time='$b_time'"
+          val sql = s"SELECT SUM(1) FROM ${clickHouseBaseTable}_all WHERE b_date='$b_date' AND b_time='$b_time'"
           LOG.warn("sql=", sql)
           this.setStr(sql, Entity.CONTENT_TYPE_TEXT)
         }
