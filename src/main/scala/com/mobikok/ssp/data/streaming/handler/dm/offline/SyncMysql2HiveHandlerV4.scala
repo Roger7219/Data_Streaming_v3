@@ -99,6 +99,23 @@ class SyncMysql2HiveHandlerV4 extends Handler {
     mySqlJDBCClient = new MySqlJDBCClientV2(
       moduleName, rdbUrl, rdbUser, rdbPassword
     )
+
+    //    Only for test
+    //    # spark-shell --jars file:///apps/data-streaming/libs/mysql-connector-java-5.1.42.jar
+    //
+    //    var rdbUrl = "jdbc:mysql://mysql.nadx.iifab.com:3306/nadx?autoReconnect=true&useUnicode=true&characterEncoding=UTF-8"
+    //    var rdbProp = new java.util.Properties {
+    //      {
+    //        setProperty("user", "root")
+    //        setProperty("password", "MPudKqs79V5ZWPHS")
+    //        setProperty("driver", "com.mysql.jdbc.Driver") //must set!
+    //      }
+    //    }
+    //    import org.apache.spark.sql.hive.HiveContext
+    //    val hc = new HiveContext(sc)
+    //    var df = hc.read.jdbc(rdbUrl, s"(select * from tb_supply_account) as sync_incr_table", rdbProp)
+    //    df.selectExpr("max(last_updated_time)").printSchema()
+
   }
 
   override def handle(): Unit = {

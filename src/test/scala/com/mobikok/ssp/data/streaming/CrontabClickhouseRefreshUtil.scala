@@ -220,10 +220,10 @@ object CrontabClickhouseRefreshUtil {
 //      sendMsg_btimes_for_ck("nadx_overall_dwr_v6_3",    "2019-08-16 03:00:00", "2019-08-16 10:00:00", "nadx_ck")
 
 
-      sendMsg_btimes_for_ck("nadx_overall_dwr_v6",    "2019-10-29 19:00:00", "2019-10-29 19:00:00", "nadx_ck")
-      sendMsg_btimes_for_ck("nadx_overall_dwr_v6_1",  "2019-10-29 19:00:00", "2019-10-29 19:00:00", "nadx_ck")
-      sendMsg_btimes_for_ck("nadx_overall_dwr_v6_2",  "2019-10-29 19:00:00", "2019-10-29 19:00:00", "nadx_ck")
-      sendMsg_btimes_for_ck("nadx_overall_dwr_v6_3",  "2019-10-29 19:00:00", "2019-10-29 19:00:00", "nadx_ck")
+//      sendMsg_btimes_for_ck("nadx_overall_dwr_v6",    "2019-10-29 19:00:00", "2019-10-29 19:00:00", "nadx_ck")
+//      sendMsg_btimes_for_ck("nadx_overall_dwr_v6_1",  "2019-10-29 19:00:00", "2019-10-29 19:00:00", "nadx_ck")
+//      sendMsg_btimes_for_ck("nadx_overall_dwr_v6_2",  "2019-10-29 19:00:00", "2019-10-29 19:00:00", "nadx_ck")
+//      sendMsg_btimes_for_ck("nadx_overall_dwr_v6_3",  "2019-10-29 19:00:00", "2019-10-29 19:00:00", "nadx_ck")
 
 //    sendMsg_btimes_for_nadx("nadx_traffic_dwi", "2019-08-19 08:00:00", "2019-08-19 08:00:00", "adx_dwr_v6")
 
@@ -250,6 +250,9 @@ object CrontabClickhouseRefreshUtil {
 //    sendMsg_btimes_for_ck("nadx_overall_dwr", "2019-07-17 12:00:00", "2019-07-17 12:00:00", "nadx_ck")
 
     // 刷新campaign/publisher表
+//        sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-10-31", "2019-10-31")
+//    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-11-15", "2019-11-15")
+    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-11-16", "2019-11-16")
 //    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-06-01", "2019-06-10")
 //    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-05-01", "2019-05-31")
 //    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-09-01", "2019-09-30")
@@ -484,7 +487,7 @@ object CrontabClickhouseRefreshUtil {
   def daysBetween(startDay: String, endDay: String) = {
     var diff = 0
     if (startDay.equals(endDay)) {
-      diff = 1
+      diff = 0
     } else {
       val difference = (DF.parse(endDay).getTime - DF.parse(startDay).getTime) / 86400000
       diff = difference.toInt
@@ -563,7 +566,8 @@ object CrontabClickhouseRefreshUtil {
   //含startDate
   def sendMsg_btime_00_00_00 (topic: String, startDay: String, endDay: String): Unit = {
 
-    val days =daysBetween(startDay, endDay) +1
+    val days =daysBetween(startDay, endDay)+1
+    print(days)
     val s = (0 until days).map { x =>
       new MessagePushReq(
         topic,

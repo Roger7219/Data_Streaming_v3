@@ -2,6 +2,7 @@ package com.mobikok.ssp.data.streaming.util
 
 import java.io.{File, FileInputStream, FileOutputStream, IOException}
 import java.sql.{ResultSet, ResultSetMetaData, SQLException, Types}
+import java.text.SimpleDateFormat
 import java.util
 
 import com.fasterxml.jackson.core.`type`.TypeReference
@@ -21,8 +22,8 @@ import org.apache.spark.sql.types._
   */
 object OM {
 
-  val INDENT_OUTPUT_OBJECT_MAPPER = new ObjectMapper().configure(SerializationFeature.INDENT_OUTPUT, true).disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-  val OBJECT_MAPPER = new ObjectMapper().configure(SerializationFeature.INDENT_OUTPUT, false).disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+  val INDENT_OUTPUT_OBJECT_MAPPER = new ObjectMapper().setDateFormat(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).configure(SerializationFeature.INDENT_OUTPUT, true).disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+  val OBJECT_MAPPER = new ObjectMapper().setDateFormat(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).configure(SerializationFeature.INDENT_OUTPUT, false).disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
 
   def toJOSN(o: Any) : String ={
     toJOSN(o, true)

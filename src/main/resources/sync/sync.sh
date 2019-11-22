@@ -33,7 +33,7 @@ spark-submit \
 --conf spark.ui.port=5777 \
 --files /root/kairenlo/data-streaming/sync/sync.conf \
 /root/kairenlo/data-streaming/sync/data-streaming.jar \
-sync.conf kill = true buration = 60 \
+sync.conf kill = true buration = 20 \
 modules=offer
 
 
