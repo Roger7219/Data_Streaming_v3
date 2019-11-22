@@ -57,7 +57,7 @@ class SyncMysql2HiveHandlerV4 extends Handler {
           .toLowerCase
 
         if("string".equals(t)) {
-          ""
+          "\"\""
         }else if("int".equals(t) || "bigint".equals(t)) {
           0L
         }else {
@@ -242,7 +242,7 @@ class SyncMysql2HiveHandlerV4 extends Handler {
       .mode(SaveMode.Overwrite)
       .insertInto(syncProcessingT)
 
-    // 原子性操作，标记写入完成，syncProcessedT表是完整的数据
+    // 原子性操作，标记写入完成，syncProcessedT表此时是完整的数据
     sql(s"alter table $syncProcessingT rename to ${syncProcessedT}")
 
     sql(s"drop table if exists $hiveBackupT")              // 删除上次备份
