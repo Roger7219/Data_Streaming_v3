@@ -90,8 +90,12 @@ case class  SspTrafficDWI (
                        @BeanProperty var pbResp:         String, //postback response信息
 
                        @BeanProperty var recommender:    Integer,//推荐框架的算法标记
-                       @BeanProperty var raterId:        String,//推荐框架的算法标记
-                       @BeanProperty var raterType:       Integer,//推荐框架的算法标记
+                       @BeanProperty var raterId:        String, //推荐框架的算法标记
+                       @BeanProperty var raterType:      Integer,//推荐框架的算法标记
+                       @BeanProperty var appName:        String, //2019.12.6新增
+                       @BeanProperty var crId:           String, //2019.12.6新增
+                       @BeanProperty var caId:           String, //2019.12.6新增
+                       @BeanProperty var deviceid:       String, //2019.12.6新增
 
                        @BeanProperty var repeated:       String,
                        @BeanProperty var l_time:         String,
@@ -114,7 +118,8 @@ case class  SspTrafficDWI (
         pricePercent, appPercent,  salePercent, appSalePercent, eventName,
         eventValue,   refer,       status,      region,         city,
         uid,          times,       time,        isNew,          pbResp,
-        recommender,  raterId,     raterType,
+        recommender,  raterId,     raterType,   appName,        crId,
+        caId,         deviceid,
         repeated,  l_time, b_date, b_time)
   }
 
@@ -210,6 +215,11 @@ case class  SspTrafficDWI (
     recommender    = getInt(source, "recommender")
     raterId        = getStr(source, "raterId")
     raterType       = getInt(source, "raterType")
+
+    appName       = getStr(source, "appName")
+    crId          = getStr(source, "crId")
+    caId          = getStr(source, "caId")
+    deviceid      = getStr(source, "deviceid")
 
     repeated = ifNull(source.get(("0","repeated")), null,  Bytes.toString(source.get(("0","repeated")).get))
     l_time = ifNull(source.get(("0","l_time")), null,   Bytes.toString(source.get(("0","l_time")).get))
@@ -315,8 +325,13 @@ case class  SspTrafficDWI (
       ("0","pbResp")         -> setStr(pbResp),
 
       ("0","recommender")    -> setInt(recommender),
-      ("0","raterId")         -> setStr(raterId),
+      ("0","raterId")        -> setStr(raterId),
       ("0","raterType")      -> setInt(raterType),
+
+      ("0","appName")       -> setStr(appName),
+      ("0","crId")          -> setStr(crId),
+      ("0","caId")          -> setStr(caId),
+      ("0","deviceid")      -> setStr(deviceid),
 
       ("0","repeated") -> ifNull(repeated, null, Bytes.toBytes(repeated)),
       ("0","l_time") ->   ifNull(l_time, null, Bytes.toBytes(l_time)),
@@ -411,6 +426,10 @@ case class  SspTrafficDWI (
       null.asInstanceOf[Integer], //recommender
       null.asInstanceOf[String], //raterId
       null.asInstanceOf[Integer], //raterType
+      null.asInstanceOf[String], //2019.12.6新增
+      null.asInstanceOf[String], //2019.12.6新增
+      null.asInstanceOf[String], //2019.12.6新增
+      null.asInstanceOf[String], //2019.12.6新增
 
       null.asInstanceOf[String],
       null.asInstanceOf[String],

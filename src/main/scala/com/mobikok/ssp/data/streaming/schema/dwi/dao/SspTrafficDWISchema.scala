@@ -80,9 +80,14 @@ object SspTrafficDWISchema{
       StructField("time",           IntegerType) ::
       StructField("isNew",          IntegerType) ::
       StructField("pbResp",         StringType)  :: //postback response信息
-      StructField("recommender",    IntegerType)  :: //推荐框架的算法标记
-      StructField("raterId",      StringType)  :: //推荐框架的算法标记
-      StructField("raterType",    IntegerType)  :: //推荐框架的算法标记
+      StructField("recommender",    IntegerType) :: //推荐框架的算法标记
+      StructField("raterId",      StringType)    :: //推荐框架的算法标记
+      StructField("raterType",    IntegerType)   :: //推荐框架的算法标记
+
+      StructField("appName",       StringType)  :: //2019.12.6新增
+      StructField("crId",          StringType)  :: //2019.12.6新增
+      StructField("caId",          StringType)  :: //2019.12.6新增
+      StructField("deviceid",      StringType)  :: //2019.12.6新增
 
       StructField("repeated",    StringType) ::
       StructField("l_time",      StringType) ::
