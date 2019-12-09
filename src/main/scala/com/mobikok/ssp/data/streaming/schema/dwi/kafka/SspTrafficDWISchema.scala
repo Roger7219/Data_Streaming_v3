@@ -76,5 +76,10 @@ object SspTrafficDWISchema{
       StructField("recommender",    IntegerType) :: //推荐框架的算法标记
       StructField("raterType",     IntegerType)  :: //
       StructField("raterId",      StringType)    :: //
+
+      StructField("appName",       StringType)  :: //2019.12.6新增
+      StructField("crId",          StringType)  :: //2019.12.6新增
+      StructField("caId",          StringType)  :: //2019.12.6新增
+      StructField("deviceid",      StringType)  :: //2019.12.6新增
         Nil)
 }
