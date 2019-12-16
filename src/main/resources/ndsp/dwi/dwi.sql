@@ -148,3 +148,7 @@ CREATE TABLE ndsp_performance_dwi(
 )
 PARTITIONED BY (repeated string, l_time STRING, b_date STRING, b_time STRING, b_version STRING)
 STORED AS ORC;
+
+//2019-12-16按照小雷的需求添加字段
+ALTER TABLE ndsp_traffic_dwi ADD COLUMNS (adver_bid_price double);
+ALTER TABLE ndsp_traffic_dwi ADD COLUMNS (adver_bid_price_cost_currency double);

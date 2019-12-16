@@ -86,6 +86,8 @@ object NdspTrafficDWISchema{
       StructField("click_revenue",                     DoubleType) ::
       StructField("conversion_count",                  LongType)   ::
       StructField("conversion_price",                  DoubleType) ::
+      StructField("adver_bid_price",                   DoubleType) ::
+      StructField("adver_bid_price_cost_currency",     DoubleType) ::
       Nil
   )
 }
