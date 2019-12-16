@@ -464,7 +464,7 @@ object OptimizedMixApp {
       }
     }catch {
       case e:Exception=>
-        throw new AppException("No batch.buration be configured !!!")
+        throw new AppException("buration config error !!!", e)
     }
 
     //reset maxRatePerPartition
@@ -487,7 +487,7 @@ object OptimizedMixApp {
       }
     }catch {
       case e:Exception=>
-        throw new AppException("No maxRatePerPartition can be configured !!!")
+        throw new AppException("No maxRatePerPartition can be configured !!!", e)
     }
 
     runnableModulesConfig = allModulesConfig
@@ -523,7 +523,7 @@ object OptimizedMixApp {
       }
 
     } catch {case e:Exception=>
-      throw new AppException("No modules be configured !!!")
+      throw new AppException("No modules be configured !!!", e)
     }
 
     LOG.warn("\nApp runnable modules final config content:\n" + runnableModulesConfig.root().unwrapped().toString +"\n")

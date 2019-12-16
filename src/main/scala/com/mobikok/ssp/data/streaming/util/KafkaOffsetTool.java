@@ -17,7 +17,7 @@ public class KafkaOffsetTool {
   private static Logger LOG = new Logger(KafkaOffsetTool.class.getName(), new Date().getTime());
 
 //  private static KafkaOffsetTool instance;
-  static final int TIMEOUT = 100000;
+  static final int TIMEOUT_MS = 5*1000;
   static final int BUFFERSIZE = 64 * 1024;
 
   public static Map<TopicAndPartition, Long> getLatestOffset(String brokerList, List<String> topics, String clientId) {
@@ -60,7 +60,7 @@ public class KafkaOffsetTool {
         simpleConsumer = new SimpleConsumer(
                 leaderBroker.host(),
                 leaderBroker.port(),
-                TIMEOUT,
+                TIMEOUT_MS,
                 BUFFERSIZE,
                 clientId);
 
@@ -99,7 +99,7 @@ public class KafkaOffsetTool {
       SimpleConsumer consumer = null;
       try {
         // new instance of simple Consumer
-        consumer = new SimpleConsumer(broker, brokerPortMap.get(broker), TIMEOUT, BUFFERSIZE,"leaderLookup" + new Date().getTime());
+        consumer = new SimpleConsumer(broker, brokerPortMap.get(broker), TIMEOUT_MS, BUFFERSIZE,"leaderLookup" + new Date().getTime());
 
         TopicMetadataRequest req = new TopicMetadataRequest(topics);
 

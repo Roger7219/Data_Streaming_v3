@@ -27,7 +27,7 @@ class ClickHouseQueryByBTimeHandler extends Handler {
     viewConsumerTopics = handlerConfig.getObjectList("items").map { item =>
       val config = item.toConfig
       val hiveView = config.getString("view")
-      val ckTable = if(config.hasPath("ck")) config.getString("ck") else hiveView
+      val ckTable = if(config.hasPath("ck")) config.getString("ck") else hiveView.replace("_v2", "")
       val minBtExpr = if(config.hasPath("b_time.min")) config.getString("b_time.min") else "'0000-00-01 00:00:00'"
       val consumer = config.getString("message.consumer")
       val isDay = if(config.hasPath("day")) config.getBoolean("day") else false
@@ -52,7 +52,7 @@ class ClickHouseQueryByBTimeHandler extends Handler {
       RunAgainIfError.run {
         viewConsumerTopics.par.foreach { case(hiveView, ckTable, minBtExpr, consumer, topics, isDay) =>
           val pageData = messageClient
-            .pullMessage(new MessagePullReq(consumer, topics, 1))
+            .pullMessage(new MessagePullReq(consumer, topics))
             .getPageData
 
           var ms = pageData.map { data =>
@@ -69,15 +69,15 @@ class ClickHouseQueryByBTimeHandler extends Handler {
 
           var minBt = sql(s"select $minBtExpr as min_b_time").first().getAs[String]("min_b_time")
           var filtereMS = ms.filter{x=>x.value >= minBt}
-          var finalMS = filtereMS.map{
-            x=> if(isDay){
-                    x.value = x.value.split(" ")(0) + " 00:00:00"
-                };
-                HivePartitionPart(x.name, x.value)
+          var finalMS = filtereMS.map{ x=>
+            if(isDay){
+                x.value = x.value.split(" ")(0) + " 00:00:00"
+            }
+            HivePartitionPart(x.name, x.value)
           }
           LOG.warn(s"ClickHouseBTimeHandler update b_time(s), count: ${ms.length}", "ckTable", ckTable, "hiveView", hiveView, "all_b_time(s)", ms, "filtered_b_time(s)", filtereMS, "finalMS", finalMS)
 
-          clickHouseClient.overwriteByBTime(ckTable.replace("_v2", ""), hiveView, finalMS.map{_.value})
+          clickHouseClient.overwriteByBTime(ckTable, hiveView, finalMS.map{_.value})
           messageClient.commitMessageConsumer(
             pageData.map{data =>
               new MessageConsumerCommitReq(consumer, data.getTopic, data.getOffset)
