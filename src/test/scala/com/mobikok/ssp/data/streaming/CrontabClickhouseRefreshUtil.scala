@@ -252,8 +252,25 @@ object CrontabClickhouseRefreshUtil {
     // 刷新campaign/publisher表
 //        sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-10-31", "2019-10-31")
 //    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-11-15", "2019-11-15")
-    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-11-16", "2019-11-16")
-//    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-06-01", "2019-06-10")
+//    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-10-16", "2019-10-16")
+
+//    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-10-01", "2019-10-05")
+//    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-10-06", "2019-10-11")
+//    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-10-12", "2019-10-17")
+//    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-10-18", "2019-10-23")
+//        sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-10-19", "2019-10-19")
+//    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-10-24", "2019-10-31")
+
+//        sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-10-15", "2019-10-15")
+//    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-10-03", "2019-10-03")
+
+//    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-11-01", "2019-11-05")
+//    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-11-06", "2019-11-11")
+//    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-11-12", "2019-11-17")
+//    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-11-18", "2019-11-23")
+        sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-11-24", "2019-11-30")
+
+    //    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-06-01", "2019-06-10")
 //    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-05-01", "2019-05-31")
 //    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-09-01", "2019-09-30")
 
