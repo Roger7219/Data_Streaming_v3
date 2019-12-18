@@ -18,6 +18,7 @@ object HiveXTrafficDWISchema{
       StructField("order_key",                         StringType)::
       StructField("adunit_key",                        StringType)::
       StructField("lineitem_key",                      StringType)::
+      StructField("network_key",                       StringType)::
       StructField("appid",                             StringType)::
       StructField("cid",                               StringType)::
       StructField("city",                              StringType)::

@@ -5,6 +5,7 @@ CREATE TABLE hivex_traffic_dwi(
   order_key                         string,
   adunit_key                        string,
   lineitem_key                      string,
+  network_key                       string,
   appid                             string,
   cid                               string,
   city                              string,

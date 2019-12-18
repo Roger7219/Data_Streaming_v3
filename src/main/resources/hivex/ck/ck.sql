@@ -3,6 +3,7 @@ CREATE TABLE hivex_overall_dm (
   order_key                         Nullable(String),
   adunit_key                        Nullable(String),
   lineitem_key                      Nullable(String),
+  network_key                       Nullable(String),
   appid                             Nullable(String),
   cid                               Nullable(String),
   city                              Nullable(String),

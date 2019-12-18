@@ -4,6 +4,7 @@ CREATE TABLE hivex_overall_dwr(
   order_key                         string,
   adunit_key                        string,
   lineitem_key                      string,
+  network_key                       string,
   appid                             string,
   cid                               string,
   city                              string,
