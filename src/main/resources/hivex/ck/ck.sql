@@ -1,3 +1,7 @@
+drop table hivex_overall_dm;
+drop table hivex_overall_dm_all;
+drop table hivex_overall_dm_for_select;
+drop table hivex_overall_dm_for_select_all;
 CREATE TABLE hivex_overall_dm (
   app_key                           Nullable(String),
   order_key                         Nullable(String),
