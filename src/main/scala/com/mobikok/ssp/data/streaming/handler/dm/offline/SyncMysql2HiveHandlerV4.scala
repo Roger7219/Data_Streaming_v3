@@ -174,13 +174,15 @@ class SyncMysql2HiveHandlerV4 extends Handler {
             if(lastIncr == null) throw new RuntimeException("lastIncr value cannot be null")
             LOG.warn("Incr table ","hiveTable", hiveT, "lastIncr", lastIncr)
 
-            val incrDF =
+            val mysqlIncrDF =
               hiveContext
                 .read
-                .jdbc(rdbUrl, s"(select * from $mysqlT where $incrField > $lastIncr) as sync_incr_table", rdbProp)
+                // 用>=，因为incrField是精确到秒的时间，因此可能有相同的时间，导致下次可能漏掉这部分数据
+                .jdbc(rdbUrl, s"(select * from $mysqlT where $incrField >= $lastIncr) as sync_incr_table", rdbProp)
                 .selectExpr(hiveDF.schema.fieldNames.map(x => s"`$x`"): _*)
 
-            // 必须缓存，不然延迟读mysql，会现后读两次，导致数据错误
+            //必须截断式缓存，因为spark是延迟读mysql，可能会读多次，因为mysql的数据一直在变化，所以如果多次读，可能结果不一致
+            val incrDF = hiveContext.createDataFrame(mysqlIncrDF.collectAsList(), mysqlIncrDF.schema)
             incrDF.persist()
 
             val updateDF = null // updateDFByWhere(tablesUpdateWhere, mysqlT, hiveT)

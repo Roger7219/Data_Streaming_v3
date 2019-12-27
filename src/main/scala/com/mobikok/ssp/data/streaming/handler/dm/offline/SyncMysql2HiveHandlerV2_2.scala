@@ -86,7 +86,7 @@ class SyncMysql2HiveHandlerV2_2 extends Handler {
         if(sql(s"show tables like '$syncProcessedT'").take(1).nonEmpty
            && sql(s"show tables like '$hiveT'").take(1).isEmpty
         ) {
-          sql(s"alter table $syncProcessedT rename to ${hiveT}")
+          sql("alter table $syncProcessedT rename to ${hiveT}")
         }
 
         // 全量刷新
@@ -133,13 +133,14 @@ class SyncMysql2HiveHandlerV2_2 extends Handler {
 
             LOG.warn("Incr table ","hiveTable", hiveT, "lastId", lastId)
 
-            val incrDF =
+            val mysqlIncrDF =
               hiveContext
                 .read
                 .jdbc(rdbUrl, s"(select * from $mysqlT where id > $lastId) as sync_incr_table", rdbProp)
                 .selectExpr(hiveDF.schema.fieldNames.map(x => s"`$x`"): _*)
 
-            //必须缓存，不然延迟读mysql，会现后读两次，导致数据错误
+            //必须截断式缓存，因为spark是延迟读mysql，可能会读多次，因为mysql的数据一直在变化，所以如果多次读，可能结果不一致
+            val incrDF = hiveContext.createDataFrame(mysqlIncrDF.collectAsList(), mysqlIncrDF.schema)
             incrDF.persist()
 
             val updateDF = null // updateDFByWhere(tablesUpdateWhere, mysqlT, hiveT)

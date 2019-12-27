@@ -268,7 +268,15 @@ object CrontabClickhouseRefreshUtil {
 //    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-11-06", "2019-11-11")
 //    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-11-12", "2019-11-17")
 //    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-11-18", "2019-11-23")
-        sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-11-24", "2019-11-30")
+    //    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-11-24", "2019-11-30")
+//    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-11-27", "2019-11-27")
+
+//    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-12-01", "2019-12-19")
+        sendMaxWaitingTimeMS(DynamicConfig.of("ck_report_overall_day", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(1000*60*60*100L)) // 100小时
+    sendMaxWaitingTimeMS(DynamicConfig.of("bq_report_overall_day_v2", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(1000*60*60*100L)) // 100小时
+
+
+    //    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-12-19", "2019-12-19")
 
     //    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-06-01", "2019-06-10")
 //    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-05-01", "2019-05-31")
