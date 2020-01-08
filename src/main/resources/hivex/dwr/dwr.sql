@@ -39,7 +39,7 @@ drop view if exists hivex_overall_dm;
 create view hivex_overall_dm as
 select *
 from hivex_overall_dwr
-UNION
+UNION all
 select app_key,order_key,adunit_key,lineitem_key,network_key,appid,cid,city,ckv,country_code,cppck,current_consent_status,dev,exclude_adgroups,gdpr_applies,id,is_mraid,os,osv,priority,req,reqt,rev,udid,video_type,
 CAST(request_count as BIGINT) as request_count,
 CAST(imp_count as BIGINT) as imp_count,
