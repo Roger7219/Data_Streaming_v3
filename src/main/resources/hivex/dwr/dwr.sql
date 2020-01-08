@@ -28,7 +28,8 @@ CREATE TABLE hivex_overall_dwr(
   request_count              bigint,
   imp_count                  bigint,
   aclk_count                 bigint,
-  attempt_count              bigint
+  attempt_count              bigint,
+  revenue                    double
 )
 PARTITIONED BY (l_time string, b_date string, b_time string, b_version STRING)
 STORED AS ORC;
@@ -44,6 +45,7 @@ CAST(request_count as BIGINT) as request_count,
 CAST(imp_count as BIGINT) as imp_count,
 CAST(aclk_count as BIGINT) as aclk_count,
 CAST(attempt_count as BIGINT) as attempt_count,
+CAST(revenue as double) as revenue,
 '0001-01-01 00:00:00' as l_time,
 b_date,
 '0001-01-01 00:00:00' as b_time,
@@ -79,10 +81,11 @@ CREATE TABLE hivex_other_dwr(
   rev                               string,
   udid                              string,
   video_type                        string,
-  request_count              bigint,
-  imp_count                  bigint,
-  aclk_count                 bigint,
-  attempt_count              bigint
+  request_count                     string,
+  imp_count                         string,
+  aclk_count                        string,
+  attempt_count                     string,
+  revenue                           string
 )
 PARTITIONED BY (b_date string)
 row format serde

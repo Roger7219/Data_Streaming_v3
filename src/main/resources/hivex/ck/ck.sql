@@ -32,6 +32,7 @@ CREATE TABLE hivex_overall_dm (
   imp_count                         Int64 DEFAULT CAST(0 AS Int64),
   aclk_count                        Int64 DEFAULT CAST(0 AS Int64),
   attempt_count                     Int64 DEFAULT CAST(0 AS Int64),
+  revenue                           Float64 DEFAULT CAST(0. AS Float64),
   l_time                            DateTime,
   b_date                            Date,
   b_time                            DateTime,
