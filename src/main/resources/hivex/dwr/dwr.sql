@@ -46,9 +46,9 @@ CAST(imp_count as BIGINT) as imp_count,
 CAST(aclk_count as BIGINT) as aclk_count,
 CAST(attempt_count as BIGINT) as attempt_count,
 CAST(revenue as double) as revenue,
-from_unixtime(unix_timestamp(),'yyyy-MM-dd HH:00:00') as l_time,
+concat(b_date, ' 00:00:00')  as l_time,
 b_date,
-from_unixtime(unix_timestamp(),'yyyy-MM-dd HH:00:00') as b_time,
+concat(b_date, ' 00:00:00') as b_time,
 '0' as b_version
 from hivex_other_dwr;
 
