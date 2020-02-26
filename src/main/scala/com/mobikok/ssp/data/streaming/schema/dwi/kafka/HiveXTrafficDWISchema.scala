@@ -43,6 +43,7 @@ object HiveXTrafficDWISchema{
       StructField("imp_count",                         LongType)::
       StructField("aclk_count",                        LongType)::
       StructField("attempt_count",                     LongType)::
+      StructField("revenue",                           DoubleType)::
       Nil)
 }
 

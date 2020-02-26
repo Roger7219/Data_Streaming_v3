@@ -29,7 +29,8 @@ CREATE TABLE hivex_traffic_dwi(
   request_count              bigint,
   imp_count                  bigint,
   aclk_count                 bigint,
-  attempt_count              bigint
+  attempt_count              bigint,
+  revenue                    double
 )
 PARTITIONED BY (repeated string, l_time STRING, b_date STRING, b_time STRING, b_version STRING)
 STORED AS ORC;
