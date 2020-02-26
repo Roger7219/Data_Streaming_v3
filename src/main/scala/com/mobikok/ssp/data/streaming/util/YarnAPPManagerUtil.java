@@ -42,7 +42,7 @@ public class YarnAPPManagerUtil {
     private static final String APPLICATIONS_PATTERN = "%30s\t%20s\t%20s\t%10s\t%10s\t%18s\t%18s\t%15s\t%35s"
             + System.getProperty("line.separator");
 
-    private static MessageClient messageClient = new MessageClient("", "http://104.250.136.138:5555");
+//    private static MessageClient messageClient = new MessageClient("", "http://104.250.136.138:5555");
 
     public static void main(String[] args) {
 
@@ -311,7 +311,7 @@ public class YarnAPPManagerUtil {
                 // 通知Kill,并等待完成
                 }else if(!notifiedKillMessage){
                     LOG.warn("Killing appName: " + currName + ", appId: " + currId + ", forceKill: " + forceKill);
-                    messageClient.pushMessage(new MessagePushReq("kill_self_" + currName, currId));
+                    MC.push(new PushReq("kill_self_" + currName, currId));
                     notifiedKillMessage = true;
                 }
             }

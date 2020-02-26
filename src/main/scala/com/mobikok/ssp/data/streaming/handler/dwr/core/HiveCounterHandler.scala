@@ -91,7 +91,8 @@ class HiveCounterHandler extends Handler with Persistence {
     // 确保创建了对应的表
     counterWhereExprs.groupBy(_._1).foreach{ case(gsExpr, iter)=>
       val t = HiveCounterHandler.countTableName(dwrTable, gsExpr.split(","))
-      sql(s"create table if not exists $t like $dwrTable")
+//      sql(s"create table if not exists $t like $dwrTable")
+      hiveClient.createTableIfNotExists(t, dwrTable)
     }
 
     refreshCache(CSTTime.now.modifyHourAsBTime(0))

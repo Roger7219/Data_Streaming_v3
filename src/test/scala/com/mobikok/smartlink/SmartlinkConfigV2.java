@@ -19,8 +19,12 @@ public class SmartlinkConfigV2 {
 
 	// node14:  104.250.136.138
 	// node103: 104.250.132.242
+//	private static String RECOMMEDND_IP = "s1.node103.iifab.com"; //"104.250.132.242";
+//	private static String MINE_IP = "s1.node104.iifab.com"; //"104.250.141.66";
+
 	private static String RECOMMEDND_IP = "s1.node103.iifab.com"; //"104.250.132.242";
-	private static String MINE_IP = "s1.node104.iifab.com"; //"104.250.141.66";
+	private static String MINE_IP = "noadx.net"; //"104.250.141.66";
+
 
 	//[{"id":1,"url":"","weight":50,"countryIds":"","type":0},{"id":1030001,"url":"http://104.250.136.138:3333/api/smartlink?s=2708&at=4&rt=api&s1={s1}&s2={s2}&s3={s3}&s4={s4}&s5={s5}","weight":50,"countryIds":"","type":0}]
 	private static MySqlJDBCClientV2 mySqlJDBCClient = new MySqlJDBCClientV2("",
@@ -45,8 +49,8 @@ public class SmartlinkConfigV2 {
 
 		}catch (Exception e){
 			_ssp_sagacityWeight = 10;
-			_recom_sagacityWeight = 80;
-			_mine_sagacityWeight = 10;
+			_recom_sagacityWeight = 90;
+			_mine_sagacityWeight = 0;
 		}
 
 		final Integer ssp_sagacityWeight = _ssp_sagacityWeight;
@@ -56,6 +60,10 @@ public class SmartlinkConfigV2 {
 
 		mySqlJDBCClient.execute("delete from OTHER_SMART_LINK where name like '推荐系统测试App_%' ");
 		mySqlJDBCClient.execute("update APP set SmartConfig = '' where SmartConfig like '%:3333/api/smartlink%' ");
+		// 待删
+		mySqlJDBCClient.execute("update APP set SmartConfig = '' where SmartConfig like '%:8888/api/smartlink%' ");
+        //正式
+		mySqlJDBCClient.execute("update APP set SmartConfig = '' where SmartConfig like '%noadx.net/redirect%' ");
 //	
 		final List<String> linkSqls = new ArrayList<String>();
 		final List<String> appSmartConfigSqls = new ArrayList<String>();
@@ -107,14 +115,14 @@ public class SmartlinkConfigV2 {
 											+ (linkStartId[0] + 1) + ", "
 											+ "'推荐系统测试App_mine_"+rs.getInt("id") +"', "
 											+ rs.getInt("publisherId")+", "
-											+ "'http://"+ MINE_IP +":3333/api/smartlink?s="+rs.getString("id")+"&at=4&rt=api&s1={s1}&s2={s2}&s3={s3}&s4={s4}&s5={s5}', "
+											+ "'http://"+ MINE_IP +":8888/redirect?s="+rs.getString("id")+"&at=4&rt=api&s1={s1}&s2={s2}&s3={s3}&s4={s4}&s5={s5}', "
 											+ "now(), "
 											+ "'-', "
 											+ "'" + UUID.randomUUID().toString() +"'"
 											+ ")");
 
 									final String recom_link = "http://"+ RECOMMEDND_IP +":3333/api/smartlink?s="+rs.getString("id")+"&at=4&rt=api&s1={s1}&s2={s2}&s3={s3}&s4={s4}&s5={s5}";
-									final String mine_link = "http://"+MINE_IP+":3333/api/smartlink?s="+rs.getString("id")+"&at=4&rt=api&s1={s1}&s2={s2}&s3={s3}&s4={s4}&s5={s5}";
+									final String mine_link = "http://"+MINE_IP+":8888/redirect?s="+rs.getString("id")+"&at=4&rt=api&s1={s1}&s2={s2}&s3={s3}&s4={s4}&s5={s5}";
 
 									String json = "";
 									json = OM.toJOSN(new ArrayList<HashMap<String, Object>>(2){{

@@ -134,6 +134,8 @@ class PluggableModule(globalConfig: Config,
     // 兼容历史版本
   else globalConfig.getConfigList(s"modules.$moduleName.kafka.consumer.partitoins").map { x => x.getString("topic") }.toArray[String]
 
+  LOG.warn("kafka topics:","topics", topics , "partitions conf path", s"modules.$moduleName.kafka.consumer.partitions")
+
   var isExcludeOfflineRebrushPart = false
   if (ArgsConfig.Value.REBRUSH_RUNNING.equals(argsConfig.get(ArgsConfig.REBRUSH))) {
     isExcludeOfflineRebrushPart = true
@@ -592,7 +594,8 @@ class PluggableModule(globalConfig: Config,
       override def run(): Unit = {
         val last = ""
         while (true) {
-          LOG.warn("Module heartbeat", moduleTracer.getHistoryBatchesTraceResult())
+          // by kairen
+//          LOG.warn("Module heartbeat", moduleTracer.getHistoryBatchesTraceResult())
 
           Thread.sleep(1000 * 60 * 3L)
         }

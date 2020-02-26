@@ -127,7 +127,6 @@ class SyncMysql2HiveHandlerV4 extends Handler {
         val hiveBackupT = s"${hiveT}_backup"
         val syncProcessingT = s"${hiveT}_sync_processing"
         val syncProcessedT = s"${hiveT}_sync_processed"
-        val hiveDF = hiveContext.read.table(hiveT)
         val lastIncrCer = s"${LAST_ID_CER_PREFIX}_${hiveT}"
         val lastIncrTopic = s"${LAST_ID_TOPIC_PREFIX}_${hiveT}"
 
@@ -137,6 +136,8 @@ class SyncMysql2HiveHandlerV4 extends Handler {
         ) {
           sql(s"alter table $syncProcessedT rename to ${hiveT}")
         }
+
+        val hiveDF = hiveContext.read.table(hiveT)
 
         // 全量刷新
         if (StringUtil.isEmpty(incrField)) {

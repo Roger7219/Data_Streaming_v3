@@ -121,7 +121,8 @@ class HiveDWRPersistHandlerV2 extends Handler with Persistence {
     subversionTables.foreach{ case(dwrSubversionTable, groupByFields, where)=>
       // subversion=0的dwr表名无子版本后缀，因此有table==dwrSubversionTable的情况
       if(dwrSubversionTable != table) {
-        sql(s"create table if not exists $dwrSubversionTable like $table")
+        hiveClient.createTableIfNotExists(dwrSubversionTable, table)
+//        sql(s"create table if not exists $dwrSubversionTable like $table")
       }
     }
 

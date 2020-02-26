@@ -125,7 +125,7 @@ class KafkaClient (moduleName: String, config: Config /*databaseUrl: String, use
           s"""
              | insert into $table (
              |   topic,
-             |   partition,
+             |   `partition`,
              |   offset,
              |   module_name,
              |   update_time
@@ -160,7 +160,7 @@ class KafkaClient (moduleName: String, config: Config /*databaseUrl: String, use
         s"""
            | insert into $tt (
            |   topic,
-           |   partition,
+           |   `partition`,
            |   offset,
            |   module_name,
            |   update_time
@@ -194,7 +194,7 @@ class KafkaClient (moduleName: String, config: Config /*databaseUrl: String, use
         s"""
            | insert into offset (
            |   topic,
-           |   partition,
+           |   `partition`,
            |   offset,
            |   module_name,
            |   update_time
@@ -239,12 +239,12 @@ class KafkaClient (moduleName: String, config: Config /*databaseUrl: String, use
              | insert into ${c.transactionalProgressingBackupTable}
              | select
              |   topic,
-             |   partition,
+             |   `partition`,
              |   offset,
              |   module_name,
              |   now() as update_time
              | from $table
-             | where topic = "${x._1.topic}" and partition = "${x._1.partition}" and module_name = "$moduleName"
+             | where topic = "${x._1.topic}" and `partition` = "${x._1.partition}" and module_name = "$moduleName"
          """.stripMargin)
       }
 
@@ -256,7 +256,7 @@ class KafkaClient (moduleName: String, config: Config /*databaseUrl: String, use
           s"""
              | insert into $table (
              |   topic,
-             |   partition,
+             |   `partition`,
              |   offset,
              |   module_name,
              |   update_time
@@ -331,7 +331,7 @@ class KafkaClient (moduleName: String, config: Config /*databaseUrl: String, use
                   s"""
                      | delete from $table
                      | where topic = "${r.getString("topic")}"
-                     | and partition = "${r.getString("partition")}"
+                     | and `partition` = "${r.getString("partition")}"
                      | and module_name = "$moduleName"
                  """.stripMargin)
               }
@@ -404,7 +404,7 @@ class KafkaClient (moduleName: String, config: Config /*databaseUrl: String, use
                   s"""
                      | delete from $table
                      | where topic = "${r.getString("topic")}"
-                     | and partition = "${r.getString("partition")}"
+                     | and `partition` = "${r.getString("partition")}"
                      | and module_name = "$moduleName"
                  """.stripMargin)
               }
@@ -447,7 +447,7 @@ class KafkaClient (moduleName: String, config: Config /*databaseUrl: String, use
     }
   }
 
-  // 清理所有模块一个月以前的backup和tmp表（为了处理老版本，不能正常删除历史表的bug）
+  // 清理所有模块半个月以前的backup和tmp表（为了处理老版本，不能正常删除历史表的bug）
   def cleanHistoryAllAppModuleBackupAndTmpTable(): Unit ={
 
     new Thread(new Runnable {

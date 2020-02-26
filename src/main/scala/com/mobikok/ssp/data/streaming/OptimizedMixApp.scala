@@ -21,6 +21,7 @@ import org.apache.spark.sql.hive.HiveContext
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 
 import scala.collection.JavaConversions._
+import scala.collection.immutable.Nil
 
 /**
   * Created by Administrator  on 2017/6/8.
@@ -472,7 +473,7 @@ object OptimizedMixApp {
       if(argsConfig.has(ArgsConfig.RATE)) {
         LOG.warn("reset maxRatePerPartition !")
 
-        val partitionNum = argsModuleNames(argsConfig).map { x =>
+        val partitionNum = needRunModuleNames(argsConfig).map { x =>
           allModulesConfig.getList(s"modules.${x}.kafka.consumer.partitions").size()
         }.sum
 
@@ -494,7 +495,7 @@ object OptimizedMixApp {
 
     // 去掉不需要运行的模块配置
     if(argsConfig.has(ArgsConfig.MODULES)) {
-      val rms = argsModuleNames(argsConfig).map(_.trim).distinct
+      val rms = needRunModuleNames(argsConfig)
 
       allModulesConfig.getConfig("modules").root().foreach{ x=>
         if(!rms.contains(x._1)) {
@@ -534,8 +535,15 @@ object OptimizedMixApp {
     argsConfig.get(ArgsConfig.EX).split(",")
   }
 
+  def needRunModuleNames(argsConfig: ArgsConfig): Array[String] ={
+    val ns = argsModuleNames(argsConfig).map(_.trim).distinct
+    if(ns.isEmpty) allModulesConfig.getConfig("modules").root().map{case(moduleName, _)=> moduleName}.toArray
+    else ns
+
+  }
   def argsModuleNames(argsConfig: ArgsConfig):Array[String] = {
-    argsConfig.get(ArgsConfig.MODULES).split(",").map(x=>versionFeaturesModuleName(version, x))
+    if(argsConfig.has(ArgsConfig.MODULES)) argsConfig.get(ArgsConfig.MODULES).split(",").map(x=>versionFeaturesModuleName(version, x))
+    else Array.empty[String]
   }
 
   def versionFeaturesModuleName(version: String, moduleName: String): String = {

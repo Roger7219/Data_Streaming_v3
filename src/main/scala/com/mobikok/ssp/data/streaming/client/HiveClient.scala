@@ -604,7 +604,8 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 
     lts.foreach{x=>
 
-      sql(s"create table if not exists $tt like ${c.targetTable}")
+//      sql(s"create table if not exists $tt like ${c.targetTable}")
+      createTableIfNotExists(tt, c.targetTable)
 
       //合并，写入临时表
       compactionHiveContext

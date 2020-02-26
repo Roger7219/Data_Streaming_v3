@@ -171,6 +171,7 @@ object CrontabClickhouseRefreshUtil {
 //    sendMsg_b_date("ssp_report_overall_dwr_day", "2018-05-01")
 //    sendMsg_b_date("ssp_report_overall_dwr_day", "2018-05-02")
 //    sendMsg_b_date("ck_report_overall_day", "2018-08-14")
+//        sendMsg_b_date("ssp_report_overall_dwr_day", "2019-12-21")
 
 
 //    sendMsg_btimes_for_ck("nadx_performance_dwi", "2019-08-06 09:00:00", "2019-08-06 09:00:00", "adx_dwr_v6")
@@ -249,7 +250,17 @@ object CrontabClickhouseRefreshUtil {
 //      sendMsg_btimes_for_ck("nadx_overall_dwr", "2019-07-17 12:00:00", "2019-07-17 12:00:00", "nadx_ck")
 //    sendMsg_btimes_for_ck("nadx_overall_dwr", "2019-07-17 12:00:00", "2019-07-17 12:00:00", "nadx_ck")
 
+    //bi刷新小时表
+//    sendMsg_btimes_for_ck("ssp_report_overall_dwr",    "2020-02-23 14:00:00", "2020-02-23 14:00:00", "ck_report_overall")
+//    sendMsg_btimes_for_ck("ssp_report_overall_dwr",    "2020-02-23 01:00:00", "2020-02-23 05:00:00", "ck_report_overall")
+    sendMsg_btimes_for_ck("ssp_report_overall_dwr",    "2020-02-23 00:00:00", "2020-02-23 01:00:00", "ck_report_overall")
+//        sendMsg_btimes_for_ck("ssp_report_overall_dwr",    "2020-02-23 06:00:00", "2020-02-23 16:00:00", "ck_report_overall")
+//    sendMsg_btimes_for_ck("ssp_report_overall_dwr",    "2020-02-23 17:00:00", "2020-02-23 23:00:00", "ck_report_overall")
+
+
     // 刷新campaign/publisher表
+//    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2020-02-23", "2020-02-23")
+//            sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2020-02-10", "2020-02-20")
 //        sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-10-31", "2019-10-31")
 //    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-11-15", "2019-11-15")
 //    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-10-16", "2019-10-16")
@@ -272,10 +283,13 @@ object CrontabClickhouseRefreshUtil {
 //    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-11-27", "2019-11-27")
 
 //    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-12-01", "2019-12-19")
-        sendMaxWaitingTimeMS(DynamicConfig.of("ck_report_overall_day", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(1000*60*60*100L)) // 100小时
-    sendMaxWaitingTimeMS(DynamicConfig.of("bq_report_overall_day_v2", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(1000*60*60*100L)) // 100小时
 
-
+//    while (true) {
+//    sendMaxWaitingTimeMS(DynamicConfig.of("ck_report_overall_day", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(1000*60*60*100L)) // 100小时
+//    sendMaxWaitingTimeMS(DynamicConfig.of("ck_report_overall", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(1000*60*60*100L)) // 100小时
+//    sendMaxWaitingTimeMS(DynamicConfig.of("bq_report_overall_day_v2", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(1000*60*60*100L)) // 100小时
+//      Thread.sleep(1000*60*20)
+//    }
     //    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-12-19", "2019-12-19")
 
     //    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-06-01", "2019-06-10")
@@ -291,6 +305,7 @@ object CrontabClickhouseRefreshUtil {
 //    sendMsg_btime("ssp_report_overall_dwr", "2019-08-08 16:00:00")
 //    sendMsg_btime("ssp_report_overall_dwr", "2019-08-08 17:00:00")
 //    sendMsg_btime("ssp_report_overall_dwr", "2019-08-08 18:00:00")
+//        sendMsg_btime("ssp_report_overall_dwr", "2020-01-03 00:00:00")
 
 
     // 重刷28 29号的数据
@@ -365,6 +380,7 @@ object CrontabClickhouseRefreshUtil {
 //    messageResetToLastest("ssp_report_overall_dm_bqcer", Array("ssp_report_overall_dwr"))
 //    messageResetToLastest("ssp_report_overall_dm_bqcer", Array("update_ssp_report_overall2"))
 
+//    messageResetToLastest("nadx_overall_dm_v6_2_cer",Array("nadx_overall_dwr_v6_2"))
 
 //    messageResetToLastest("ssp_report_campaign_dm_bqcer", Array("ssp_report_overall_dwr_day"))
 //

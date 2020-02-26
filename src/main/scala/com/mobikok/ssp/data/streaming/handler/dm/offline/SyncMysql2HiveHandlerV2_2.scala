@@ -78,7 +78,6 @@ class SyncMysql2HiveHandlerV2_2 extends Handler {
         val hiveBackupT = s"${hiveT}_backup"
         val syncProcessingT = s"${hiveT}_sync_processing"
         val syncProcessedT = s"${hiveT}_sync_processed"
-        val hiveDF = hiveContext.read.table(hiveT)
         val lastIdCer = s"${LAST_ID_CER_PREFIX}_${hiveT}"
         val lastIdTopic = s"${LAST_ID_TOPIC_PREFIX}_${hiveT}"
 
@@ -86,8 +85,10 @@ class SyncMysql2HiveHandlerV2_2 extends Handler {
         if(sql(s"show tables like '$syncProcessedT'").take(1).nonEmpty
            && sql(s"show tables like '$hiveT'").take(1).isEmpty
         ) {
-          sql("alter table $syncProcessedT rename to ${hiveT}")
+          sql(s"alter table $syncProcessedT rename to ${hiveT}")
         }
+
+        val hiveDF = hiveContext.read.table(hiveT)
 
         // 全量刷新
         if (StringUtil.isEmpty(uuidField)) {
@@ -98,7 +99,7 @@ class SyncMysql2HiveHandlerV2_2 extends Handler {
             .read
             .jdbc(rdbUrl, s"$mysqlT as sync_full_table", rdbProp) //需全表查
             .selectExpr(unc.schema.fieldNames.map(x => s"`$x`"): _*)
-            .coalesce(1)
+            .repartition(50)
             .write
             .format("orc")
             .mode(SaveMode.Overwrite)
@@ -178,7 +179,7 @@ class SyncMysql2HiveHandlerV2_2 extends Handler {
 
               uniqueAllDF
                 .selectExpr(hiveDF.schema.fieldNames.map(x => s"`$x`"): _*)
-                .coalesce(4)
+                .repartition(50)
                 .write
                 .format("orc")
                 .mode(SaveMode.Overwrite)
