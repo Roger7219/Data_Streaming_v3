@@ -64,6 +64,17 @@ class SyncMysql2HiveHandlerV2_2 extends Handler {
     mySqlJDBCClient = new MySqlJDBCClientV2(
       moduleName, rdbUrl, rdbUser, rdbPassword
     )
+
+    // 如果上次启动时，写入临时表成功，并将hiveT rename to hiveBackupT表了，但未执行rename syncProcessedT to hiveT，则继续尝试rename
+    hiveTableDetails.entrySet().foreach { x=>
+      val hiveT = x.getKey
+      val syncProcessedT = s"${hiveT}_sync_processed"
+      if(sql(s"show tables like '$syncProcessedT'").take(1).nonEmpty
+        && sql(s"show tables like '$hiveT'").take(1).isEmpty
+      ) {
+        sql(s"alter table $syncProcessedT rename to ${hiveT}")
+      }
+    }
   }
 
   override def handle(): Unit = {
@@ -81,7 +92,8 @@ class SyncMysql2HiveHandlerV2_2 extends Handler {
         val lastIdCer = s"${LAST_ID_CER_PREFIX}_${hiveT}"
         val lastIdTopic = s"${LAST_ID_TOPIC_PREFIX}_${hiveT}"
 
-        // 如果上次写入临时表成功，并将hiveT rename to hiveBackupT表了，但未执行rename syncProcessedT to hiveT，则继续尝试rename
+        // 待删，初始化的时候操作
+        // 如果上次启动时，写入临时表成功，并将hiveT rename to hiveBackupT表了，但未执行rename syncProcessedT to hiveT，则继续尝试rename
         if(sql(s"show tables like '$syncProcessedT'").take(1).nonEmpty
            && sql(s"show tables like '$hiveT'").take(1).isEmpty
         ) {
@@ -92,19 +104,54 @@ class SyncMysql2HiveHandlerV2_2 extends Handler {
 
         // 全量刷新
         if (StringUtil.isEmpty(uuidField)) {
-          LOG.warn(s"Full table overwrite start", "mysqlTable", mysqlT, "hiveTable", hiveT)
-          var unc = hiveContext.read.table(hiveT)
 
-          hiveContext
-            .read
-            .jdbc(rdbUrl, s"$mysqlT as sync_full_table", rdbProp) //需全表查
-            .selectExpr(unc.schema.fieldNames.map(x => s"`$x`"): _*)
-            .repartition(50)
-            .write
-            .format("orc")
-            .mode(SaveMode.Overwrite)
-            .insertInto(hiveT)
-          LOG.warn(s"Full table overwrite done", "mysqlTable", mysqlT, "hiveTable", hiveT)
+          // 检查hive/mysql数据是否一致，一致无需更新
+          var mysqlCount = mySqlJDBCClient
+            .executeQuery(s"select count(1) from $mysqlT", new Callback[DataFrame] {
+              override def onCallback (rs: ResultSet): DataFrame = OM.assembleAsDataFrame(rs, hiveContext)
+            })
+            .first()
+            .getAs[Long](0)
+
+          var hiveCount = hiveContext
+            .sql(s"select count(1) from $hiveT")
+            .first()
+            .getAs[Long](0)
+
+          //不一致就需要更新
+          if(!hiveCount.equals(mysqlCount)){
+
+            LOG.warn(s"Full table overwrite start", "mysqlTable", mysqlT, "hiveTable", hiveT)
+
+            sql(s"drop table if exists $syncProcessedT")
+            sql(s"drop table if exists $syncProcessingT")
+            sql(s"create table $syncProcessingT like $hiveT")
+
+            val unc = hiveContext.read.table(syncProcessingT)
+
+            hiveContext
+              .read
+              .jdbc(rdbUrl, s"$mysqlT as sync_full_table", rdbProp) //需全表查
+              .selectExpr(unc.schema.fieldNames.map(x => s"`$x`"): _*)
+              .repartition(1)
+              .write
+              .format("orc")
+              .mode(SaveMode.Overwrite)
+              .insertInto(syncProcessingT)
+            LOG.warn(s"Full table overwrite done", "mysqlTable", mysqlT, "hiveTable", hiveT)
+
+            // 原子性操作，标记写入完成，syncProcessedT表是完整的数据
+            sql(s"alter table $syncProcessingT rename to ${syncProcessedT}")
+
+            sql(s"drop table if exists $hiveBackupT")              // 删除上次备份
+            sql(s"alter table $hiveT rename to $hiveBackupT")      // 正式表转为备份表
+            sql(s"alter table $syncProcessedT rename to ${hiveT}") // 更新表转正
+
+            LOG.warn(s"Full table overwrite done", "mysqlTable", mysqlT, "hiveTable", hiveT)
+          }else {
+            LOG.warn(s"Full table overwrite cancelled, Because hive and mysql data is consistent", "mysqlTable", mysqlT, "hiveTable", hiveT)
+          }
+
         }
         // 增量刷新
         else {
