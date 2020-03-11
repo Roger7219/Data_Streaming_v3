@@ -47,9 +47,9 @@ object RunAgainIfError {
       }catch {case e: Throwable=>
         throwable = e;
         if(StringUtil.isEmpty(errorTip)) {
-          LOG.warn(s"Will try to run again !!", "Exception", ExceptionUtils.getStackTrace(e))
+          LOG.warn(s"Will try to run again after 60s !!", "Exception", ExceptionUtils.getStackTrace(e))
         }else {
-          LOG.warn(s"Will try to run again !!", "Error tip", errorTip, "Exception", ExceptionUtils.getStackTrace(e))
+          LOG.warn(s"Will try to run again after 60s !!", "Error tip", errorTip, "Exception", ExceptionUtils.getStackTrace(e))
         }
 
         try {

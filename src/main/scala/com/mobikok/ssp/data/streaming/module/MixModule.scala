@@ -271,7 +271,11 @@ class MixModule (config: Config,
     try{
       businessTimeExtractBy = config.getString(s"modules.$moduleName.business.date.extract.by")
     }catch {case e:Throwable=>
-      businessTimeExtractBy = config.getString(s"modules.$moduleName.b_time.input")
+      try {
+        businessTimeExtractBy = config.getString(s"modules.$moduleName.b_time.input")
+      }catch {case e:Throwable=>
+        businessTimeExtractBy = config.getString(s"modules.$moduleName.b_time.by")
+      }
     }
   }
 

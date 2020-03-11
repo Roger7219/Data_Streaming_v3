@@ -16,7 +16,8 @@ import com.mobikok.ssp.data.streaming.util.{CSTTime, MC, OM}
 object CrontabClickhouseRefreshUtil {
 
   val DF = new SimpleDateFormat("yyyy-MM-dd")
-  val messageClient = new MessageClient("", "http://node14:5555")
+//  val messageClient = new MessageClient("", "http://node14:5555")
+  val messageClient = new MessageClient("", "http://datarest.noadx.com:5555")
 
   def main (args: Array[String]): Unit = {
 
@@ -253,13 +254,20 @@ object CrontabClickhouseRefreshUtil {
     //bi刷新小时表
 //    sendMsg_btimes_for_ck("ssp_report_overall_dwr",    "2020-02-23 14:00:00", "2020-02-23 14:00:00", "ck_report_overall")
 //    sendMsg_btimes_for_ck("ssp_report_overall_dwr",    "2020-02-23 01:00:00", "2020-02-23 05:00:00", "ck_report_overall")
-    sendMsg_btimes_for_ck("ssp_report_overall_dwr",    "2020-02-23 00:00:00", "2020-02-23 01:00:00", "ck_report_overall")
+//    sendMsg_btimes_for_ck("ssp_report_overall_dwr",    "2020-02-23 00:00:00", "2020-02-23 01:00:00", "ck_report_overall")
+//    sendMsg_btimes_for_ck("ssp_report_overall_dwr",    "2020-02-28 03:00:00", "2020-02-28 03:00:00", "ck_report_overall")
 //        sendMsg_btimes_for_ck("ssp_report_overall_dwr",    "2020-02-23 06:00:00", "2020-02-23 16:00:00", "ck_report_overall")
 //    sendMsg_btimes_for_ck("ssp_report_overall_dwr",    "2020-02-23 17:00:00", "2020-02-23 23:00:00", "ck_report_overall")
 
+    sendMsg_btimes_for_ck("smartlink_dwr",    "2020-03-11 12:00:00", "2020-03-11 12:00:00", "ck_report_overall")
+
+
+
+
 
     // 刷新campaign/publisher表
-//    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2020-02-23", "2020-02-23")
+//    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2020-02-14", "2020-02-14")
+//    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2020-02-11", "2020-02-11")
 //            sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2020-02-10", "2020-02-20")
 //        sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-10-31", "2019-10-31")
 //    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-11-15", "2019-11-15")
@@ -376,7 +384,7 @@ object CrontabClickhouseRefreshUtil {
 //      messageResetToLastest("bd_offer_dm_bqcer", Array("ssp_report_overall_dwr"))
     //    messageResetToLastest("monitor_offer_cer", Array("ssp_report_overall_dwr"))
 //    messageResetToLastest("ssp_topn_dm_cer", Array("ssp_report_overall_dwr"))
-
+//    messageResetToLastest("smartlink_dm_cer", Array("smartlink_dwr"))
 //    messageResetToLastest("ssp_report_overall_dm_bqcer", Array("ssp_report_overall_dwr"))
 //    messageResetToLastest("ssp_report_overall_dm_bqcer", Array("update_ssp_report_overall2"))
 

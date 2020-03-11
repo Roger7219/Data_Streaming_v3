@@ -697,52 +697,54 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
   def tryReMoveCompactResultTempFile() = {
     //判断是否存在临时表，若存在，则重新移动其中l_time分区数据至目标表中l_time分区
 
-    HiveClient.lock.synchronized{
+    RunAgainIfError.run({
+      HiveClient.lock.synchronized{
 
-      val compactedSuffix = ".compacted"
+        val compactedSuffix = ".compacted"
 
-      sql(s"show tables like '*$compactedTmpTableSign' ")
-        .collect()
-        .foreach{t =>
-          val srcT = t.getAs[String]("tableName")
+        sql(s"show tables like '*$compactedTmpTableSign' ")
+          .collect()
+          .foreach{t =>
+            val srcT = t.getAs[String]("tableName")
 
-          val dstT = s"""${srcT.substring(0,srcT.indexOf(compactedTmpTableSign))}"""
+            val dstT = s"""${srcT.substring(0,srcT.indexOf(compactedTmpTableSign))}"""
 
-          LOG.warn("Hive compact: ", "exsist pluggable table ", srcT, "dstT ", dstT)
+            LOG.warn("Hive compact: ", "exsist pluggable table ", srcT, "dstT ", dstT)
 
-          //将临时表中所有分区的数据移动到目标表
-          sql(s""" show partitions ${srcT}  """)
-            .collect()
-            .foreach{x=>
+            //将临时表中所有分区的数据移动到目标表
+            sql(s""" show partitions ${srcT}  """)
+              .collect()
+              .foreach{x=>
 
-              val srcPath = s"""/apps/hive/warehouse/$srcT/${x.getAs[String]("partition")}"""
+                val srcPath = s"""/apps/hive/warehouse/$srcT/${x.getAs[String]("partition")}"""
 
-              val dstPath = s"""/apps/hive/warehouse/$dstT/${x.getAs[String]("partition")}"""
+                val dstPath = s"""/apps/hive/warehouse/$dstT/${x.getAs[String]("partition")}"""
 
-              //删除目标表中原文件(不含后缀的文件)
-              val deleteFiles: List[String] = hdfsUtil.getFilePaths(dstPath)
-              deleteFiles.map{x =>
+                //删除目标表中原文件(不含后缀的文件)
+                val deleteFiles: List[String] = hdfsUtil.getFilePaths(dstPath)
+                deleteFiles.map{x =>
 
-                if(!x.endsWith(compactedSuffix)){
-                  val res = hdfsUtil.delete(x, false)
+                  if(!x.endsWith(compactedSuffix)){
+                    val res = hdfsUtil.delete(x, false)
 
-                  if(res) LOG.warn("Hive compact: ", "deletefile ", x)
+                    if(res) LOG.warn("Hive compact: ", "deletefile ", x)
+                  }
                 }
+
+                //移动漏掉的文件到目标表
+                if(hdfsUtil.move(srcPath, dstPath)){
+                  LOG.warn("Hive compact:move omit ", "from: ", srcPath, "to: ", dstPath)
+                }
+
               }
 
-              //移动漏掉的文件到目标表
-              if(hdfsUtil.move(srcPath, dstPath)){
-                LOG.warn("Hive compact:move omit ", "from: ", srcPath, "to: ", dstPath)
-              }
+            //删除遗留的临时表
+            sql(s"drop table if exists ${srcT}")
+            LOG.warn("Hive compact: first", "first drop table  ", srcT)
 
-            }
-
-          //删除遗留的临时表
-          sql(s"drop table if exists ${srcT}")
-          LOG.warn("Hive compact: first", "first drop table  ", srcT)
-
-        }
-    }
+          }
+      }
+    }, "HiveClient.tryReMoveCompactResultTempFile() error! ")
 
   }
 
