@@ -130,6 +130,43 @@ left join employee p_amp    on p_amp.id = p.ampaId
 left join employee ap_amp   on  ap_amp.id  = a_p.ampaId
 left join employee a_ama    on a_ama.id = ad.amaaId;
 
+-- ----------------------------------
+create view country_carrier_trend as
+select
+  countryid, countryname, carrierid, carriername,
+  sort_array(collect_list(goodOffers)),
+  sort_array(collect_list(badOffers)),
+  sort_array(collect_list(ecpc)),
+  sort_array(collect_list(realRevenue)),
 
 
-    SELECT O.ID id, O.`Name` name, C.`Name` campaignName, A.`Name` adName, O.CountryIds countryIds, O.BidPrice         bidPriceS,         O.price, O.AdType adType,O.PublisherPayout,O.Preview,O.Caps caps,O.TodayCaps todayCaps,O.ShowTimes,O.TodayClickCount,         CASE O.Status WHEN '0' THEN 'Disabled' WHEN '1' THEN 'Enabled' END statusName,         CASE O.AmStatus WHEN '0' THEN 'Pending' WHEN '1' THEN 'Approved' WHEN '2' THEN 'Deny' END amStatusName,         CASE C.adCategory1         WHEN 1 THEN "Adult"         WHEN 2 THEN "Mainstream"         END adCategory,         CASE O.IsApi WHEN '0' THEN 'NO' WHEN '1' THEN 'YES' END isApiName,         O.Modes modes,O.Level level,         DATE_FORMAT(O.CreateTime,'%Y-%m-%d') createTime1,         CASE C.adCategory2         WHEN '101' THEN 'Adultdating'         WHEN '102' THEN 'Gay'         WHEN '103' THEN 'Straight'         WHEN '201' THEN 'Consumergoods'         WHEN '202' THEN 'Dating'         WHEN '203' THEN 'Education'         WHEN '204' THEN 'Entertainment'         WHEN '205' THEN 'Finance'         WHEN '206' THEN 'Gambling/casino'         WHEN '207' THEN 'Games'         WHEN '208' THEN 'Leadgeneration'         WHEN '209' THEN 'Mobilecontentsubscription'         WHEN '210' THEN 'Mobilesoftware'         WHEN '211' THEN 'Shopping retail'         WHEN '212' THEN 'Social'         WHEN '213' THEN 'Sweepstakes'         WHEN '214' THEN 'Travel'         WHEN '215' THEN 'Utilities tools'         WHEN '216' THEN 'GP'         WHEN '217' THEN 'Smart contents'         WHEN '218' THEN 'Nutra'         WHEN '219' THEN 'Video'         WHEN '220' THEN 'Music'         WHEN '221' THEN 'Antivirus'         WHEN '222' THEN 'DDL'         END adCategory2Name,         CASE O.OptStatus         WHEN 0 THEN "Not analyzed"         WHEN 1 THEN "Optimizing"         WHEN 2 THEN "Fail"         WHEN 3 THEN "Success"         WHEN 4 THEN "Applying"         END optStatusString,         CASE O.spyStatus         WHEN '1' THEN 'No'         WHEN '2' THEN 'Optimizing'         WHEN 3 THEN "Success"         WHEN 4 THEN "Fail"         END spyStatusString,         IFNULL(DATE_FORMAT(O.OptTime,'%Y-%m-%d'),'--') optTime,         O.CarrierIds carrierIds, O.ImageUrl imageUrl, O.Url url,         O.`Desc`, O.adDesc adDesc, O.OptStatus optStatus, O.CampaignId,         O.OpType, O.SubIds, O.Status ,O.AmStatus, O.IsApi isApi,         CASE O.ConversionProcess         WHEN 1 THEN '0 Click'         WHEN 2 THEN '1 Click'         WHEN 3 THEN "2 Click"         WHEN 4 THEN "SOI"         WHEN 5 THEN "DOI"         WHEN 6 THEN "OTP"         WHEN 7 THEN "MO"         WHEN 8 THEN "PIN"         WHEN 9 THEN "Download"         WHEN 10 THEN 'CC Submit'         END conversionProcessName         FROM OFFER O use index(ix_offer_index)         LEFT JOIN CAMPAIGN C ON C.ID = O.CampaignId         LEFT JOIN ADVERTISER A ON A.ID = C.AdverId         LEFT JOIN EMPLOYEE E ON E.ID = A.AmId         LEFT JOIN EMPLOYEE EA ON EA.ID = A.AmaaId         WHERE                                                        O.Status = 1                         AND                 O.AmStatus = 1                                                                                                                                                                                                                                                            ORDER BY                                                                                                                                                                       LIMIT  0 10
+from (
+  select
+    b_date, countryid, countryname, carrierid,carriername,
+    concat_ws('=', b_date, count(distinct if(realRevenue>0, offerid, null))) as goodOffers,
+    concat_ws('=', b_date, count(distinct if(realRevenue=0, offerid, null))) as badOffers,
+    concat_ws('=', b_date, sum(realRevenue)/sum(sendCount)) as ecpc,
+    concat_ws('=', b_date, sum(realRevenue)) as realRevenue
+  from smartlink_dm
+  where b_date>='2020-04-16'
+  group by b_date, countryid, countryname, carrierid, carriername
+)
+group by countryid, countryname, carrierid, carriername
+
+select countryid, carrierid, offerid, t_1_requests, t_2_requests, t_3_requests, t_1_realRevenue, t_2_realRevenue, t_3_realRevenue
+
+from smartlink_dm
+
+
+
+
+
+
+
+
+
+
+
+
+
+

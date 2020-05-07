@@ -16,8 +16,8 @@ import com.mobikok.ssp.data.streaming.util.{CSTTime, MC, OM}
 object CrontabClickhouseRefreshUtil {
 
   val DF = new SimpleDateFormat("yyyy-MM-dd")
-//  val messageClient = new MessageClient("", "http://node14:5555")
-  val messageClient = new MessageClient("", "http://datarest.noadx.com:5555")
+  val messageClient = new MessageClient("", "http://node14:5555")
+//  val messageClient = new MessageClient("", "http://datarest.noadx.com:5555")
 
   def main (args: Array[String]): Unit = {
 
@@ -258,14 +258,15 @@ object CrontabClickhouseRefreshUtil {
 //    sendMsg_btimes_for_ck("ssp_report_overall_dwr",    "2020-02-28 03:00:00", "2020-02-28 03:00:00", "ck_report_overall")
 //        sendMsg_btimes_for_ck("ssp_report_overall_dwr",    "2020-02-23 06:00:00", "2020-02-23 16:00:00", "ck_report_overall")
 //    sendMsg_btimes_for_ck("ssp_report_overall_dwr",    "2020-02-23 17:00:00", "2020-02-23 23:00:00", "ck_report_overall")
+//    sendMsg_btimes_for_ck("ssp_report_overall_dwr",    "2020-03-30 01:00:00", "2020-03-30 04:00:00", "ck_report_overall")
 
-    sendMsg_btimes_for_ck("smartlink_dwr",    "2020-03-11 12:00:00", "2020-03-11 12:00:00", "ck_report_overall")
-
-
+//    sendMsg_btimes_for_ck("smartlink_dwr",    "2020-03-13 01:00:00", "2020-03-13 01:00:00", "ck_report_overall")
 
 
 
     // 刷新campaign/publisher表
+//        sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2020-03-13", "2020-03-13")
+//    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2020-03-01", "2020-03-19")
 //    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2020-02-14", "2020-02-14")
 //    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2020-02-11", "2020-02-11")
 //            sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2020-02-10", "2020-02-20")
@@ -291,6 +292,12 @@ object CrontabClickhouseRefreshUtil {
 //    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-11-27", "2019-11-27")
 
 //    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", "2019-12-01", "2019-12-19")
+
+    //取消天数据刷新
+//        messageResetToLastest("ssp_report_campaign_dm_bqcer", Array("ssp_report_overall_dwr_day"))
+//        messageResetToLastest("ssp_report_publisher_dm_bqcer", Array("ssp_report_overall_dwr_day"))
+//    messageResetToLastest("ck_report_overall_day", Array("ssp_report_overall_dwr_day"))
+
 
 //    while (true) {
 //    sendMaxWaitingTimeMS(DynamicConfig.of("ck_report_overall_day", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(1000*60*60*100L)) // 100小时

@@ -159,6 +159,19 @@ class SyncMysql2HiveHandlerV2_2 extends Handler {
           LOG.warn(s"Incr table append start", "mysqlTable", mysqlT, "hiveTable", hiveT)
           val incrAndUpdateT = s"${hiveT}_incr_and_update_temp_view"
 
+          // 检查hive/mysql数据是否一致，不一致无需更新
+          var mysqlCount = mySqlJDBCClient
+            .executeQuery(s"select count(1) from $mysqlT", new Callback[DataFrame] {
+              override def onCallback (rs: ResultSet): DataFrame = OM.assembleAsDataFrame(rs, hiveContext)
+            })
+            .first()
+            .getAs[Long](0)
+
+          var hiveCount = hiveContext
+            .sql(s"select count(1) from $hiveT")
+            .first()
+            .getAs[Long](0)
+
           var lastId = 0L
 
           // 初始化
@@ -173,6 +186,10 @@ class SyncMysql2HiveHandlerV2_2 extends Handler {
             }
             // 首次运行，消息队列为空，全量同步
             else if(x.isEmpty) {
+              0L
+            }
+            // 不一致就需要全量同步
+            else if(!hiveCount.equals(mysqlCount)) {
               0L
             }
             else {
