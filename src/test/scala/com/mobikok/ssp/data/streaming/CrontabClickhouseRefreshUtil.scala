@@ -19,8 +19,38 @@ object CrontabClickhouseRefreshUtil {
   val messageClient = new MessageClient("", "http://104.250.136.138:5555")
 //  val messageClient = new MessageClient("", "http://datarest.noadx.com:5555")
 
-  def main (args: Array[String]): Unit = {
 
+  // 刷新天表（campaign、publisher以及 BI天表）
+  def refreshDay(startDay:String, endDay:String): Unit = {
+    sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", startDay, endDay)
+    //当刷新太多天数据时，需延长当前批次的等待时间
+    sendMaxWaitingTimeMS(DynamicConfig.of("bq_report_overall ", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(1000*60*60*100L)) // 100小时
+  }
+
+  //刷新小时表（BI小时表）
+  def refreshHour(startBTime:String, endBTime:String){
+    sendMsg_btimes_for_ck("ssp_report_overall_dwr",    startBTime, startBTime, "ck_report_overall")
+    //当刷新太多天数据时，需延长当前批次等待时间
+    sendMaxWaitingTimeMS(DynamicConfig.of("ck_report_overall", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(1000*60*60*100L)) // 100小时
+  }
+
+  // 天：当刷新太多天数据时，需延长当前批次等待时间
+  def refreshDay_waitingLongTime(): Unit = {
+    sendMaxWaitingTimeMS(DynamicConfig.of("bq_report_overall ", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(1000*60*60*100L)) // 100小时
+  }
+  // 小时：当刷新太多小时数据时，需延长当前批次等待时间
+  def refreshHour_waitingLongTime(): Unit = {
+    sendMaxWaitingTimeMS(DynamicConfig.of("ck_report_overall ", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(1000*60*60*100L)) // 100小时
+  }
+
+  def main (args: Array[String]): Unit = {
+      // 刷新天表
+//    refreshDay("2020-05-18", "2020-05-18");
+      // 刷新小时表
+//    refreshHour("2020-05-18 12:00:00", "2020-05-18 12:00:00");
+
+//    refreshHour_waitingLongTime()
+    refreshDay_waitingLongTime()
 
 //    http://node14:5555//Api/Message?consumer=nadx_p_matched_dwi_cer&topics=nadx_performance_dwi&topics=nadx_traffic_dwi
 //    messageResetToLastest("nadx_p_matched_dwi_cer", Array("nadx_performance_dwi", "nadx_traffic_dwi"))
@@ -619,7 +649,7 @@ object CrontabClickhouseRefreshUtil {
 
   }
 
-  //含startDate
+  //含startDay和endDay
   def sendMsg_btime_00_00_00 (topic: String, startDay: String, endDay: String): Unit = {
 
     val days =daysBetween(startDay, endDay)+1
@@ -634,6 +664,7 @@ object CrontabClickhouseRefreshUtil {
     messageClient.pushMessage(s: _*);
   }
 
+  //包含startBTime和endBTime
   def sendMsg_btimes_for_ck(topic: String, startBTime: String, endBTime: String, appName: String): Unit = {
 
     var startT = CSTTime.ms(startBTime)
