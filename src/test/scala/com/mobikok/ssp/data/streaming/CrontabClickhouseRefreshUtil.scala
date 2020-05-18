@@ -16,7 +16,7 @@ import com.mobikok.ssp.data.streaming.util.{CSTTime, MC, OM}
 object CrontabClickhouseRefreshUtil {
 
   val DF = new SimpleDateFormat("yyyy-MM-dd")
-  val messageClient = new MessageClient("", "http://node14:5555")
+  val messageClient = new MessageClient("", "http://104.250.136.138:5555")
 //  val messageClient = new MessageClient("", "http://datarest.noadx.com:5555")
 
   def main (args: Array[String]): Unit = {
