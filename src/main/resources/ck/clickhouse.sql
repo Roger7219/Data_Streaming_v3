@@ -128,3 +128,29 @@ CREATE TABLE test__ssp_report_overall_dm_month_all AS test__ssp_report_overall_d
 
 CREATE TABLE test__ssp_report_overall_dm_month_for_select AS test__ssp_report_overall_dm_month;
 CREATE TABLE test__ssp_report_overall_dm_month_for_select_all AS test__ssp_report_overall_dm_month_for_select ENGINE = Distributed(hive_like_ck_cluster, default, test__ssp_report_overall_dm_month_for_select, rand());
+
+ALTER TABLE dsp_cloak_conversion_dwi ADD COLUMN times Int32 DEFAULT CAST(0 AS Int32) AFTER offerid;
+ALTER TABLE dsp_cloak_conversion_dwi ADD COLUMN adverid Int32 DEFAULT CAST(0 AS Int32) AFTER offerid;
+ALTER TABLE dsp_cloak_conversion_dwi ADD COLUMN dspid Int32 DEFAULT CAST(0 AS Int32) AFTER offerid;
+ALTER TABLE dsp_cloak_conversion_dwi_all ADD COLUMN times Int32 DEFAULT CAST(0 AS Int32) AFTER offerid;
+ALTER TABLE dsp_cloak_conversion_dwi_all ADD COLUMN adverid Int32 DEFAULT CAST(0 AS Int32) AFTER offerid;
+ALTER TABLE dsp_cloak_conversion_dwi_all ADD COLUMN dspid Int32 DEFAULT CAST(0 AS Int32) AFTER offerid;
+ALTER TABLE dsp_cloak_conversion_dwi_for_select ADD COLUMN times Int32 DEFAULT CAST(0 AS Int32) AFTER offerid;
+ALTER TABLE dsp_cloak_conversion_dwi_for_select ADD COLUMN adverid Int32 DEFAULT CAST(0 AS Int32) AFTER offerid;
+ALTER TABLE dsp_cloak_conversion_dwi_for_select ADD COLUMN dspid Int32 DEFAULT CAST(0 AS Int32) AFTER offerid;
+ALTER TABLE dsp_cloak_conversion_dwi_for_select_all ADD COLUMN times Int32 DEFAULT CAST(0 AS Int32) AFTER offerid;
+ALTER TABLE dsp_cloak_conversion_dwi_for_select_all ADD COLUMN adverid Int32 DEFAULT CAST(0 AS Int32) AFTER offerid;
+ALTER TABLE dsp_cloak_conversion_dwi_for_select_all ADD COLUMN dspid Int32 DEFAULT CAST(0 AS Int32) AFTER offerid;
+ALTER TABLE dsp_cloak_request_dwi ADD COLUMN times Int32 DEFAULT CAST(0 AS Int32) AFTER offerid;
+ALTER TABLE dsp_cloak_request_dwi ADD COLUMN adverid Int32 DEFAULT CAST(0 AS Int32) AFTER offerid;
+ALTER TABLE dsp_cloak_request_dwi ADD COLUMN dspid Int32 DEFAULT CAST(0 AS Int32) AFTER offerid;
+ALTER TABLE dsp_cloak_request_dwi_all ADD COLUMN times Int32 DEFAULT CAST(0 AS Int32) AFTER offerid;
+ALTER TABLE dsp_cloak_request_dwi_all ADD COLUMN adverid Int32 DEFAULT CAST(0 AS Int32) AFTER offerid;
+ALTER TABLE dsp_cloak_request_dwi_all ADD COLUMN dspid Int32 DEFAULT CAST(0 AS Int32) AFTER offerid;
+ALTER TABLE dsp_cloak_request_dwi_for_select ADD COLUMN times Int32 DEFAULT CAST(0 AS Int32) AFTER offerid;
+ALTER TABLE dsp_cloak_request_dwi_for_select ADD COLUMN adverid Int32 DEFAULT CAST(0 AS Int32) AFTER offerid;
+ALTER TABLE dsp_cloak_request_dwi_for_select ADD COLUMN dspid Int32 DEFAULT CAST(0 AS Int32) AFTER offerid;
+ALTER TABLE dsp_cloak_request_dwi_for_select_all ADD COLUMN times Int32 DEFAULT CAST(0 AS Int32) AFTER offerid;
+ALTER TABLE dsp_cloak_request_dwi_for_select_all ADD COLUMN adverid Int32 DEFAULT CAST(0 AS Int32) AFTER offerid;
+ALTER TABLE dsp_cloak_request_dwi_for_select_all ADD COLUMN dspid Int32 DEFAULT CAST(0 AS Int32) AFTER offerid;
+

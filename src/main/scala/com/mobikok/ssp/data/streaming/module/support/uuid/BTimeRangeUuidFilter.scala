@@ -14,6 +14,7 @@ import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
 
 /**
+  * 指定开始和结束的时间区间，通过startOffsetHour和endOffsetHour
   * Created by Administrator on 2018/4/17.
   */
 class BTimeRangeUuidFilter(dwiBTimeFormat: String = "yyyy-MM-dd HH:00:00", bTimeRange: List[Int]) extends UuidFilter{
