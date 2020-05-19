@@ -8,6 +8,6 @@ object DynamicConfig {
   val BATCH_PROCESSING_TIMEOUT_MS = "batch.processing.timeout.ms"
 
   def of(appName: String, configName: String) :String={
-    s"$appName.$configName"
+    s"${appName.trim}.$configName"
   }
 }
