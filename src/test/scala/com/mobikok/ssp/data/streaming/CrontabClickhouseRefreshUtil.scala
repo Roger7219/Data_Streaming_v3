@@ -24,7 +24,7 @@ object CrontabClickhouseRefreshUtil {
   def refreshDay(startDay:String, endDay:String): Unit = {
     sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", startDay, endDay)
     //当刷新太多天数据时，需延长当前批次的等待时间
-    sendMaxWaitingTimeMS(DynamicConfig.of("bq_report_overall ", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(1000*60*60*100L)) // 100小时
+    sendMaxWaitingTimeMS(DynamicConfig.of("bq_report_overall", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(1000*60*60*100L)) // 100小时
   }
 
   //刷新小时表（BI小时表）
@@ -36,11 +36,11 @@ object CrontabClickhouseRefreshUtil {
 
   // 天：当刷新太多天数据时，需延长当前批次等待时间
   def refreshDay_waitingLongTime(): Unit = {
-    sendMaxWaitingTimeMS(DynamicConfig.of("bq_report_overall ", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(1000*60*60*100L)) // 100小时
+    sendMaxWaitingTimeMS(DynamicConfig.of("bq_report_overall", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(1000*60*60*100L)) // 100小时
   }
   // 小时：当刷新太多小时数据时，需延长当前批次等待时间
   def refreshHour_waitingLongTime(): Unit = {
-    sendMaxWaitingTimeMS(DynamicConfig.of("ck_report_overall ", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(1000*60*60*100L)) // 100小时
+    sendMaxWaitingTimeMS(DynamicConfig.of("ck_report_overall", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(1000*60*60*100L)) // 100小时
   }
 
   def main (args: Array[String]): Unit = {
