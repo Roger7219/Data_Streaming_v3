@@ -24,23 +24,23 @@ object CrontabClickhouseRefreshUtil {
   def refreshDay(startDay:String, endDay:String): Unit = {
     sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", startDay, endDay)
     //当刷新太多天数据时，需延长当前批次的等待时间
-    sendMaxWaitingTimeMS(DynamicConfig.of("bq_report_overall", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(1000*60*60*100L)) // 100小时
+    sendMaxWaitingTimeMS(DynamicConfig.of("bq_report_overall", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(Integer.MAX_VALUE))
   }
 
   //刷新小时表（BI小时表）
   def refreshHour(startBTime:String, endBTime:String){
     sendMsg_btimes_for_ck("ssp_report_overall_dwr",    startBTime, startBTime, "ck_report_overall")
     //当刷新太多天数据时，需延长当前批次等待时间
-    sendMaxWaitingTimeMS(DynamicConfig.of("ck_report_overall", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(1000*60*60*100L)) // 100小时
+    sendMaxWaitingTimeMS(DynamicConfig.of("ck_report_overall", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(Integer.MAX_VALUE))
   }
 
   // 天：当刷新太多天数据时，需延长当前批次等待时间
   def refreshDay_waitingLongTime(): Unit = {
-    sendMaxWaitingTimeMS(DynamicConfig.of("bq_report_overall", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(1000*60*60*100L)) // 100小时
+    sendMaxWaitingTimeMS(DynamicConfig.of("bq_report_overall", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(Integer.MAX_VALUE))
   }
   // 小时：当刷新太多小时数据时，需延长当前批次等待时间
   def refreshHour_waitingLongTime(): Unit = {
-    sendMaxWaitingTimeMS(DynamicConfig.of("ck_report_overall", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(1000*60*60*100L)) // 100小时
+    sendMaxWaitingTimeMS(DynamicConfig.of("ck_report_overall", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(Integer.MAX_VALUE))
   }
 
   def main (args: Array[String]): Unit = {
@@ -49,8 +49,8 @@ object CrontabClickhouseRefreshUtil {
       // 刷新小时表
 //    refreshHour("2020-05-18 12:00:00", "2020-05-18 12:00:00");
 
-//    refreshHour_waitingLongTime()
-    refreshDay_waitingLongTime()
+    refreshHour_waitingLongTime()
+//    refreshDay_waitingLongTime()
 
 //    http://node14:5555//Api/Message?consumer=nadx_p_matched_dwi_cer&topics=nadx_performance_dwi&topics=nadx_traffic_dwi
 //    messageResetToLastest("nadx_p_matched_dwi_cer", Array("nadx_performance_dwi", "nadx_traffic_dwi"))
