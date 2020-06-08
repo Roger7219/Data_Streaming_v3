@@ -198,14 +198,18 @@ class SyncMysql2HiveHandlerV2_2 extends Handler {
 
             LOG.warn("Incr table ","hiveTable", hiveT, "lastId", lastId)
 
+            val fieldsExpr = hiveDF.schema.fieldNames.map(x => s"`$x`")
+
             val mysqlIncrDF =
               hiveContext
                 .read
-                .jdbc(rdbUrl, s"(select * from $mysqlT where id > $lastId) as sync_incr_table", rdbProp)
+                .jdbc(rdbUrl, s"(select ${fieldsExpr.mkString(", \n ")} from $mysqlT where id > $lastId) as sync_incr_table", rdbProp)
                 .selectExpr(hiveDF.schema.fieldNames.map(x => s"`$x`"): _*)
 
-            //必须截断式缓存，因为spark是延迟读mysql，可能会读多次，因为mysql的数据一直在变化，所以如果多次读，可能结果不一致
-            val incrDF = hiveContext.createDataFrame(mysqlIncrDF.collectAsList(), mysqlIncrDF.schema)
+//            //必须截断式缓存，因为spark是延迟读mysql，可能会读多次，因为mysql的数据一直在变化，所以如果多次读，可能结果不一致
+//            val incrDF = hiveContext.createDataFrame(mysqlIncrDF.collectAsList(), mysqlIncrDF.schema)
+            // collectAsList() 太耗费drive端内存，放弃
+            val incrDF = mysqlIncrDF
             incrDF.persist()
 
             val updateDF = null // updateDFByWhere(tablesUpdateWhere, mysqlT, hiveT)
@@ -220,7 +224,7 @@ class SyncMysql2HiveHandlerV2_2 extends Handler {
               var uniqueAllDF = sql(
                 s"""
                    |select
-                   |  ${hiveDF.schema.fieldNames.map(x => s"`$x`").mkString(", \n  ")}
+                   |  ${fieldsExpr.mkString(", \n ")}
                    |from(
                    |  select
                    |    *,
@@ -242,7 +246,7 @@ class SyncMysql2HiveHandlerV2_2 extends Handler {
               sql(s"create table $syncProcessingT like $hiveT")
 
               uniqueAllDF
-                .selectExpr(hiveDF.schema.fieldNames.map(x => s"`$x`"): _*)
+                .selectExpr(fieldsExpr: _*)
                 .repartition(50)
                 .write
                 .format("orc")
