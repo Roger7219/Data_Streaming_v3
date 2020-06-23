@@ -203,6 +203,9 @@ class ModuleTracer(moduleName: String, config: Config, mixModulesBatchController
 
                   if(remainingWaitingTimeMS < 0){
                     LOG.warn(s"App module batch processing timeout !!!", "important_notice", "Kill self yarn app at once !!!", "app_name", n, "module_name", moduleName, "max_batch_processing_time", (maxWaitingTimeMS/1000.0/60.0) +" minutes")
+
+                    Thread.sleep(1000*5) // 稍等一会儿kill自身，确保上述日志能打印出来
+
                     YarnAPPManagerUtil.killApps(n)
                   }
                   Thread.sleep(maxWaitingTimeMS)

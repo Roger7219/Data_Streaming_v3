@@ -3,13 +3,13 @@ package com.mobikok.ssp.data.streaming
 import java.text.SimpleDateFormat
 import java.util.Date
 
-import com.mobikok.message.MessagePushReq
+import com.mobikok.message.{MessageConsumerCommitReq, MessagePullReq, MessagePushReq}
 import com.mobikok.message.client.MessageClient
 import com.mobikok.ssp.data.streaming.BigQueryRefreshUtil.{DF, daysBetween, messageClient, sendMaxWaitingTimeMS}
 import com.mobikok.ssp.data.streaming.config.DynamicConfig
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
 import com.mobikok.ssp.data.streaming.util.{CSTTime, MC, OM}
-
+import scala.collection.JavaConversions._
 /**nadx_p_matched_dwi_cer
   * Created by Administrator on 2017/9/26.
   */
@@ -24,22 +24,25 @@ object CrontabClickhouseRefreshUtil {
   def refreshDay(startDay:String, endDay:String): Unit = {
     sendMsg_btime_00_00_00("ssp_report_overall_dwr_day", startDay, endDay)
     //当刷新太多天数据时，需延长当前批次的等待时间
-    sendMaxWaitingTimeMS(DynamicConfig.of("bq_report_overall", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(Integer.MAX_VALUE))
+    refreshDay_waitingLongTime()
   }
 
   //小时表：刷新（BI小时表）
   def refreshHour(startBTime:String, endBTime:String){
     sendMsg_btimes_for_ck("ssp_report_overall_dwr",    startBTime, startBTime, "ck_report_overall")
     //当刷新太多天数据时，需延长当前批次等待时间
-    sendMaxWaitingTimeMS(DynamicConfig.of("ck_report_overall", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(Integer.MAX_VALUE))
+    refreshHour_waitingLongTime()
   }
 
   // 天表：当刷新太多天数据时，需延长当前批次等待时间
   def refreshDay_waitingLongTime(): Unit = {
-    sendMaxWaitingTimeMS(DynamicConfig.of("bq_report_overall", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(Integer.MAX_VALUE))
+    sendMaxWaitingTimeMS(DynamicConfig.of("bq_report_mix", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(Integer.MAX_VALUE))
+    sendMaxWaitingTimeMS(DynamicConfig.of("bq_report_overall_day_v2", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(Integer.MAX_VALUE))
+    sendMaxWaitingTimeMS(DynamicConfig.of("ck_report_overall_day", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(Integer.MAX_VALUE))
   }
   // 小时表：当刷新太多小时数据时，需延长当前批次等待时间
   def refreshHour_waitingLongTime(): Unit = {
+    sendMaxWaitingTimeMS(DynamicConfig.of("bq_report_overall", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(Integer.MAX_VALUE))
     sendMaxWaitingTimeMS(DynamicConfig.of("ck_report_overall", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(Integer.MAX_VALUE))
   }
 
@@ -65,7 +68,7 @@ object CrontabClickhouseRefreshUtil {
 //    refreshHour("2020-05-18 12:00:00", "2020-05-18 12:00:00");
 
 //    refreshHour_waitingLongTime()
-//    refreshDay_waitingLongTime()
+    refreshDay_waitingLongTime()
 //    messageResetToLastest_BI_hour()
 //    messageResetToLastest_ssp_campaign_day()
 //    messageResetToLastest_BI_day()
