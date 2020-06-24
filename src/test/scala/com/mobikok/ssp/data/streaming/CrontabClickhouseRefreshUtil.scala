@@ -51,9 +51,10 @@ object CrontabClickhouseRefreshUtil {
     messageResetToLastest("ck_report_overall_day", Array("ssp_report_overall_dwr_day", "ssp_report_overall_dm_day_v2_update", "ck_report_overall_day", "PublisherThirdIncomeDMReflush"))
   }
 
-  // 天表：从最新的消息开始消费，忽略掉历史消息（SSP campaign天表）
-  def messageResetToLastest_ssp_campaign_day(): Unit ={
+  // 天表：从最新的消息开始消费，忽略掉历史消息（SSP campaign和pubsliher天表）
+  def messageResetToLastest_ssp_campaign_and_publisher_day(): Unit ={
     messageResetToLastest("ssp_report_campaign_dm_bqcer", Array("ssp_report_overall_dwr_day", "bq_report_campaign_update"))
+    messageResetToLastest("ssp_report_publisher_dm_bqcer", Array("ssp_report_overall_dwr_day", "bq_report_publisher_update"))
   }
 
   // 小时表：从最新的消息开始消费，忽略掉历史消息（BI小时表）
@@ -68,9 +69,9 @@ object CrontabClickhouseRefreshUtil {
 //    refreshHour("2020-05-18 12:00:00", "2020-05-18 12:00:00");
 
 //    refreshHour_waitingLongTime()
-    refreshDay_waitingLongTime()
+//    refreshDay_waitingLongTime()
 //    messageResetToLastest_BI_hour()
-//    messageResetToLastest_ssp_campaign_day()
+//    messageResetToLastest_ssp_campaign_and_publisher_day()
 //    messageResetToLastest_BI_day()
 
 //    http://node14:5555//Api/Message?consumer=nadx_p_matched_dwi_cer&topics=nadx_performance_dwi&topics=nadx_traffic_dwi
