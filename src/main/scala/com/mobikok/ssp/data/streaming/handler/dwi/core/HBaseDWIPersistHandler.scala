@@ -11,6 +11,7 @@ import org.apache.spark.sql.DataFrame
 
 class HBaseDWIPersistHandler extends Handler {
 
+  // 暂时没有用，因为调用的是putsNonTransaction()，即非事务操作。
   var cookie: TransactionCookie = _
 
   val HBASE_WRITECOUNT_BATCH_TOPIC = "hbase_writecount_topic"
@@ -23,7 +24,9 @@ class HBaseDWIPersistHandler extends Handler {
     isAsynchronous = true
     super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, handlerConfig, globalConfig, expr, as)
 
-    dwiPhoenixSubtableEnable = globalConfig.getBoolean(s"modules.$moduleName.dwi.phoenix.subtable.enable")
+    if(globalConfig.hasPath(s"modules.$moduleName.dwi.phoenix.subtable.enable")){
+      dwiPhoenixSubtableEnable = globalConfig.getBoolean(s"modules.$moduleName.dwi.phoenix.subtable.enable")
+    }
     dwiPhoenixTable = globalConfig.getString(s"modules.$moduleName.dwi.phoenix.table")
   }
 
@@ -52,10 +55,12 @@ class HBaseDWIPersistHandler extends Handler {
   }
 
   override def commit(c: TransactionCookie): Unit = {
+    //这样代码可以删（目前作为样例），即不用调，因为调用的是putsNonTransaction()，返回的cookie为空，即非事务操作
     hbaseClient.commit(cookie)
   }
 
   override def clean(cookies: TransactionCookie*): Unit = {
-    hbaseClient.clean(cookies:_*)
+    //暂时没有用，因为调用的是putsNonTransaction()，即非事务操作。
+    hbaseClient.clean(Array[TransactionCookie]():_*)// 空数组
   }
 }
