@@ -428,6 +428,8 @@ class HBaseClient (moduleName: String, sc: SparkContext, config: Config, transac
 
   override def commit (cookie: TransactionCookie): Unit = {
 
+    if(cookie == null) return
+
     LOG.warn("hbase commit start")
     moduleTracer.trace("    hbase commit start")
 

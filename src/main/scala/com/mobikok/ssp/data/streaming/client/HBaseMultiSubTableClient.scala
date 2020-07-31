@@ -726,6 +726,9 @@ class HBaseMultiSubTableClient (moduleName: String, sc: SparkContext, config: Co
 
   override def commit (cookie: TransactionCookie): Unit = {
     waitInit()
+
+    if(cookie == null) return
+
     LOG.warn("hbase commit start")
     moduleTracer.trace("    hbase commit start")
 
