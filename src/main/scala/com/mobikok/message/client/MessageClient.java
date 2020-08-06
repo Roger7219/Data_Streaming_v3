@@ -38,7 +38,7 @@ public class MessageClient {
         this.apiBase = apiBase;
     }
 
-    //拉取
+    //拉取 & offset升序
     public Resp<List<Message>> pullMessage(MessagePullReq req){
 
         return RunAgainIfError.runForJava(() -> {
@@ -71,6 +71,9 @@ public class MessageClient {
             LOG.warnForJava("MessageClient pullMessage rest api response", resp);
 
             res = OM.toBean(resp, new TypeReference<Resp<List<Message>>>() {});
+
+            //容错性处理，避免getPageData()为空时，后续操作抛空指针异常
+            if(res.getPageData() == null) res.setPageData(Collections.EMPTY_LIST);
 
             //升序
             Collections.sort(res.getPageData(), new Comparator<Message>() {

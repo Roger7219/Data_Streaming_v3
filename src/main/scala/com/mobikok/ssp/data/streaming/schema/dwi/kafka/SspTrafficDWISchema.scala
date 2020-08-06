@@ -7,10 +7,23 @@ class SspTrafficDWISchema{
 }
 object SspTrafficDWISchema{
 
+//
+//  insert overwrite table xxx
+//  select publisherId,subId,offerId, sum(sendPrice), sum(reportPrice)
+//  from dwi where day = 'xxx'
+//  group by concat(appId, countryId) ,publisherId ,subId,offerId
+
+//  publisherId, sendPrice
+//  11,        ,  12.2
+//  null       ,  11
+//  null       ,  12
+
   //注意字段名两边不要含空格！！
   val structType = StructType(
       StructField("id",          IntegerType) ::
+
       StructField("publisherId", IntegerType) ::
+
       StructField("subId",       IntegerType) ::
       StructField("offerId",     IntegerType) ::
       StructField("campaignId",  IntegerType) ::
@@ -30,9 +43,11 @@ object SspTrafficDWISchema{
       StructField("bidPrice",    DoubleType)  ::
       StructField("adType",      IntegerType) ::
       StructField("isSend",      IntegerType) ::
+
       StructField("reportPrice", DoubleType)  ::
       StructField("sendPrice",   DoubleType)  ::
-      StructField("s1",          StringType)  ::
+
+        StructField("s1",          StringType)  ::
       StructField("s2",          StringType)  ::
       StructField("gaid",        StringType)  ::
       StructField("androidId",   StringType)  ::

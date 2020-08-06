@@ -27,7 +27,6 @@ import scala.collection.immutable.Nil
   * Created by Administrator  on 2017/6/8.
   */
 class OptimizedMixApp {
-
 }
 
 object OptimizedMixApp {
@@ -94,7 +93,7 @@ object OptimizedMixApp {
 
     }catch {case e:Throwable=>
 
-      throw new AppException("AppV2 run fail !!", e)
+      throw new AppException(s"${this.getClass.getSimpleName}(${this.appName}) run fail !!", e)
     }
   }
 
@@ -348,9 +347,13 @@ object OptimizedMixApp {
         }
 
         // 给kafka partitions中的topic加上对应的version信息
-        var vTps = allModulesConfig
-          .getConfigList(s"modules.${vName}.kafka.consumer.partitions")
-          .map{y=>
+        var vTps =
+            (if(allModulesConfig.hasPath(s"modules.${vName}.kafka.consumer.partitions"))
+              allModulesConfig.getConfigList(s"modules.${vName}.kafka.consumer.partitions")
+            else
+              allModulesConfig.getConfigList(s"modules.${vName}.kafka.consumer.partitoins") //兼容早期版本错别字：partitoins
+            )
+            .map{y=>
             var tp = new java.util.HashMap[String, Any]()
             tp.put("topic", versionFeaturesKafkaTopicName(kafkaTopicVersion, y.getString("topic")))
             if(y.hasPath("partition")) tp.put("partition", y.getInt("partition"))

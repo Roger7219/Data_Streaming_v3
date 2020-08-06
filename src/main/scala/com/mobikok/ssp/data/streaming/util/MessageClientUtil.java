@@ -8,41 +8,109 @@ import com.mobikok.ssp.data.streaming.entity.HivePartitionPart;
 
 import java.util.*;
 
+/**
+ * 这是Java版的MC实现。如果用Scala语言，最好用Scala版的 MC类
+ */
 public class MessageClientUtil {
 
-    public static void pullAndSortByLTimeDescHivePartitionParts(MessageClient messageClient, String consumer, Callback<ArrayList<HivePartitionPart>> callback, String... topics){
+    public static void pullAndSortByLTimeDescHivePartitionParts(MessageClient messageClient, String consumer, Callback<List<HivePartitionPart>> callback, String... topics){
         pullAndSortDescHivePartitionParts(messageClient, consumer, "l_time", callback, topics);
     }
 
-    public static void pullAndSortByBDateDescHivePartitionParts(MessageClient messageClient, String consumer, Callback<ArrayList<HivePartitionPart>> callback, String... topics){
+    public static void pullAndSortByBDateDescHivePartitionParts(MessageClient messageClient, String consumer, Callback<List<HivePartitionPart>> callback, String... topics){
         pullAndSortDescHivePartitionParts(messageClient, consumer, "b_date",callback, topics);
     }
 
-    public static void pullAndSortByBTimeDescHivePartitionParts(MessageClient messageClient, String consumer, Callback<ArrayList<HivePartitionPart>> callback, String... topics){
+    public static void pullAndSortByBTimeDescHivePartitionParts(MessageClient messageClient, String consumer, Callback<List<HivePartitionPart>> callback, String... topics){
         pullAndSortDescHivePartitionParts(messageClient, consumer, "b_time",callback, topics);
     }
 
+    public static void pullAndSortByBTimeDescHivePartitionParts(MessageClient messageClient, String consumer, HivePartitionPartsPartialCommitCallback<List<HivePartitionPart>> callback, String... topics){
+        pullAndSortDescHivePartitionParts(messageClient, consumer, "b_time", callback, topics);
+    }
+
+
+
+//    private static HivePartitionPart[][] toHivePartitionParts(Resp<List<Message>> resp, String partitionFieldName){
+//
+//    }
+
+    private static List<HivePartitionPart> toHivePartitionPartsDesc(Resp<List<Message>> resp, String partitionFieldName){
+        List<HivePartitionPart> result = new ArrayList<HivePartitionPart>();
+        //去 重
+        LinkedHashSet<HivePartitionPart> set = new LinkedHashSet<HivePartitionPart>();
+        List<Message> list = resp.getPageData();
+        if(list != null){
+            for(Message m : list) {
+                HivePartitionPart[][] pss = OM.toBean(m.getKeyBody(), new TypeReference <HivePartitionPart[][]>() {});
+                for(HivePartitionPart[] ps : pss){
+                    for(HivePartitionPart p : ps) {
+                        if(partitionFieldName.equals(p.getName()) && !"__HIVE_DEFAULT_PARTITION__".equals(p.getValue()) && StringUtil.notEmpty(p.getValue())) {
+                            set.add(p);
+                        }
+
+                    }
+                }
+            }
+        }
+
+        result.addAll(set);
+        result.sort(new Comparator<HivePartitionPart>() {
+            public int compare(HivePartitionPart a, HivePartitionPart b) {
+                return -a.getValue().compareTo(b.getValue());
+            }
+        });
+
+        return result;
+    }
+
+
+    // b_time
     private static void pullAndSortDescHivePartitionParts(
             MessageClient messageClient, String consumer,
             final String partitionFieldName,
-            final Callback<ArrayList<HivePartitionPart>> callback,
-            String... topic){
+            final Callback<List<HivePartitionPart>> callback,
+            String... topic) {
 
         pullAndCommit(messageClient, consumer, new Callback<Resp<List<Message>>>() {
-
             public Boolean doCallback(Resp<List<Message>> resp) {
+                return callback.doCallback(toHivePartitionPartsDesc(resp, partitionFieldName));
+            }
+        }, topic);
+    }
 
-                ArrayList<HivePartitionPart> result = new ArrayList<HivePartitionPart>();
+    // b_time & partial commit
+    private static void pullAndSortDescHivePartitionParts(
+            MessageClient messageClient, String consumer,
+            final String partitionFieldName,
+            final HivePartitionPartsPartialCommitCallback<List<HivePartitionPart>> callback,
+            String... topic) {
 
-                //去 重
+        pullAndCommit(messageClient, consumer, new PartialCommitCallback<Resp<List<Message>>>() {
+            public List<Message> doCallback(Resp<List<Message>> resp) {
+
+                List<HivePartitionPart> hivePartitions = new ArrayList<HivePartitionPart>();
+                Map<HivePartitionPart, List<Message>> bTimeMappingMessages = new HashMap<>();
+                //用Set去 重
                 LinkedHashSet<HivePartitionPart> set = new LinkedHashSet<HivePartitionPart>();
                 List<Message> list = resp.getPageData();
                 if(list != null){
                     for(Message m : list) {
                         HivePartitionPart[][] pss = OM.toBean(m.getKeyBody(), new TypeReference <HivePartitionPart[][]>() {});
+
+                        if(pss.length > 1) throw new RuntimeException("‘局部提交’不允许两个或两个以上的Hive分区（HivePartitionPart[]）在同一个消息中");
+
                         for(HivePartitionPart[] ps : pss){
                             for(HivePartitionPart p : ps) {
-                                if(partitionFieldName.equals(p.getName()) && !"__HIVE_DEFAULT_PARTITION__".equals(p.getValue()) && StringUtil.notEmpty(p.getValue())) {
+                                if(partitionFieldName.equals(p.getName()) && StringUtil.notEmpty(p.getValue()) && !"__HIVE_DEFAULT_PARTITION__".equals(p.getValue())) {
+
+                                    List<Message> ms = bTimeMappingMessages.get(p);
+                                    if(ms == null) {
+                                        ms = new ArrayList<>();
+                                        bTimeMappingMessages.put(p, ms);
+                                    }
+                                    ms.add(m);
+
                                     set.add(p);
                                 }
 
@@ -51,20 +119,26 @@ public class MessageClientUtil {
                     }
                 }
 
-                result.addAll(set);
-                result.sort(new Comparator<HivePartitionPart>() {
+                hivePartitions.addAll(set);
+                // 降序
+                hivePartitions.sort(new Comparator<HivePartitionPart>() {
                     public int compare(HivePartitionPart a, HivePartitionPart b) {
                         return -a.getValue().compareTo(b.getValue());
                     }
                 });
 
-                return callback.doCallback(result);
+                HivePartitionPart[] needPartialCommitBTimes = callback.doCallback(hivePartitions);
 
+                List<Message> needPartialCommitMessages = new ArrayList<>();
+                for(HivePartitionPart b_time : needPartialCommitBTimes){
+                    needPartialCommitMessages.addAll(bTimeMappingMessages.get(b_time));
+                }
+                return needPartialCommitMessages;
             }
         }, topic);
     }
 
-    //按offset升序
+    //拉取 & 升序
     public static void pullAndCommit(MessageClient messageClient, String consumer, Callback<Resp<List<Message>>> callback, String... topic){
 
         Resp<List<Message>> resp = messageClient.pullMessage(new MessagePullReq(consumer, topic));
@@ -72,9 +146,10 @@ public class MessageClientUtil {
 
         boolean b = callback.doCallback(resp);
 
-        if(b && pd != null) {
-            MessageConsumerCommitReq[] ms = new MessageConsumerCommitReq[pd.size()];
+        if(b && pd != null && !pd.isEmpty()) {
 
+            MessageConsumerCommitReq[] ms = new MessageConsumerCommitReq[pd.size()];
+            // 其实只要提交每个topic的最大偏移的那一个，没必要提交多条req，待改
             for(int i=0; i < pd.size(); i++){
                 ms[i] = new MessageConsumerCommitReq(consumer, pd.get(i).getTopic(), pd.get(i).getOffset());
             }
@@ -82,22 +157,41 @@ public class MessageClientUtil {
         }
     }
 
+    //拉取 & 局部提交
+    public static void pullAndCommit(MessageClient messageClient, String consumer, PartialCommitCallback<Resp<List<Message>>> callback, String... topic){
+
+        Resp<List<Message>> resp = messageClient.pullMessage(new MessagePullReq(consumer, topic));
+        List<Message> pd = resp.getPageData();
+
+        List<Message> partialCommitMessages = callback.doCallback(resp);
+
+        if(partialCommitMessages != null && !partialCommitMessages.isEmpty() && pd != null) {
+            MessageConsumerCommitReq[] ms = new MessageConsumerCommitReq[partialCommitMessages.size()];
+
+            //其实只要提交每个topic的最大偏移的那一个，没必要提交多条req，待改
+            for(int i=0; i < partialCommitMessages.size(); i++){
+                ms[i] = new MessageConsumerCommitReq(consumer, partialCommitMessages.get(i).getTopic(), partialCommitMessages.get(i).getOffset(), true);
+            }
+            messageClient.commitMessageConsumer(ms);
+        }
+    }
+
     //获取的是上上部分的l_time(s)
-    public static void pullAndSortByLTimeDescTailHivePartitionParts(MessageClient messageClient, String consumer, Callback<ArrayList<HivePartitionPart>> callback, String... topics){
+    public static void pullAndSortByLTimeDescTailHivePartitionParts(MessageClient messageClient, String consumer, Callback<List<HivePartitionPart>> callback, String... topics){
         pullAndSortByPartitionFieldDescTailHivePartitionParts("l_time", messageClient, consumer, callback, topics);
     }
 
     //获取的是上上部分的b_time(s)
-    public static void pullAndSortByBTimeDescTailHivePartitionParts(MessageClient messageClient, String consumer, Callback<ArrayList<HivePartitionPart>> callback, String... topics){
+    public static void pullAndSortByBTimeDescTailHivePartitionParts(MessageClient messageClient, String consumer, Callback<List<HivePartitionPart>> callback, String... topics){
         pullAndSortByPartitionFieldDescTailHivePartitionParts("b_time", messageClient, consumer, callback, topics);
     }
     //获取的是上上部分的b_date(s)
-    public static void pullAndSortByBDateDescTailHivePartitionParts(MessageClient messageClient, String consumer, Callback<ArrayList<HivePartitionPart>> callback, String... topics){
+    public static void pullAndSortByBDateDescTailHivePartitionParts(MessageClient messageClient, String consumer, Callback<List<HivePartitionPart>> callback, String... topics){
         pullAndSortByPartitionFieldDescTailHivePartitionParts("b_date", messageClient, consumer, callback, topics);
     }
 
-    //获取的是上上部分的l_time(s)
-    public static void pullAndSortByPartitionFieldDescTailHivePartitionParts(String hivePartitionFieldName, MessageClient messageClient, String consumer, Callback<ArrayList<HivePartitionPart>> callback, String... topics){
+    //获取的是在“上上”部分的l_time(s)
+    public static void pullAndSortByPartitionFieldDescTailHivePartitionParts(String hivePartitionFieldName, MessageClient messageClient, String consumer, Callback<List<HivePartitionPart>> callback, String... topics){
 //        pullAndSortDescHivePartitionParts(messageClient, consumer, "l_time", callback, topics);
         String partitionFieldName = hivePartitionFieldName;// "l_time";
 
@@ -105,12 +199,12 @@ public class MessageClientUtil {
         List<Message> pd = resp.getPageData();
 
 //        boolean b = callback.doCallback(resp);
-        ArrayList<HivePartitionPart> result = new ArrayList<HivePartitionPart>();
+        List<HivePartitionPart> result = new ArrayList<HivePartitionPart>();
 
         //去重
         LinkedHashSet<HivePartitionPart> set = new LinkedHashSet<HivePartitionPart>();
         List<Message> list = pd;//resp.getPageData();
-        Map<HivePartitionPart, ArrayList<Message>> filters = new HashMap<HivePartitionPart, ArrayList<Message>>();
+        Map<HivePartitionPart, List<Message>> filters = new HashMap<HivePartitionPart, List<Message>>();
         if(list != null){
             for(Message m : list) {
                 HivePartitionPart[][] pss = OM.toBean(m.getKeyBody(), new TypeReference <HivePartitionPart[][]>() {});
@@ -120,7 +214,7 @@ public class MessageClientUtil {
 
                             set.add(p);
 
-                            ArrayList<Message> ms = filters.get(p);
+                            List<Message> ms = filters.get(p);
                             if(ms == null){
                                 ms = new ArrayList<Message>();
                             }
@@ -155,9 +249,10 @@ public class MessageClientUtil {
         if(b) {
             List<MessageConsumerCommitReq> ms = new ArrayList<MessageConsumerCommitReq>();
 
-            Set<Map.Entry<HivePartitionPart, ArrayList<Message>>> es = filters.entrySet();
+            Set<Map.Entry<HivePartitionPart, List<Message>>> es = filters.entrySet();
 
-            for(Map.Entry<HivePartitionPart, ArrayList<Message>> e : es) {
+            //其实只要提交每个topic的最大偏移的那一个，没必要提交多条req，待改
+            for(Map.Entry<HivePartitionPart, List<Message>> e : es) {
                 for(Message m: e.getValue()) {
                     ms.add(new MessageConsumerCommitReq(consumer, m.getTopic(), m.getOffset()));
                 }
@@ -188,15 +283,15 @@ public class MessageClientUtil {
     }
 
     public static interface CommitOffsetStrategy{
-        Map<HivePartitionPart, ArrayList<Message>> callback(Map<HivePartitionPart, ArrayList<Message>> partitionAndMessageMap, ArrayList<HivePartitionPart> descHivePartitionParts);
+        Map<HivePartitionPart, List<Message>> callback(Map<HivePartitionPart, List<Message>> partitionAndMessageMap, List<HivePartitionPart> descHivePartitionParts);
     }
 
     public static interface CallbackRespStrategy{
-        ArrayList<HivePartitionPart> callback(ArrayList<HivePartitionPart> callbackResp);
+        List<HivePartitionPart> callback(List<HivePartitionPart> callbackResp);
     }
 
     public static CommitOffsetStrategy TAIL_COMMIT_OFFSET_STRATEGY = new CommitOffsetStrategy(){
-        public Map<HivePartitionPart, ArrayList<Message>> callback(Map<HivePartitionPart, ArrayList<Message>> partitionAndMessageMap, ArrayList<HivePartitionPart> descHivePartitionParts) {
+        public Map<HivePartitionPart, List<Message>> callback(Map<HivePartitionPart, List<Message>> partitionAndMessageMap, List<HivePartitionPart> descHivePartitionParts) {
             if(descHivePartitionParts.size() > 0) {
                 partitionAndMessageMap.remove(descHivePartitionParts.get(0));
             }
@@ -205,7 +300,7 @@ public class MessageClientUtil {
     };
 
     public static CallbackRespStrategy TAIL_CALLBACK_RESP_STRATEGY = new CallbackRespStrategy(){
-        public ArrayList<HivePartitionPart> callback(ArrayList<HivePartitionPart> descHivePartitionParts) {
+        public List<HivePartitionPart> callback(List<HivePartitionPart> descHivePartitionParts) {
             if(descHivePartitionParts.size() > 0) {
                 descHivePartitionParts.remove(0);
             }
@@ -213,12 +308,12 @@ public class MessageClientUtil {
         }
     };
 
-    //获取的是上上部分的l_time(s)
+    //获取的是“上上”部分的hive分区(s)
     public static void pullAndSortByPartitionFieldDesc(
             String hivePartitionFieldName,
             MessageClient messageClient,
             String consumer,
-            Callback<ArrayList<HivePartitionPart>> callback,
+            Callback<List<HivePartitionPart>> callback,
             CommitOffsetStrategy commitOffsetStrategy,
             CallbackRespStrategy callbackRespStrategy,
             String... topics){
@@ -229,12 +324,12 @@ public class MessageClientUtil {
         List<Message> pd = resp.getPageData();
 
 //        boolean b = callback.doCallback(resp);
-        ArrayList<HivePartitionPart> result = new ArrayList<HivePartitionPart>();
+        List<HivePartitionPart> result = new ArrayList<HivePartitionPart>();
 
         //去重
         LinkedHashSet<HivePartitionPart> set = new LinkedHashSet<HivePartitionPart>();
         List<Message> list = pd;//resp.getPageData();
-        Map<HivePartitionPart, ArrayList<Message>> filters = new HashMap<HivePartitionPart, ArrayList<Message>>();
+        Map<HivePartitionPart, List<Message>> filters = new HashMap<HivePartitionPart, List<Message>>();
         if(list != null){
             for(Message m : list) {
                 HivePartitionPart[][] pss = OM.toBean(m.getKeyBody(), new TypeReference <HivePartitionPart[][]>() {});
@@ -244,7 +339,7 @@ public class MessageClientUtil {
 
                             set.add(p);
 
-                            ArrayList<Message> ms = filters.get(p);
+                            List<Message> ms = filters.get(p);
                             if(ms == null){
                                 ms = new ArrayList<Message>();
                             }
@@ -282,9 +377,10 @@ public class MessageClientUtil {
         if(b) {
             List<MessageConsumerCommitReq> ms = new ArrayList<MessageConsumerCommitReq>();
 
-            Set<Map.Entry<HivePartitionPart, ArrayList<Message>>> es = filters.entrySet();
+            Set<Map.Entry<HivePartitionPart, List<Message>>> es = filters.entrySet();
 
-            for(Map.Entry<HivePartitionPart, ArrayList<Message>> e : es) {
+            //其实只要提交每个topic的最大偏移的那一个，没必要提交多条req，待改
+            for(Map.Entry<HivePartitionPart, List<Message>> e : es) {
                 for(Message m: e.getValue()) {
                     ms.add(new MessageConsumerCommitReq(consumer, m.getTopic(), m.getOffset()));
                 }
@@ -377,7 +473,19 @@ public class MessageClientUtil {
         Boolean doCallback(T resp);
     }
 
+    public interface HivePartitionPartsPartialCommitCallback<T> {
+        /**
+         * @return 需要‘局部提交’偏移的HivePartition，最后回局部提交该HivePartition对应Messages偏移
+         */
+        HivePartitionPart[] doCallback(T resp);
+    }
 
+    public interface PartialCommitCallback<T> {
+        /**
+         * @return 需要‘局部提交’偏移的Messages
+         */
+        List<Message> doCallback(T resp);
+    }
 
 
     //Test
@@ -393,9 +501,9 @@ public class MessageClientUtil {
 //        }, "test_topic" );
 
         MessageClient mc = new MessageClient("http://node14:5555");
-        MessageClientUtil.pullAndSortByLTimeDescTailHivePartitionParts(mc, "test_cer", new MessageClientUtil.Callback<ArrayList<HivePartitionPart>>(){
+        MessageClientUtil.pullAndSortByLTimeDescTailHivePartitionParts(mc, "test_cer", new MessageClientUtil.Callback<List<HivePartitionPart>>(){
 
-            public Boolean doCallback(ArrayList<HivePartitionPart> resp) {
+            public Boolean doCallback(List<HivePartitionPart> resp) {
                 System.out.println(OM.toJOSN(resp));
                 return true;
             }

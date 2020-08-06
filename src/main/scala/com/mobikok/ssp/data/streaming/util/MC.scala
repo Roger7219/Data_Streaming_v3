@@ -5,12 +5,13 @@ import java.{lang, util}
 import com.mobikok.message.{Message, MessagePushReq, Resp}
 import com.mobikok.message.client.MessageClient
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
-import com.mobikok.ssp.data.streaming.util.MessageClientUtil.{Callback, CallbackRespStrategy, CommitOffsetStrategy}
+import com.mobikok.ssp.data.streaming.util.MessageClientUtil.{Callback, CallbackRespStrategy, CommitOffsetStrategy, HivePartitionPartsPartialCommitCallback}
 
 import scala.collection.JavaConverters._
+import scala.collection.JavaConversions._
 
 /**
-  * MessageClient for Scala !!<br>
+  * MessageClient / MessageClientUtil for Scala !!<br>
   * Created by Administrator on 2018/1/19.
   */
 object MC {
@@ -48,28 +49,41 @@ object MC {
     result
   }
 
+  // b_date
   def pullBDateDesc (consumer: String, topics:Array[String], callback: List[HivePartitionPart] => Boolean ): Unit ={
     checkInited
-    MessageClientUtil.pullAndSortByBDateDescHivePartitionParts(messageClient, consumer, new MessageClientUtil.Callback[util.ArrayList[HivePartitionPart]] {
-      override def doCallback (resp: util.ArrayList[HivePartitionPart]): lang.Boolean = {
+    MessageClientUtil.pullAndSortByBDateDescHivePartitionParts(messageClient, consumer, new MessageClientUtil.Callback[util.List[HivePartitionPart]] {
+      override def doCallback (resp: util.List[HivePartitionPart]): lang.Boolean = {
         callback(resp.asScala.toList)
       }
     }, topics:_*)
   }
 
+  // b_time & partial commit
+  def pullBTimeDescAndPartialCommit(consumer: String, topics:Array[String], callback: List[HivePartitionPart] => Array[HivePartitionPart]): Unit ={
+    checkInited
+    MessageClientUtil.pullAndSortByBTimeDescHivePartitionParts(messageClient, consumer, new HivePartitionPartsPartialCommitCallback[util.List[HivePartitionPart]] {
+      override def doCallback (resp: util.List[HivePartitionPart]): Array[HivePartitionPart] = {
+        callback(resp.asScala.toList)
+      }
+    }, topics:_*)
+  }
+
+  // b_time
   def pullBTimeDesc (consumer: String, topics:Array[String], callback: List[HivePartitionPart] => Boolean ): Unit ={
     checkInited
-    MessageClientUtil.pullAndSortByBTimeDescHivePartitionParts(messageClient, consumer, new MessageClientUtil.Callback[util.ArrayList[HivePartitionPart]] {
-      override def doCallback (resp: util.ArrayList[HivePartitionPart]): lang.Boolean = {
+    MessageClientUtil.pullAndSortByBTimeDescHivePartitionParts(messageClient, consumer, new MessageClientUtil.Callback[util.List[HivePartitionPart]] {
+      override def doCallback (resp: util.List[HivePartitionPart]): lang.Boolean = {
         callback(resp.asScala.toList)
       }
     }, topics:_*)
   }
 
+  // l_time
   def pullLTimeDesc (consumer: String, topics:Array[String], callback: List[HivePartitionPart] => Boolean ): Unit ={
     checkInited
-    MessageClientUtil.pullAndSortByLTimeDescHivePartitionParts(messageClient, consumer, new MessageClientUtil.Callback[util.ArrayList[HivePartitionPart]] {
-      override def doCallback (resp: util.ArrayList[HivePartitionPart]): lang.Boolean = {
+    MessageClientUtil.pullAndSortByLTimeDescHivePartitionParts(messageClient, consumer, new MessageClientUtil.Callback[util.List[HivePartitionPart]] {
+      override def doCallback (resp: util.List[HivePartitionPart]): lang.Boolean = {
         callback(resp.asScala.toList)
       }
     }, topics:_*)
@@ -79,25 +93,25 @@ object MC {
                      topics:Array[String],
                      callback: List[HivePartitionPart] => Boolean,
                     //提交偏移策略
-                     commitOffsetStrategy: (util.Map[HivePartitionPart, util.ArrayList[Message]] , util.ArrayList[HivePartitionPart] ) => util.Map[HivePartitionPart, util.ArrayList[Message]],
+                     commitOffsetStrategy: (util.Map[HivePartitionPart, util.List[Message]] , util.List[HivePartitionPart] ) => util.Map[HivePartitionPart, util.List[Message]],
                      //传入回调函数值的策略
-                     callbackRespStrategy: util.ArrayList[HivePartitionPart] => util.ArrayList[HivePartitionPart]
+                     callbackRespStrategy: util.List[HivePartitionPart] => util.List[HivePartitionPart]
                     ): Unit ={
     checkInited
     MessageClientUtil.pullAndSortByPartitionFieldDesc(
       "l_time",
       messageClient,
       consumer,
-      new MessageClientUtil.Callback[util.ArrayList[HivePartitionPart]] {
-        override def doCallback (resp: util.ArrayList[HivePartitionPart]): lang.Boolean = {
+      new MessageClientUtil.Callback[util.List[HivePartitionPart]] {
+        override def doCallback (resp: util.List[HivePartitionPart]): lang.Boolean = {
           callback(resp.asScala.toList)
         }
       }, new CommitOffsetStrategy() {
-        override def callback(partitionAndMessageMap: util.Map[HivePartitionPart, util.ArrayList[Message]], descHivePartitionParts: util.ArrayList[HivePartitionPart]): util.Map[HivePartitionPart, util.ArrayList[Message]] = {
+        override def callback(partitionAndMessageMap: util.Map[HivePartitionPart, util.List[Message]], descHivePartitionParts: util.List[HivePartitionPart]): util.Map[HivePartitionPart, util.List[Message]] = {
           commitOffsetStrategy(partitionAndMessageMap, descHivePartitionParts)
         }
       }, new CallbackRespStrategy(){
-        override def callback(callbackResp: util.ArrayList[HivePartitionPart]): util.ArrayList[HivePartitionPart] = {
+        override def callback(callbackResp: util.List[HivePartitionPart]): util.List[HivePartitionPart] = {
           callbackRespStrategy(callbackResp)
         }
       }, topics:_*)
@@ -106,16 +120,16 @@ object MC {
   //获取的是排除第一个的l_time(s)
   def pullLTimeDescTail (consumer: String, topics:Array[String], callback: List[HivePartitionPart] => Boolean ): Unit ={
     checkInited
-    MessageClientUtil.pullAndSortByLTimeDescTailHivePartitionParts(messageClient, consumer, new MessageClientUtil.Callback[util.ArrayList[HivePartitionPart]] {
-      override def doCallback (resp: util.ArrayList[HivePartitionPart]): lang.Boolean = {
+    MessageClientUtil.pullAndSortByLTimeDescTailHivePartitionParts(messageClient, consumer, new MessageClientUtil.Callback[util.List[HivePartitionPart]] {
+      override def doCallback (resp: util.List[HivePartitionPart]): lang.Boolean = {
         callback(resp.asScala.toList)
       }
     }, topics:_*)
   }
 ////  获取的是排除第一个的l_time(s)
 //  def pullLTimeDescTailReturnAll (consumer: String, topics:Array[String], callback: List[HivePartitionPart] => Boolean ): Unit ={
-//    MessageClientUtil.pullAndSortByLTimeDescTailHivePartitionPartsReturnAll(messageClient, consumer, new MessageClientUtil.Callback[util.ArrayList[HivePartitionPart]] {
-//      override def doCallback (resp: util.ArrayList[HivePartitionPart]): lang.Boolean = {
+//    MessageClientUtil.pullAndSortByLTimeDescTailHivePartitionPartsReturnAll(messageClient, consumer, new MessageClientUtil.Callback[util.List[HivePartitionPart]] {
+//      override def doCallback (resp: util.List[HivePartitionPart]): lang.Boolean = {
 //        callback(resp.asScala.toList)
 //      }
 //    }, topics:_*)
@@ -124,8 +138,8 @@ object MC {
   //获取的是排除第一个的b_time(s)
   def pullBTimeDescTail (consumer: String, topics:Array[String], callback: List[HivePartitionPart] => Boolean ): Unit ={
     checkInited
-    MessageClientUtil.pullAndSortByBTimeDescTailHivePartitionParts(messageClient, consumer, new MessageClientUtil.Callback[util.ArrayList[HivePartitionPart]] {
-      override def doCallback (resp: util.ArrayList[HivePartitionPart]): lang.Boolean = {
+    MessageClientUtil.pullAndSortByBTimeDescTailHivePartitionParts(messageClient, consumer, new MessageClientUtil.Callback[util.List[HivePartitionPart]] {
+      override def doCallback (resp: util.List[HivePartitionPart]): lang.Boolean = {
         callback(resp.asScala.toList)
       }
     }, topics:_*)
@@ -134,8 +148,8 @@ object MC {
   //获取的是排除第一个的b_date(s)
   def pullBDateDescTail (consumer: String, topics:Array[String], callback: List[HivePartitionPart] => Boolean ): Unit ={
     checkInited
-    MessageClientUtil.pullAndSortByBDateDescTailHivePartitionParts(messageClient, consumer, new MessageClientUtil.Callback[util.ArrayList[HivePartitionPart]] {
-      override def doCallback (resp: util.ArrayList[HivePartitionPart]): lang.Boolean = {
+    MessageClientUtil.pullAndSortByBDateDescTailHivePartitionParts(messageClient, consumer, new MessageClientUtil.Callback[util.List[HivePartitionPart]] {
+      override def doCallback (resp: util.List[HivePartitionPart]): lang.Boolean = {
         callback(resp.asScala.toList)
       }
     }, topics:_*)

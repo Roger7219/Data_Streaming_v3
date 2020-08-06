@@ -66,7 +66,7 @@ object CrontabClickhouseRefreshUtil {
       // 刷新天表
 //    refreshDay("2020-05-18", "2020-05-18");
       // 刷新小时表
-//    refreshHour("2020-05-18 12:00:00", "2020-05-18 12:00:00");
+    refreshHour("2020-07-17 13:00:00", "2020-07-17 13:00:00");
 
 //    refreshHour_waitingLongTime()
 //    refreshDay_waitingLongTime()

@@ -17,6 +17,7 @@ import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.feature.HBaseStorable
 import com.mobikok.ssp.data.streaming.entity.{HivePartitionPart, OffsetRange, UuidStat}
 import com.mobikok.ssp.data.streaming.exception.ModuleException
+import com.mobikok.ssp.data.streaming.handler.dm.Handler
 import com.mobikok.ssp.data.streaming.module.support._
 import com.mobikok.ssp.data.streaming.util._
 import com.typesafe.config.Config
@@ -407,16 +408,16 @@ class MixModule (config: Config,
   }
 
   var isEnableHandlerDm = false
-  var dmHandlers: util.List[com.mobikok.ssp.data.streaming.handler.dm.offline.Handler] = null
+  var dmHandlers: util.List[Handler] = null
   try {
     isEnableHandlerDm = config.getBoolean(s"modules.$moduleName.dm.handler.enable")
   } catch {
     case _: Exception =>
   }
   if (isEnableHandlerDm) {
-    dmHandlers = new util.ArrayList[com.mobikok.ssp.data.streaming.handler.dm.offline.Handler]()
+    dmHandlers = new util.ArrayList[Handler]()
     config.getConfigList(s"modules.$moduleName.dm.handler.setting").foreach { x =>
-      var h = Class.forName(x.getString("class")).newInstance().asInstanceOf[com.mobikok.ssp.data.streaming.handler.dm.offline.Handler]
+      var h = Class.forName(x.getString("class")).newInstance().asInstanceOf[Handler]
       h.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient,kylinClient, hbaseClient, hiveContext, argsConfig, x)
       dmHandlers.add(h)
     }

@@ -83,90 +83,146 @@ CREATE TABLE COMPANY (
 )
 STORED AS ORC;
 
-CREATE TABLE CAMPAIGN(                               
-    id            int,
-    name          string,
-    adverid       int,
-    status        int,
-    adcategory1   int,
-    adcategory2   int,
-    budget        double,
-    totalbudget   double,
-    pricemethod   int,
-    times         string,
-    createtime    string,
-    totalcost     double,
-    dailycost     double,
-    showcount     int,
-    clickcount    int,
-    offercount    int
+--
+-- ShowCount, 'ClickCount, 'DailyCost, 'TotalCost
+
+-- alter table CAMPAIGN add columns(pricemethod    int);
+CREATE TABLE CAMPAIGN(
+  id             int,
+  name          string,
+  adcategory1   int,
+  adcategory2   int,
+  adverId       int,
+  totalcost     double,
+  dailycost     double,
+  showcount     int,
+  clickcount    int,
+  offercount    int,
+  status        int,
+  pricemethod   int
 )
 STORED AS ORC;
 
+-- CREATE TABLE CAMPAIGN(
+--     id            int,
+--     name          string,
+--     adverid       int,
+--     status        int,
+--     adcategory1   int,
+--     adcategory2   int,
+--     budget        double,
+--     totalbudget   double,
+--     pricemethod   int,
+--     times         string,
+--     createtime    string,
+--     totalcost     double,
+--     dailycost     double,
+--     showcount     int,
+--     clickcount    int,
+--     offercount    int
+-- )
+-- STORED AS ORC;
+
+-- alter table offer add columns(countryIds string)
+-- alter table offer add columns(countryIds string)
+-- alter table offer add columns(createTime string)
+-- alter table offer add columns(modes string)
+-- alter table offer add columns(carrierids string)
+-- alter table offer add columns(bidPrice   double)
+-- alter table offer add columns(price   double)
+-- alter table offer add columns(type    int)
+-- alter table offer add columns(todayshowcount     int)
+-- alter table offer add columns(todayclickcount     int)
+-- alter table offer add columns(todayfee     double)
+-- alter table offer add columns(todaycaps     int)
+--
 CREATE TABLE OFFER(
-    id                int,
-    name              string,
-    campaignid        int,
-    countryids        string,
-    carrierids        string,
-    bidprice          double,
-    price             double,
-    type              int,
-    imageurl          string,
-    url               string,
-    status            int,
-    amstatus          int,
-    desc              string,
-    optype            int,
-    subids            string,
-    devicetype        string,
-    createtime        string,
-    clickcount        int,
-    todayclickcount   int,
-    todayfee          double,
-    adofferid         int,
-    addesc            string,
-    iscollect         int,
-    regulars          string,
-    collectpercent    int,
-    istest            int,
-    pricepercent      int,
-    caps              int,
-    todaycaps         int,
-    salepercent       int,
-    lpurl             string,
-    adtype            string,
-    optstatus         int,
-    opttime           string,
-    isapi             int,
-    preview           string,
-    showtimes         int,
-    imageurls         string,
-    todayshowcount    int,
-    iconurl           string,
-    spystatus         int,
-    imagelib          int,
-    denyreason        string,
-    modes             string,
-    applytime         string,
-    analysisid        int,
-    optfailreason     int,
-    optresulttime     string,
-    conversionprocess int,
-    level             int,
-    isApiTime         string,
-    isRecommend       int,
-    closeCollectionOperator string,
-    cr                int,
-    uniqueId          string,
-    showCount         int,
-    imgMode           int,
-    testWins          int,
-    modeCaps          string,
-    todayModeCaps     string,
-    needParams        string
+  id         int,
+  name       string,
+  campaignId int,
+  optStatus  int,
+  countryIds string,
+  createTime string,
+  modes      string,
+  carrierids string,
+  bidPrice   double,
+  price      double,
+  type       int,
+  imageurl   string,
+  isapi      int,
+  status     int,
+
+  todayshowcount int,
+  todayclickcount int,
+  todayfee double,
+  todaycaps int
 )
 STORED AS ORC;
+
+-- CREATE TABLE OFFER(
+--     id                int,
+--     name              string,
+--     campaignid        int,
+--     countryids        string,
+--     carrierids        string,
+--     bidprice          double,
+--     price             double,
+--     type              int,
+--     imageurl          string,
+--     url               string,
+--     status            int,
+--     amstatus          int,
+--     desc              string,
+--     optype            int,
+--     subids            string,
+--     devicetype        string,
+--     createtime        string,
+--     clickcount        int,
+--     todayclickcount   int,
+--     todayfee          double,
+--     adofferid         int,
+--     addesc            string,
+--     iscollect         int,
+--     regulars          string,
+--     collectpercent    int,
+--     istest            int,
+--     pricepercent      int,
+--     caps              int,
+--     todaycaps         int,
+--     salepercent       int,
+--     lpurl             string,
+--     adtype            string,
+--     optstatus         int,
+--     opttime           string,
+--     isapi             int,
+--     preview           string,
+--     showtimes         int,
+--     imageurls         string,
+--     todayshowcount    int,
+--     iconurl           string,
+--     spystatus         int,
+--     imagelib          int,
+--     denyreason        string,
+--     modes             string,
+--     applytime         string,
+--     analysisid        int,
+--     optfailreason     int,
+--     optresulttime     string,
+--     conversionprocess int,
+--     level             int,
+--     isApiTime         string,
+--     isRecommend       int,
+--     closeCollectionOperator string,
+--     cr                int,
+--     uniqueId          string,
+--     showCount         int,
+--     imgMode           int,
+--     testWins          int,
+--     modeCaps          string,
+--     todayModeCaps     string,
+--     needParams        string
+-- )
+-- STORED AS ORC;
 
 CREATE TABLE PUBLISHER(                              
     id                int,

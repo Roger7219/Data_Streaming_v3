@@ -15,7 +15,9 @@ import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.feature.HBaseStorable
 import com.mobikok.ssp.data.streaming.entity.{HivePartitionPart, LatestOffsetRecord, OffsetRange}
 import com.mobikok.ssp.data.streaming.exception.ModuleException
-import com.mobikok.ssp.data.streaming.handler.dm.offline.{ClickHouseQueryByBDateHandler, ClickHouseQueryByBTimeHandler, ClickHouseQueryMonthHandler, Handler}
+import com.mobikok.ssp.data.streaming.handler.dm.{ClickHouseQueryMonthHandler, Handler}
+import com.mobikok.ssp.data.streaming.handler.dm.Handler
+import com.mobikok.ssp.data.streaming.handler.dm.{ClickHouseQueryByBDateHandler, ClickHouseQueryByBTimeHandler}
 import com.mobikok.ssp.data.streaming.handler.dwi.core.UUIDFilterDwiHandler
 import com.mobikok.ssp.data.streaming.handler.dwr.core.UUIDFilterDwrHandler
 import com.mobikok.ssp.data.streaming.module.support._
@@ -483,7 +485,7 @@ class FasterModule(config: Config,
     try {
       dmHandlers = new util.ArrayList[Handler]()
       config.getConfigList(s"modules.$moduleName.dm.handler.setting").foreach { setting =>
-        var h = Class.forName(setting.getString("class")).newInstance().asInstanceOf[com.mobikok.ssp.data.streaming.handler.dm.offline.Handler]
+        var h = Class.forName(setting.getString("class")).newInstance().asInstanceOf[Handler]
         h.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient, kylinClient, hbaseClient, hiveContext, argsConfig, setting)
         if (h.isInstanceOf[ClickHouseQueryByBTimeHandler] || h.isInstanceOf[ClickHouseQueryByBDateHandler] || h.isInstanceOf[ClickHouseQueryMonthHandler]) {
           h.setClickHouseClient(clickHouseClient)

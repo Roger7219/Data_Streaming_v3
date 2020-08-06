@@ -18,7 +18,7 @@ import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.feature.HBaseStorable
 import com.mobikok.ssp.data.streaming.entity.{HivePartitionPart, LatestOffsetRecord, OffsetRange, UuidStat}
 import com.mobikok.ssp.data.streaming.exception.ModuleException
-import com.mobikok.ssp.data.streaming.handler.dm.offline.Handler
+import com.mobikok.ssp.data.streaming.handler.dm.Handler
 import com.mobikok.ssp.data.streaming.module.support.uuid.{DefaultUuidFilter, UuidFilter}
 import com.mobikok.ssp.data.streaming.module.support._
 import com.mobikok.ssp.data.streaming.util._

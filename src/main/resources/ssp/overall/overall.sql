@@ -226,6 +226,11 @@ ALTER TABLE ssp_overall_fee_dwi ADD COLUMNS (pbResp STRING);
 ALTER TABLE ssp_overall_events_dwi ADD COLUMNS (pbResp STRING);
 ALTER TABLE ssp_overall_postback_dwi ADD COLUMNS (pbResp STRING);
 
+-- 2020-6-24新增
+ALTER TABLE ssp_overall_postback_dwi ADD COLUMNS (appName STRING);
+ALTER TABLE ssp_overall_postback_dwi ADD COLUMNS (crId STRING);
+ALTER TABLE ssp_overall_postback_dwi ADD COLUMNS (caId STRING);
+ALTER TABLE ssp_overall_postback_dwi ADD COLUMNS (deviceid STRING);
 
 
 --添加推荐系统字段(2018-11-29)
@@ -751,6 +756,7 @@ left join employee p_amp    on p_amp.id = p.ampaId
 left join employee a_ama    on a_ama.id = ad.amaaId;
 
 ----------------------------------
+-- ALTER TABLE  ssp_overall_postback_dwi ADD COLUMN(appname string)
 --drop view ssp_overall_postback_dm;
 create view ssp_overall_postback_dm as
 select
@@ -827,6 +833,7 @@ select
     o.name            as offername,
     p.name            as publishername,
     a.name            as appname,
+    dwi.appname       as tracklinkappname,
     c.name            as countryname,
     ca.name           as carriername,
 

@@ -26,6 +26,7 @@ import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
+@Deprecated
 class ClickHouseClientV2(moduleName: String, config: Config, ssc: StreamingContext,
                          messageClient: MessageClient, transactionManager: TransactionManager,
                          hiveContext: HiveContext, moduleTracer: ModuleTracer) extends Transactional {

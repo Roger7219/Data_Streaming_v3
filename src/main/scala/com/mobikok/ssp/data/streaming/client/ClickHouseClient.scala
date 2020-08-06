@@ -79,7 +79,7 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
       )
   }
   private var THREAD_POOL = null.asInstanceOf[ExecutorService]
-  val THREAD_COUNT = 2
+  val THREAD_COUNT = 3
   val dataCountMap = new FixedLinkedMap[String, Long](THREAD_COUNT)
 
   @volatile private var lastLengthMap: FixedLinkedMap[String, java.lang.Long] = new FixedLinkedMap[String, java.lang.Long](24 * 3)
@@ -1324,7 +1324,7 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
 
         override def failed(responseStatus: String, responseError: String, ex: Exception): Unit = {
           LOG.warn(ex.getLocalizedMessage)
-          throw new ClickHouseClientException(s"sql may be failed:\n$sql", ex)
+          throw new ClickHouseClientException(s"Sql '$sql' execute failed, Error: $responseError", ex)
         }
 
         override def completed(responseStatus: String, response: String): Unit = {

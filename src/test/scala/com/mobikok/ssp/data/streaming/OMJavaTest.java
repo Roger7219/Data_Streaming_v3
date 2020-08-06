@@ -8,6 +8,7 @@ import com.mobikok.ssp.data.streaming.util.MessageClientUtil;
 import com.mobikok.ssp.data.streaming.util.OM;
 
 import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Created by Administrator on 2017/8/10.
@@ -18,8 +19,8 @@ public class OMJavaTest {
     public static void main(String[] args) {
         MessageClient c =new MessageClient("","http://node14:5555");
 
-        MessageClientUtil.pullAndSortByLTimeDescHivePartitionParts(c, "c1", new MessageClientUtil.Callback<ArrayList<HivePartitionPart>>() {
-            public Boolean doCallback(ArrayList<HivePartitionPart> resp){
+        MessageClientUtil.pullAndSortByLTimeDescHivePartitionParts(c, "c1", new MessageClientUtil.Callback<List<HivePartitionPart>>() {
+            public Boolean doCallback(List<HivePartitionPart> resp){
                 System.out.println(OM.toJOSN(resp));
                 return true;
             }
