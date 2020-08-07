@@ -33,7 +33,7 @@ import org.apache.spark.sql.types._
 /**
   * Created by Administrator on 2017/10/19.
   */
-class BigQueryClient (moduleName: String, config: Config, ssc: StreamingContext, messageClient: MessageClient, hiveContext:HiveContext) {
+class BigQueryClient (moduleName: String, config: Config, ssc: StreamingContext, messageClient: MessageClient, hiveContext:HiveContext, moduleTracer: ModuleTracer) {
 
   private val LOG: Logger = new Logger(moduleName, getClass.getName, new Date().getTime)
   val reportDataset = "report_dataset"
@@ -326,6 +326,7 @@ class BigQueryClient (moduleName: String, config: Config, ssc: StreamingContext,
   def overwriteByBTime (bigQueryPartitionedTable: String, hiveTable: String, hivePartitionBTimes: Array[String]): Unit = {
 
     LOG.warn(s"Overwrite bigQueryTable start", "bigQueryTable", bigQueryPartitionedTable, "hiveTable", hiveTable, "hivePartitionBTimes", hivePartitionBTimes)
+    moduleTracer.trace(s"     bigquery overwrite b_time(s): ${hivePartitionBTimes.mkString("\n        ", "\n        ", "")}")
 
     RunAgainIfError.run({
 

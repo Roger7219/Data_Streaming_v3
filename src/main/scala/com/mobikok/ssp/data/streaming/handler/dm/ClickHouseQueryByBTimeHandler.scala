@@ -15,6 +15,7 @@ import org.apache.spark.sql.hive.HiveContext
 
 import scala.collection.JavaConversions._
 
+@Deprecated
 class ClickHouseQueryByBTimeHandler extends Handler {
 
   //view, consumer, topics

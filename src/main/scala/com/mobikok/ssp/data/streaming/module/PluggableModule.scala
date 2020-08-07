@@ -182,7 +182,7 @@ class PluggableModule(globalConfig: Config,
 
   var bigQueryClient = null.asInstanceOf[BigQueryClient]
   try {
-    bigQueryClient = new BigQueryClient(moduleName, globalConfig, ssc, messageClient, hiveContext)
+    bigQueryClient = new BigQueryClient(moduleName, globalConfig, ssc, messageClient, hiveContext, moduleTracer)
   } catch {
     case e: Throwable => LOG.warn("BigQueryClient init fail, Skiped it", s"${e.getClass.getName}: ${e.getMessage}")
   }
@@ -652,6 +652,7 @@ class PluggableModule(globalConfig: Config,
 
   val traceBatchUsingTimeFormat = new DecimalFormat("#####0.00")
 
+  // 标记是否读取kafka是否完成
   @volatile var moduleReadingKafkaMarks = mutable.Map[String, Boolean]()
 
   def handler(): Unit = {
@@ -688,38 +689,39 @@ class PluggableModule(globalConfig: Config,
           kafkaConsumeLag = kafkaConsumeLag + x._3
         }
 
-        moduleTracer.trace(s"offset detail cnt: ${offsetDetail.map(_._2).sum} lag: ${offsetDetail.map(_._3).sum}\n" + offsetDetail.map { x => s"        ${x._1.topic}, ${x._1.partition} -> cnt: ${x._2} lag: ${x._3}" }.mkString("\n"))
+        val dwiCount = offsetDetail.map(_._2).sum
+        moduleTracer.trace(s"offset detail cnt: ${dwiCount} lag: ${offsetDetail.map(_._3).sum}\n" + offsetDetail.map { x => s"        ${x._1.topic}, ${x._1.partition} -> cnt: ${x._2} lag: ${x._3}" }.mkString("\n"))
 
-        moduleTracer.trace("wait last batch", {
-          while (moduleReadingKafkaMarks.getOrElse(moduleName, false)) {
-            Thread.sleep(1000)
-          }
-          moduleReadingKafkaMarks.put(moduleName, true)
-        })
+        // 如果上一个批次还未结束，并且当前批次内容为空，则直接空跑当前批次，马上结束
+        if (mixTransactionManager.isRunningTransaction(moduleName) && dwiCount == 0 /*isFastPollingEnable  && filtered.isEmpty() && GlobalAppRunningStatusV2.isPreviousRunning(concurrentGroup, moduleName)*/) {
 
-        LOG.warn("Kafka Offset Range", offsetRanges)
-
-        //For Task serializable
-        val _kafkaProtoClass = kafkaProtoClass
-
-        var jsonSource: RDD[String] = null
-        if (kafkaProtoEnable) {
-          jsonSource = source.map { x =>
-            ProtobufUtil.protobufToJSON(_kafkaProtoClass.asInstanceOf[Class[com.google.protobuf.Message]], x.value().asInstanceOf[Array[Byte]])
-          }
-        } else {
-          jsonSource = source.map(_.value().asInstanceOf[String])
-        }
-
-        val filtered = jsonSource
-
-        // 待改
-        if (false /*isFastPollingEnable  && filtered.isEmpty() && GlobalAppRunningStatusV2.isPreviousRunning(concurrentGroup, moduleName)*/) {
           LOG.warn("Fast polling", "concurrentGroup", concurrentGroup, "moduleName", moduleName)
           moduleTracer.trace("fast polling")
-          moduleReadingKafkaMarks.put(moduleName, false)
 
         } else {
+
+          moduleTracer.trace("wait last batch", {
+            while (moduleReadingKafkaMarks.getOrElse(moduleName, false)) {
+              Thread.sleep(1000)
+            }
+            moduleReadingKafkaMarks.put(moduleName, true)
+          })
+
+          LOG.warn("Kafka Offset Range", offsetRanges)
+
+          //For Task serializable
+          val _kafkaProtoClass = kafkaProtoClass
+
+          var jsonSource: RDD[String] = null
+          if (kafkaProtoEnable) {
+            jsonSource = source.map { x =>
+              ProtobufUtil.protobufToJSON(_kafkaProtoClass.asInstanceOf[Class[com.google.protobuf.Message]], x.value().asInstanceOf[Array[Byte]])
+            }
+          } else {
+            jsonSource = source.map(_.value().asInstanceOf[String])
+          }
+
+          val filtered = jsonSource
 
           var dwi = hiveContext
             .read
@@ -734,7 +736,7 @@ class PluggableModule(globalConfig: Config,
 
           dwi = dwi.persist(StorageLevel.MEMORY_ONLY_SER).alias("dwi")
 //          dwi.count()
-          moduleTracer.trace("read kafka")
+          moduleTracer.trace("read kafka done")
           moduleReadingKafkaMarks.put(moduleName, false)
 
           //-----------------------------------------------------------------------------------------------------------------

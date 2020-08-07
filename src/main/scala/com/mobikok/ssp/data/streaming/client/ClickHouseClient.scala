@@ -174,8 +174,9 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
 //    }
 //  }
 
-  def overwriteByBTime(clickHouseBaseTable: String, hiveTable: String, hivePartitionBTime: Array[String]): Unit = {
-    LOG.warn(s"ClickHouseTable all b_time overwrite start", "clickHouseTable", clickHouseBaseTable, "hiveTable", hiveTable, "hivePartitionBTimes", hivePartitionBTime)
+  def overwriteByBTime(clickHouseBaseTable: String, hiveTable: String, hivePartitionBTimes: Array[String]): Unit = {
+    LOG.warn(s"ClickHouseTable all b_time overwrite start", "clickHouseTable", clickHouseBaseTable, "hiveTable", hiveTable, "hivePartitionBTimes", hivePartitionBTimes)
+    moduleTracer.trace(s"     ck overwrite b_time(s): ${hivePartitionBTimes.mkString("\n        ", "\n        ", "")}")
     //    taskCount.addAndGet(hivePartitionBTime.length)
 
 //    var dataCount = -1L
@@ -186,11 +187,11 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
     if (THREAD_POOL == null || THREAD_POOL.isShutdown) {
       THREAD_POOL = ExecutorServiceUtil.createdExecutorService(THREAD_COUNT)
     }
-    val countDownLatch = new CountDownLatch(hivePartitionBTime.length)
-    val b_dates = hivePartitionBTime.map { eachTime => eachTime.split(" ")(0) }.distinct
+    val countDownLatch = new CountDownLatch(hivePartitionBTimes.length)
+    val b_dates = hivePartitionBTimes.map { eachTime => eachTime.split(" ")(0) }.distinct
 
     b_dates.foreach { b_date =>
-      hivePartitionBTime.foreach { b_time =>
+      hivePartitionBTimes.foreach { b_time =>
         if (b_date.equals(b_time.split(" ")(0))) {
           THREAD_POOL.execute(new Runnable {
             override def run(): Unit = {
@@ -309,7 +310,7 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
       }
     }
     countDownLatch.await()
-    LOG.warn(s"ClickHouseTable all b_time overwrite done", "clickHouseTable", clickHouseBaseTable, "hiveTable", hiveTable, "hivePartitionBTimes", hivePartitionBTime)
+    LOG.warn(s"ClickHouseTable all b_time overwrite done", "clickHouseTable", clickHouseBaseTable, "hiveTable", hiveTable, "hivePartitionBTimes", hivePartitionBTimes)
     //    countDownLatch.await(5, TimeUnit.MINUTES)
   }
   def createTableIfNotExists(table: String, like: String): Unit = {

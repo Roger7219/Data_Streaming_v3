@@ -96,7 +96,7 @@ class GenericModule (config: Config,
 
   var bigQueryClient = null.asInstanceOf[BigQueryClient]
   try{
-    bigQueryClient = new BigQueryClient(moduleName, config, ssc, messageClient, hiveContext)
+    bigQueryClient = new BigQueryClient(moduleName, config, ssc, messageClient, hiveContext, moduleTracer)
   }catch {case e:Throwable => }
 
   var clickHouseClient = null.asInstanceOf[ClickHouseClient]

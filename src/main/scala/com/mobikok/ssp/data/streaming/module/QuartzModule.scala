@@ -87,7 +87,7 @@ class QuartzModule(config: Config,
 
   var bigQueryClient = null.asInstanceOf[BigQueryClient]
   try{
-    bigQueryClient = new BigQueryClient(moduleName, config, ssc, messageClient, hiveContext)
+    bigQueryClient = new BigQueryClient(moduleName, config, ssc, messageClient, hiveContext, moduleTracer)
   }catch {case e:Throwable => LOG.warn("BigQueryClient init fail, Skiped it", s"${e.getClass.getName}: ${e.getMessage}")}
 
   var clickHouseClient = null.asInstanceOf[ClickHouseClient]

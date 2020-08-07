@@ -165,6 +165,10 @@ class MixTransactionManager (config: Config, transactionalStrategy: Transactiona
     }
   }
 
+  def isRunningTransaction(moduleName: String): Boolean ={
+    moduleCurrentTransactionOrder.containsKey(moduleName)
+  }
+
   override def beginTransaction(moduleName: String, groupName: String): String = {
     beginTransaction(moduleName, groupName, 0)
   }
@@ -348,6 +352,7 @@ class MixTransactionManager (config: Config, transactionalStrategy: Transactiona
     //    readyCommitModules.put(moduleName, false)
 
     moudleTransactionOrders.get(moduleName).remove(moduleCurrentTransactionOrder.get(moduleName))
+    moduleCurrentTransactionOrder.remove(moduleName)
 
     //    synchronizedCall(new Callback {
     //      override def onCallback (): Unit = {
