@@ -1,20 +1,18 @@
 package com.mobikok.ssp.data.streaming.util
 
 import java.util
-import java.util.Date
 
-import com.mobikok.message.Message
+import com.mobikok.ssp.data.streaming.App
 import com.mobikok.ssp.data.streaming.config.RDBConfig
 import org.apache.commons.lang3.exception.ExceptionUtils
 import org.apache.log4j.{Level, Logger}
-import org.apache.spark.sql.Row
 
 /**
   * Created by kairenlo on 2017/6/25.
   */
 class Logger (moduleName: String, className: String, startTime: Long) extends Serializable {
   val LOGGER = Logger.getLogger(className)
-  private var logLastTime = new ThreadLocal[Long](){
+  private val logLastTime = new ThreadLocal[Long](){
     override def initialValue(): Long = startTime
   }
 
@@ -180,34 +178,18 @@ class Logger (moduleName: String, className: String, startTime: Long) extends Se
   def logString(title: String, value: =>Any): String ={
     val t = System.currentTimeMillis()
 
-    //    if(!needLog()){
-    //
-    //      logLastTime = t
-    //      return
-    //    }
-    var str = objectToString(value)
-    //    val v = value
-    //
-    //    var str = ""
-    //    if (v.isInstanceOf[Number] || v.isInstanceOf[String]) {
-    //      str = v.toString
-    //    } else if (v.isInstanceOf[Array[Object]]) {
-    //      str = util.Arrays.deepToString(v.asInstanceOf[Array[Object]])
-    //    } else if (v.isInstanceOf[Array[String]]) {
-    //      str = util.Arrays.deepToString(v.asInstanceOf[Array[Object]])
-    //    } else if (v.isInstanceOf[Exception]) {
-    //      str = ExceptionUtils.getStackTrace(v.asInstanceOf[Exception])
-    //    } else if(v.isInstanceOf[Throwable])  {
-    //      str = ExceptionUtils.getStackTrace(v.asInstanceOf[Throwable])
-    //    } else {
-    //      try{
-    //        str = OM.toJOSN(v)
-    //      }catch {case e:Exception=>
-    //        str = v.toString
-    //      }
-    //    }
+    val str = objectToString(value)
 
-    val tit = if(moduleName != null && !"".equals(moduleName.trim)) s"[${Thread.currentThread().getId}] $moduleName - $title" else s"[${Thread.currentThread().getId}] $title"
+    var module: String = moduleName
+
+    if(StringUtil.notEmpty(module)) {
+      module = App.moduleNameThreadLocal.get()
+    }
+    if(StringUtil.notEmpty(module)) {
+      module= ""
+    }
+
+    val tit = s"Module: [${module}] [${Thread.currentThread().getId}] - $title"
 
     val c = 100
     val len = (c - tit.length) / 2
@@ -233,97 +215,4 @@ class Logger (moduleName: String, className: String, startTime: Long) extends Se
        | """.stripMargin
   }
 
-//  @Deprecated
-//  def warn (title: String, value: =>Any): Unit = {
-//
-//    val t = new Date().getTime
-//
-////    if(!needLog()){
-////
-////      logLastTime = t
-////      return
-////    }
-//    var str = objectToString(value)
-////    val v = value
-////
-////    var str = ""
-////    if (v.isInstanceOf[Number] || v.isInstanceOf[String]) {
-////      str = v.toString
-////    } else if (v.isInstanceOf[Array[Object]]) {
-////      str = util.Arrays.deepToString(v.asInstanceOf[Array[Object]])
-////    } else if (v.isInstanceOf[Array[String]]) {
-////      str = util.Arrays.deepToString(v.asInstanceOf[Array[Object]])
-////    } else if (v.isInstanceOf[Exception]) {
-////      str = ExceptionUtils.getStackTrace(v.asInstanceOf[Exception])
-////    } else if(v.isInstanceOf[Throwable])  {
-////      str = ExceptionUtils.getStackTrace(v.asInstanceOf[Throwable])
-////    } else {
-////      try{
-////        str = OM.toJOSN(v)
-////      }catch {case e:Exception=>
-////        str = v.toString
-////      }
-////    }
-//
-//    val tit = if(moduleName != null && !"".equals(moduleName.trim)) s"[${Thread.currentThread().getId}] $moduleName - $title" else s"[${Thread.currentThread().getId}] $title"
-//
-//    val c = 100
-//    val len = (c - tit.length) / 2
-//    val _s = new StringBuilder
-//    for (i <- 0 until len) {
-//      _s.append('-')
-//    }
-//    val s = new StringBuffer()
-//      .append(_s)
-//      .append(' ')
-//      .append(tit)
-//      .append(' ')
-//      .append(_s)
-//
-//    LOGGER.warn(
-//      s"""
-//         |$s
-//         |${str}
-//         |
-//         |Using time: ${(t - logLastTime) / 1000D}s
-//         |
-//         | """.stripMargin)
-//    logLastTime = t
-//  }
 }
-//object x{
-//  def main (args: Array[String]): Unit = {
-//    var LOGGING_SIGN = classOf[Logger].getName +".needLog"
-//    val trace ="java.lang.Exception\n\tat com.mobikok.ssp.data.streaming.util.Logger.needLog(Logger.scala:56)\n\tat com.mobikok.ssp.data.streaming.util.Logger.warn(Logger.scala:83)\n\tat com.mobikok.ssp.data.streaming.client.KafkaClient.createDirectStream(KafkaClient.scala:436)\n\tat com.mobikok.ssp.data.streaming.module.MixModule.handler(MixModule.scala:527)\n\tat com.mobikok.ssp.data.streaming.MixApp$$anonfun$initHeartbeat$2.apply(MixApp.scala:200)\n\tat com.mobikok.ssp.data.streaming.MixApp$$anonfun$initHeartbeat$2.apply(MixApp.scala:188)\n\tat com.mobikok.ssp.data.streaming.MixApp$.com$mobikok$ssp$data$streaming$MixApp$$callStartModule(MixApp.scala:306)\n\tat com.mobikok.ssp.data.streaming.MixApp$$anonfun$callStartModuleByConf$1.apply(MixApp.scala:298)\n\tat com.mobikok.ssp.data.streaming.MixApp$$anonfun$callStartModuleByConf$1.apply(MixApp.scala:297)\n\tat scala.collection.Iterator$class.foreach(Iterator.scala:893)\n\tat scala.collection.AbstractIterator.foreach(Iterator.scala:1336)\n\tat scala.collection.IterableLike$class.foreach(IterableLike.scala:72)\n\tat scala.collection.AbstractIterable.foreach(Iterable.scala:54)\n\tat com.mobikok.ssp.data.streaming.MixApp$.callStartModuleByConf(MixApp.scala:297)\n\tat com.mobikok.ssp.data.streaming.MixApp$.initHeartbeat(MixApp.scala:188)\n\tat com.mobikok.ssp.data.streaming.MixApp$.main(MixApp.scala:58)\n\tat com.mobikok.ssp.data.streaming.MixApp.main(MixApp.scala)\n\tat sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)\n\tat sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)\n\tat sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)\n\tat java.lang.reflect.Method.invoke(Method.java:498)\n\tat org.apache.spark.deploy.yarn.ApplicationMaster$$anon$2.run(ApplicationMaster.scala:637)"
-//    var needReadLogSwicthStatus =true
-//    if(trace.indexOf(LOGGING_SIGN, trace.indexOf(LOGGING_SIGN) + LOGGING_SIGN.length) > 0 ){
-//      needReadLogSwicthStatus = false
-//    }
-//    println(needReadLogSwicthStatus)
-//  }
-//}
-//
-//object xx{
-//  def main(args: Array[String]): Unit = {
-//   var str = null.asInstanceOf[String]
-//    val v =List(new Message()).toArray
-//    if (v.isInstanceOf[Number] || v.isInstanceOf[String]) {
-//      println("x")
-//      str = v.toString
-//    } else if (v.isInstanceOf[Array[Object]]) {
-//      println("b")
-//      str = util.Arrays.deepToString(v.asInstanceOf[Array[Object]])
-//    } else if (v.isInstanceOf[Array[String]]) {
-//
-//      str = util.Arrays.deepToString(v.asInstanceOf[Array[Object]])
-//    } else if (v.isInstanceOf[Exception]) {
-//      str = ExceptionUtils.getStackTrace(v.asInstanceOf[Exception])
-//    } else {
-//      str = OM.toJOSN(v)
-//    }
-//
-//    print( util.Arrays.deepToString(Array(new Message())));
-// //   print( new Message().toString);
-//
-//  }
-//}

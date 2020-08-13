@@ -17,7 +17,7 @@ import org.apache.spark.sql.functions._
 /**
   * Created by Administrator on 2017/10/16.
   */
-class MixModulesBatchController(config:Config, runnableModuleNames: Array[String], _dwrShareTable: String, transactionManager: TransactionManager, hiveContext: HiveContext, shufflePartitions: Int) {
+class MixModulesBatchController(config:Config, runnableModuleNames: Array[String], dwrShareTable: String, transactionManager: TransactionManager, hiveContext: HiveContext, shufflePartitions: Int) {
 
   def isRunnable(moduleName: String): Boolean = runnableModuleNames.contains(moduleName)
   def isInitable(moduleName: String): Boolean = {
@@ -54,8 +54,8 @@ class MixModulesBatchController(config:Config, runnableModuleNames: Array[String
   var dwrGroupByUnionAggExprsAndAlias:List[Column] = null
   var dwrGroupByDimensionFieldsAlias:List[Column] = null
 
-  def dwrShareTable(): String={
-    _dwrShareTable
+  def getDwrShareTable(): String={
+    dwrShareTable
   }
 
   def isMultipleModulesOperateSameDwrTable (): Boolean = {
@@ -86,10 +86,10 @@ class MixModulesBatchController(config:Config, runnableModuleNames: Array[String
       }
 
       if (i > 1) {
-        throw new AppException(s"Too many modules settings for dwr table '${_dwrShareTable}', Make sure that only one module is master, plain settings(is master):\n${OM.toJOSN(moduleIsMasterOfSettingFilePlainVlaueMap)}")
+        throw new AppException(s"Too many modules settings for dwr table '${dwrShareTable}', Make sure that only one module is master, plain settings(is master):\n${OM.toJOSN(moduleIsMasterOfSettingFilePlainVlaueMap)}")
       }
       else if (i == 0) {
-        throw new AppException(s"No master module specified for dwr table '${_dwrShareTable}', plain settings(is master):\n${OM.toJOSN(moduleIsMasterOfSettingFilePlainVlaueMap)}")
+        throw new AppException(s"No master module specified for dwr table '${dwrShareTable}', plain settings(is master):\n${OM.toJOSN(moduleIsMasterOfSettingFilePlainVlaueMap)}")
       }
     }
   }

@@ -6,6 +6,7 @@ import java.util.concurrent.CountDownLatch
 
 import com.mobikok.message.Message
 import com.mobikok.message.client.MessageClient
+import com.mobikok.ssp.data.streaming.App
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.OffsetRange
@@ -42,6 +43,8 @@ class PluggableModule(globalConfig: Config,
                       /* dwiStructType: StructType,*/
                       ssc: StreamingContext) extends Module {
 
+  App.moduleNameThreadLocal.set(moduleName)
+
   val LOG: Logger = new Logger(moduleName, getClass.getName, new Date().getTime)
 
   //----------------------  Constants And Fields  -------------------------
@@ -50,11 +53,6 @@ class PluggableModule(globalConfig: Config,
   val dwiStructType = ksc.getMethod("structType").invoke(ksc.newInstance()).asInstanceOf[StructType]
   var moduleConfig = globalConfig.getConfig(s"modules.$moduleName")
   val dwiUuidFieldsSeparator = "^"
-
-//  val COOKIE_KIND_KAFKA_T = "kafkaT"
-
-//  //<cookieKind, <transactionParentId, transactionCookies>>
-//  var batchsTransactionCookiesCache = new util.HashMap[String, util.ArrayList[TransactionCookie]]() //mutable.Map[String, ListBuffer[TransactionCookie]]()
 
   val tidTimeFormat = CSTTime.formatter("yyyyMMdd_HHmmss_SSS")
 
@@ -98,12 +96,11 @@ class PluggableModule(globalConfig: Config,
   } catch {case _: Exception =>}
 
   val isMaster = mixModulesBatchController.isMaster(moduleName)
-
   //-------------------------  Constants And Fields End  -------------------------
 
+  var stream: InputDStream[ConsumerRecord[String, Object]] = _  //Value Type: String or Array[Byte]
+
   //-------------------------  Tools  -------------------------
-  //Value Type: String or Array[Byte]
-  var stream: InputDStream[ConsumerRecord[String, Object]] = _
   var moduleTracer: ModuleTracer = new ModuleTracer(moduleName, globalConfig, mixModulesBatchController)
   val transactionManager = mixModulesBatchController.getTransactionManager()
   //-------------------------  Tools End  -------------------------
@@ -115,6 +112,8 @@ class PluggableModule(globalConfig: Config,
   var mySqlJDBCClient = new MySqlJDBCClient(
     globalConfig.getString(s"rdb.url"), globalConfig.getString(s"rdb.user"), globalConfig.getString(s"rdb.password")
   )
+  val rDBConfig = new RDBConfig(mySqlJDBCClient)
+  val messageClient = new MessageClient(moduleName, globalConfig.getString("message.client.url"))
 
   var bigQueryClient:BigQueryClient = null
   try {
@@ -123,9 +122,6 @@ class PluggableModule(globalConfig: Config,
     case e: Throwable => LOG.warn("BigQueryClient init fail, Skiped it", s"${e.getClass.getName}: ${e.getMessage}")
   }
 
-  val rDBConfig = new RDBConfig(mySqlJDBCClient)
-
-  val messageClient = new MessageClient(moduleName, globalConfig.getString("message.client.url"))
   var hbaseClient = new HBaseClient(moduleName, ssc.sparkContext, globalConfig, transactionManager, moduleTracer)
   val hiveClient = new HiveClient(moduleName, globalConfig, ssc, messageClient, transactionManager, moduleTracer)
   val kafkaClient = new KafkaClient(moduleName, globalConfig, transactionManager, moduleTracer)
@@ -411,7 +407,7 @@ class PluggableModule(globalConfig: Config,
           moduleTracer.trace("read kafka done")
           isModuleReadingKafka.put(moduleName, false)
 
-          val groupName = mixModulesBatchController.dwrShareTable()
+          val groupName = mixModulesBatchController.getDwrShareTable()
 
           //-----------------------------------------------------------------------------------------------------------------
           //  Begin Transaction !!

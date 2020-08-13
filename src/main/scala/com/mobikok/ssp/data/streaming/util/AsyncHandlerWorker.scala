@@ -85,6 +85,101 @@ class AsyncHandlerWorker(moduleName: String, taskSize:Int, moduleTracer: ModuleT
 
 
 
+//class module(name: String){
+//  var threadLocal = new InheritableThreadLocal[String]
+//  threadLocal.set(name)
+//  def getname(): String ={
+////    threadLocal.get()
+//    name
+//  }
+//
+//  override def toString: String = {" name: "+name}
+//}
+//
+//
+//
+//object Test {
+//
+//  def main(args: Array[String]): Unit = {
+//
+//    var threadLocalModules = new InheritableThreadLocal[module]
+//
+//    new Thread(new Runnable {
+//      override def run(): Unit = {
+//        val m1 =new module("m1")
+//        val m1name = "m1"
+//        threadLocalModules.set(m1)
+//
+//        AsyncHandlerWorker.THREAD_POOL.execute(new Runnable {
+//          override def run(): Unit = {
+////            Thread.sleep(1000*10)
+//            println(Thread.currentThread().getId+": m1name:" +  m1name +" : "+ threadLocalModules.get().getname())
+//          }
+//        })
+//        List(111111,222222).par.foreach{x=>
+//          new Thread(new Runnable {
+//            override def run(): Unit = {
+//              println(s"${Thread.currentThread().getId}: m1 par> "+threadLocalModules.get().getname())
+//            }
+//          }).start()
+//        }
+//      }
+//    }).start()
+//
+//    new Thread(new Runnable {
+//      override def run(): Unit = {
+//        val m2 =new module("m2")
+//        val m2name = "m2"
+//        threadLocalModules.set(m2)
+//
+//        AsyncHandlerWorker.THREAD_POOL.execute(new Runnable {
+//          override def run(): Unit = {
+////            Thread.sleep(1000*10)
+//            println(Thread.currentThread().getId+": m2name: "+ m2name+" : " + threadLocalModules.get().getname())
+//          }
+//        })
+//
+//        var x= List(111111,222222).par
+//          x.foreach{x=>
+//          new Thread(new Runnable {
+//            override def run(): Unit = {
+//              println(s"${Thread.currentThread().getId}: m2 par> "+threadLocalModules.get().getname())
+//            }
+//          }).start()
+//        }
+//      }
+//    }).start()
+////
+//    println(s"main>"+threadLocalModules.get())
+//    List(1,2).par.foreach{x=>
+//      new Thread(new Runnable {
+//        override def run(): Unit = {
+//          println(s"main par>"+threadLocalModules.get())
+//        }
+//      }).start()
+//
+//    }
+//
+////    AsyncHandlerWorker.THREAD_POOL.execute(new Runnable {
+////      override def run(): Unit = {
+////        System.out.println("THREAD_POOL = " + threadLocal.get)
+////        threadLocal.set(333)
+////            val thread = new Test.MyThread
+////            thread.start()
+////      }
+////    })
+////    System.out.println("main = " + threadLocal.get)
+//  }
+//
+////  class MyThread extends Thread {
+////    override def run(): Unit = {
+////      System.out.println("MyThread = " + threadLocal.get)
+////    }
+////  }
+//
+//}
+
+
 
 
 

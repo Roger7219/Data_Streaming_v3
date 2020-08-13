@@ -2,16 +2,16 @@ package com.mobikok.ssp.data.streaming.client
 
 import java.io.{FileInputStream, InputStream}
 import java.nio.channels.Channels
-import java.util
 import java.util.Date
-import java.util.concurrent.CountDownLatch
-import javax.management.RuntimeErrorException
 
 import com.google.auth.oauth2.ServiceAccountCredentials
 import com.google.cloud.bigquery.BigQuery.TableListOption
 import com.google.cloud.bigquery.JobInfo.WriteDisposition
-import com.google.cloud.bigquery._
+import com.google.cloud.bigquery.TimePartitioning.Type
+import com.google.cloud.bigquery.{Field, Schema, StandardTableDefinition, TableId, TableInfo, TimePartitioning, _}
 import com.mobikok.message.client.MessageClient
+import com.mobikok.ssp.data.streaming.exception.HandlerException
+import com.mobikok.ssp.data.streaming.util._
 import com.typesafe.config.Config
 import org.apache.commons.io.IOUtils
 import org.apache.commons.lang3.exception.ExceptionUtils
@@ -19,17 +19,8 @@ import org.apache.hadoop.fs.{FileStatus, FileSystem, Path, PathFilter}
 import org.apache.hadoop.hdfs.HdfsConfiguration
 import org.apache.spark.sql.SaveMode
 import org.apache.spark.sql.hive.HiveContext
-import org.apache.spark.streaming.StreamingContext
-import com.google.cloud.bigquery.Field
-import com.google.cloud.bigquery.Schema
-import com.google.cloud.bigquery.StandardTableDefinition
-import com.google.cloud.bigquery.TableId
-import com.google.cloud.bigquery.TableInfo
-import com.google.cloud.bigquery.TimePartitioning
-import com.google.cloud.bigquery.TimePartitioning.Type
-import com.mobikok.ssp.data.streaming.exception.HandlerException
-import com.mobikok.ssp.data.streaming.util._
 import org.apache.spark.sql.types._
+import org.apache.spark.streaming.StreamingContext
 /**
   * Created by Administrator on 2017/10/19.
   */

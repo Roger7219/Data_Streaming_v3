@@ -49,7 +49,7 @@ object App {
   var dwrLoadTimeFormat = CSTTime.formatter("yyyy-MM-dd 00:00:00")
   //table, list<module>
   private var shareTableModulesControllerMap = null.asInstanceOf[java.util.HashMap[String, MixModulesBatchController]]
-
+  val moduleNameThreadLocal = new InheritableThreadLocal[String]
 
   def main (args: Array[String]): Unit = {
     try {
