@@ -8,8 +8,8 @@ import java.util
 import java.util.Date
 
 import com.mobikok.ssp.data.streaming.entity.UuidStat
-import com.mobikok.ssp.data.streaming.util.{MySqlJDBCClientV2, OM, ZipUtil}
-import com.mobikok.ssp.data.streaming.util.MySqlJDBCClientV2.Callback
+import com.mobikok.ssp.data.streaming.util.{MySqlJDBCClient, OM, ZipUtil}
+import com.mobikok.ssp.data.streaming.util.MySqlJDBCClient.Callback
 
 import scala.collection.mutable.ListBuffer
 
@@ -24,8 +24,7 @@ object Test {
 //  rdb.password = "@dfei$@DCcsYG"
 //
   def adx_third_party_report(): Unit ={
-    var mySqlJDBCClientV2 = new MySqlJDBCClientV2(
-      "",
+    var mySqlJDBCClientV2 = new MySqlJDBCClient(
       "jdbc:mysql://node17:3306/sight",
       "root",
       "root_root")

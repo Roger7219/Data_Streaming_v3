@@ -2,8 +2,8 @@ package com.mobikok.ssp.data.streaming.test
 
 import java.sql.ResultSet
 
-import com.mobikok.ssp.data.streaming.util.MySqlJDBCClientV2.Callback
-import com.mobikok.ssp.data.streaming.util.{MySqlJDBCClientV2, OM}
+import com.mobikok.ssp.data.streaming.util.MySqlJDBCClient.Callback
+import com.mobikok.ssp.data.streaming.util.{MySqlJDBCClient, OM}
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.{SparkConf, SparkContext}
 
@@ -39,8 +39,7 @@ object OMTest{
 
   }
   def main3 (args: Array[String]): Unit = {
-    var mySqlJDBCClientV2 = new MySqlJDBCClientV2(
-      "",
+    var mySqlJDBCClientV2 = new MySqlJDBCClient(
       "jdbc:mysql://192.168.1.26:3306/kok_adv_bd?autoReconnect=true&useUnicode=true&characterEncoding=utf8",
       "root",
       "1234")
@@ -55,8 +54,7 @@ object OMTest{
 
   }
   def main2 (args: Array[String]): Unit = {
-    var mySqlJDBCClientV2 = new MySqlJDBCClientV2(
-      "",
+    var mySqlJDBCClientV2 = new MySqlJDBCClient(
       "jdbc:mysql://node17:3306/sight",
       "root",
       "root_root")

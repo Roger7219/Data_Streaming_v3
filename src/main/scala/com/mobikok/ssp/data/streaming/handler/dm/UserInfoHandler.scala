@@ -7,7 +7,7 @@ import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
 import com.mobikok.ssp.data.streaming.util.http.{Entity, Requests}
-import com.mobikok.ssp.data.streaming.util.{MessageClientUtil, MySqlJDBCClientV2, OM, RunAgainIfError}
+import com.mobikok.ssp.data.streaming.util._
 import com.typesafe.config.Config
 import org.apache.spark.sql.hive.HiveContext
 
@@ -31,10 +31,10 @@ class UserInfoHandler extends Handler {
   var rdbPassword: String = null
 
   var rdbProp: java.util.Properties = null
-  var mySqlJDBCClient: MySqlJDBCClientV2 = null
+  var mySqlJDBCClient: MySqlJDBCClient = null
 
-  override def init (moduleName: String, bigQueryClient: BigQueryClient, greenplumClient: GreenplumClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config): Unit = {
-    super.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient, kylinClientV2, hbaseClient, hiveContext, argsConfig, handlerConfig)
+  override def init (moduleName: String, bigQueryClient: BigQueryClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config, clickHouseClient: ClickHouseClient, moduleTracer: ModuleTracer): Unit = {
+    super.init(moduleName, bigQueryClient, rDBConfig, kafkaClient, messageClient, hbaseClient, hiveContext, argsConfig, handlerConfig, clickHouseClient, moduleTracer)
 
     sTable = handlerConfig.getString("table")
     topics = handlerConfig.getStringList("message.topics").toArray(new Array[String](0))
@@ -51,17 +51,17 @@ class UserInfoHandler extends Handler {
       }
     }
 
-    mySqlJDBCClient = new MySqlJDBCClientV2(
-      moduleName, rdbUrl, rdbUser, rdbPassword
+    mySqlJDBCClient = new MySqlJDBCClient(
+      rdbUrl, rdbUser, rdbPassword
     )
   }
 
-  override def handle (): Unit = {
+  override def doHandle (): Unit = {
     LOG.warn("UserInfo handler starting")
 
     RunAgainIfError.run({
 
-      MessageClientUtil.pullAndSortByLTimeDescHivePartitionParts(messageClient, consumer, new MessageClientUtil.Callback[util.List[HivePartitionPart]]{
+      JavaMC.pullAndSortByLTimeDescHivePartitionParts(messageClient, consumer, new JavaMC.Callback[util.List[HivePartitionPart]]{
 
         override def doCallback(resp: util.List[HivePartitionPart]): java.lang.Boolean = {
 
@@ -431,8 +431,7 @@ object xvc{
 //      }
 //    }
 
-    val mySqlJDBCClient = new MySqlJDBCClientV2(
-      "test", url, user, password
+    val mySqlJDBCClient = new MySqlJDBCClient(url, user, password
     )
 
     mySqlJDBCClient.execute(sql)

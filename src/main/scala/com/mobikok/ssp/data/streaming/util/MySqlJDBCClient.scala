@@ -1,207 +1,378 @@
 package com.mobikok.ssp.data.streaming.util
 
-import java.sql.{Connection, DriverManager, ResultSet}
+import java.sql.{Connection, PreparedStatement, ResultSet, Statement}
 import java.util
-import java.util.Comparator
+import java.util.Date
 
-import com.mobikok.ssp.data.streaming.exception.{HiveJDBCClientException, MySQLJDBCClientException}
-import com.mysql.jdbc.Driver
-import org.apache.hive.jdbc.HiveDriver
-import org.apache.log4j.Logger
+import com.mobikok.ssp.data.streaming.exception.MySQLJDBCClientException
+import com.mobikok.ssp.data.streaming.util.MySqlJDBCClient.Callback
+import org.apache.commons.dbcp.BasicDataSource
 
+import scala.collection.JavaConversions._
 /**
   * Created by Administrator on 2017/6/14.
   */
+class MySqlJDBCClient(var url: String, var user: String, var password: String) {
+  private val LOG = new Logger( getClass.getName, new Date().getTime) //LoggerFactory.getLogger(getClass)
 
-class MySqlJDBCClient (url: String, user: String, password: String) {
+  private val driver = "com.mysql.jdbc.Driver"
+  var basicDataSource: BasicDataSource = _
 
-  private[this] val LOG = Logger.getLogger(getClass().getName());
+  try
+    Class.forName(driver)
+  catch {
+    case e: Exception =>
+      throw new MySQLJDBCClientException("加载Mysql Driver类异常", e)
+  }
+  basicDataSource = new BasicDataSource
+  basicDataSource.setMaxActive(5)
+  basicDataSource.setDriverClassName(driver)
+  basicDataSource.setUrl(this.url)
+  basicDataSource.setRemoveAbandoned(true)
+  basicDataSource.setRemoveAbandonedTimeout(180)
+  basicDataSource.setUsername(user);
+  basicDataSource.setPassword(password);
+  basicDataSource.setValidationQuery("select 1");
+  basicDataSource.setTestWhileIdle(true)
+  //在空闲连接回收器线程运行期间休眠的时间值,以毫秒为单位，一般比minEvictableIdleTimeMillis小
+  basicDataSource.setTimeBetweenEvictionRunsMillis(1000*60*5);
+  //在每次空闲连接回收器线程(如果有)运行时检查的连接数量，最好和maxActive一致
+  basicDataSource.setNumTestsPerEvictionRun(5);
+  //连接池中连接，在时间段内一直空闲，被逐出连接池的时间(1000*60*60)，以毫秒为单位
+  basicDataSource.setMinEvictableIdleTimeMillis(1000*60*60)
 
-  classOf[Driver]
-  var conn: Connection = null
+  def executeBatch(sqls: Array[String]): Unit ={
+    executeBatch(sqls, 2000)
+  }
 
-  val retryTimes = 0
-
-  def execute (sql: String): Unit = {
+  def executeBatch(sqls: Array[String], groupSize:Int): Unit ={
     var b = true
-    while (b) {
-      try{
-        execute0(sql, retryTimes)
-        b = false
-      }catch {case e:Throwable=>
-        LOG.warn("MySql execute fail, Will try again !!", e)
-        Thread.sleep(10000)
+
+    LOG.warn("Executing batch SQLs, All group count", sqls.length)
+    val gCount = Math.ceil(1.0*sqls.length / groupSize)
+
+//    while (b) {
+//      try{
+//          sqls.zipWithIndex.groupBy(x => x._2 % gCount).foreach { y =>
+//            val _sqls = y._2.map(z=>z._1)
+//
+//            executeBatch0(_sqls)
+//          }
+//          b = false
+//      }catch {case e:Throwable=>
+//        LOG.error("MySql executeBatch Fail, Will try again !!", e)
+//        Thread.sleep(10000)
+//      }
+//    }
+
+      sqls.zipWithIndex.groupBy(x => x._2 % gCount).foreach { y =>
+        RunAgainIfError.run({
+          val _sqls = y._2.map(z=>z._1)
+          executeBatch0(_sqls)
+        }, "MySql execute batch fail, Will try again !!")
       }
+  }
+
+  def executeBatch(preparedSql: String, batchData: Map[Int, _]*): Unit ={
+    LOG.warn("Executing batch prepared SQL, count", batchData.length)
+
+//    executeBatch("insret into t1(f1, f2) values(?,?)", Map(1->1, 2, "xx") )
+
+    RunAgainIfError.run({
+
+      if (0 == preparedSql.length || 0 == batchData.length) {
+        LOG.warn("Nonthing to be executed !!")
+        return
+      }
+
+      val con = basicDataSource.getConnection
+      var ps: PreparedStatement = null
+
+      try {
+        con.setAutoCommit(false)
+
+         ps = con.prepareStatement(preparedSql)
+
+        batchData.foreach { x =>
+//            var v = new util.ArrayList[Entry[Int, _]](x.entrySet())
+//
+//            util.Collections.sort(v, new Comparator[Entry[Int, _]](){
+//              def compare(a: Entry[Int, _], b: Entry[Int, _]): Int = {
+//                a.getKey.compareTo(b.getKey)
+//              }
+//            })
+
+          x.entrySet().foreach { y =>
+//            println(y.getKey +" " + y.getValue)
+            ps.setObject(y.getKey, y.getValue)
+          }
+          ps.addBatch
+        }
+          ps.executeBatch
+
+          con.commit()
+
+          LOG.warn("Execute batch prepared SQL done")
+        } finally {
+
+          if(con != null) {
+            try {
+              con.close()
+            }catch {case e:Exception=>
+              e.printStackTrace()
+            }
+          }
+
+        if(ps != null) {
+          try {
+            ps.close()
+          }catch {case e:Exception=>
+            e.printStackTrace()
+          }
+        }
+
+        }
+    })
+  }
+
+
+  def executeBatch(preparedSql: String, groupSize:Int, batchData: Map[Int, _]*): Unit ={
+    LOG.warn("Executing batch prepared SQL, count", batchData.length)
+
+    //    executeBatch("insret into t1(f1, f2) values(?,?)", Map(1->1, 2, "xx") )
+
+//    RunAgainIfError.run({
+
+      if (0 == preparedSql.length || 0 == batchData.length) {
+        LOG.warn("Nonthing to be executed !!")
+        return
+      }
+
+      val con = basicDataSource.getConnection
+      var ps: PreparedStatement = null
+
+      try {
+        con.setAutoCommit(false)
+
+        ps = con.prepareStatement(preparedSql)
+
+        val gCount = Math.ceil(1.0*batchData.length / groupSize)
+        LOG.warn("Executing batch SQLs", "count", batchData.length, "groupSize", groupSize, "groupCount", gCount)
+
+          batchData.zipWithIndex.groupBy(x => x._2 % gCount).foreach { y =>
+            RunAgainIfError.run({
+              val groupData = y._2.map(z=>z._1)
+
+              groupData.foreach { x =>
+                x.entrySet().foreach { y =>
+                  ps.setObject(y.getKey, y.getValue)
+                }
+                ps.addBatch
+              }
+
+              ps.executeBatch
+              con.commit()
+            }, "MySql execute batch fail, Will try again !!")
+          }
+
+        LOG.warn("Execute batch prepared SQL done")
+      } finally {
+
+        if(con != null) {
+          try {
+            con.close()
+          }catch {case e:Exception=>
+            e.printStackTrace()
+          }
+        }
+
+        if(ps != null) {
+          try {
+            ps.close()
+          }catch {case e:Exception=>
+            e.printStackTrace()
+          }
+        }
+
+      }
+//    })
+  }
+
+
+  private def executeBatch0 (sqls: Array[String]): Unit = {
+
+    LOG.warn("Executing batch SQLs count", sqls.length)
+
+    if (sqls.length == 0) {
+      LOG.warn("Executed batch SQLs done", "No statement has been executed !!")
+      return
+    }
+
+    val conn = basicDataSource.getConnection
+    val ac = conn.getAutoCommit
+    var st: Statement = null
+
+    try {
+      conn.setAutoCommit(false)
+
+      st = conn.createStatement
+      sqls.foreach { x =>
+        st.addBatch(x)
+      }
+
+      LOG.warn("Executing batch SQLs take(2)", util.Arrays.deepToString(sqls.take(2).asInstanceOf[Array[Object]]))
+
+      st.executeBatch()
+
+      conn.commit()
+
+      LOG.warn("Execute batch SQLs done")
+
+    } finally {
+      if(ac != null && conn != null) {
+        try {
+          conn.setAutoCommit(ac)
+        }catch {case e:Exception=>
+          e.printStackTrace()
+        }
+      }
+
+      if (st != null) {
+        try {
+          st.close()
+        }catch {case  e:Exception=>
+          e.printStackTrace()
+        }
+      }
+
+      if(conn != null) {
+        try {
+        conn.close()
+        }catch {case e:Exception=>
+          e.printStackTrace()
+        }
+      }
+
     }
   }
 
-  def executeQuery (sql: String) : ResultSet = {
+  def execute (sql: String): Unit = {
+
+//    var b = true
+//    while (b) {
+//      try{
+//        execute0(sql)
+//        b = false
+//      }catch {case e:Throwable=>
+//        LOG.error("MySql execute fail, Will try again !!", e)
+//        Thread.sleep(5000)
+//      }
+//    }
+    RunAgainIfError.run({
+      execute0(sql)
+    }, "MySql execute fail, Will try again !!")
+  }
+
+  def executeQuery[T] (sql: String, callback:Callback[T]): T = {
     var res:Any = null
     var b = true
     while (b) {
       try{
-        res = executeQuery0(sql, retryTimes)
+        res = executeQuery0[T](sql, callback)
         b = false
       }catch {case e:Throwable=>
-        LOG.warn("MySql execute query fail, Will try again !!", e)
+        LOG.error("MySql executeQuery fail, Will try again !!", e)
         Thread.sleep(5000)
       }
     }
-    res.asInstanceOf[ResultSet]
+    res.asInstanceOf[T]
   }
 
-  private def executeQuery0 (sql: String, _retryTimes: Int) : ResultSet = {
+  private def executeQuery0[T] (sql: String, callback:Callback[T]): T = {
+    val s = new Date().getTime
+    var conn:Connection = null
+    var st: Statement = null
+    var rs: ResultSet = null
     try {
-      if(conn == null) {
-        conn = DriverManager.getConnection(url, user, password)
-      }
-
-      LOG.info(s"Executing SQL: $sql" )
-      return conn.createStatement.executeQuery(sql)
+      //LOG.info("Executing SQL: " + sql)
+      conn = basicDataSource.getConnection
+      conn.setAutoCommit(true)
+      st = conn.createStatement
+      rs = st.executeQuery(sql)
+      callback.onCallback(rs)
     } catch {
       case e: Exception =>
+        throw new MySQLJDBCClientException("Fail SQL: " + sql + "\nMessage: "+ e.getMessage, e)
+    } finally {
 
-//        if (_retryTimes > 0) {
-          // Re initialization Connection
-          conn = DriverManager.getConnection(url, user, password)
-//          val res = executeQuery0(sql, (_retryTimes - 1))
-//          LOG.info(s"Executed SQL: $sql" )
-//          return res
-//        }
-        if (conn != null) {
-          try {
-            conn.close()
-          }finally {
-            conn = null
-          }
+      if(rs != null) {
+        try {
+          rs.close()
+        }catch {case e:Exception=>
+          e.printStackTrace()
         }
-        throw new MySQLJDBCClientException(s"MySql execute query fail:\n\n        SQL: " + sql +"\n", e)
+      }
+
+      if(st != null) {
+        try {
+          st.close()
+        }catch {case e:Exception=>
+          e.printStackTrace()
+        }
+      }
+
+      if(conn != null) {
+        try {
+          conn.close()
+        }catch {case e:Exception=>
+          e.printStackTrace()
+        }
+      }
+
+      LOG.warn("Executed SQL", sql)
     }
   }
 
-  private def execute0 (sql: String, _retryTimes: Int): Unit = {
-    try {
-      if(conn ==null) {
-        conn = DriverManager.getConnection(url, user, password)
-      }
+  private def execute0 (sql: String) = {
+    val s = new Date().getTime
+    var conn: Connection = null
+    var st: Statement = null
 
-      LOG.info(s"Executing SQL: $sql" )
-      conn.createStatement.execute(sql)
+    try {
+      //LOG.info("Executing SQL: " + sql)
+      conn = basicDataSource.getConnection
+      conn.setAutoCommit(true)
+      st = conn.createStatement
+      st.execute(sql)
     } catch {
       case e: Exception =>
-
-//        if (_retryTimes > 0) {
-//          // Re initialization Connection
-          conn = DriverManager.getConnection(url, user, password)
-//          execute0(sql, (_retryTimes - 1))
-//          LOG.info(s"Executed SQL: $sql" )
-//          return
-//        }
-        if (conn != null) {
-          try {
-            conn.close()
-          }finally {
-            conn = null
-          }
+        throw new MySQLJDBCClientException("Fail SQL: " + sql + "\nMessage: " + e.getMessage, e)
+    } finally {
+      if(st != null) {
+        try {
+          st.close()
+        }catch {case e:Exception=>
+          e.printStackTrace()
         }
-        throw new MySQLJDBCClientException(s"MySql execute fail::\n\n        SQL: " + sql +"\n", e)
+      }
+
+      if(conn != null) {
+        try {
+          conn.close()
+        }catch {case e:Exception=>
+          e.printStackTrace()
+        }
+      }
+      LOG.warn("Executed SQL", sql)
     }
   }
-
 
 }
-//object x{
-//  def main (args: Array[String]): Unit = {
-//    val url = "jdbc:mysql://node17:3306/sight"
-//    val user = "root"
-//    val password = "root_root"
-//
-//    val mySqlJDBCClient = new MySqlJDBCClient(
-//      url,
-//      user,
-//      password
-//    )
-//
-//   println(readRDBConfig("streaming_status"))
-//
-//    def readRDBConfig (name: String): String = {
-//
-//      val rs = mySqlJDBCClient.executeQuery("""select value from config where name = "streaming_status" """)
-//      if(rs.next()){
-//        rs.getString(1)
-//      }else
-//      null
-//    }
-//
-//  }
-//
-//}
 
-//object x{
-//  private val transactionalLegacyDataBackupCompletedTableSign = "_backup_completed_"
-//  private val transactionalLegacyDataBackupProgressingTableSign = "_backup_progressing_"
-//  private val backupCompletedTableNameForTransactionalTmpTableNameReplacePattern = "_class_.+" + transactionalLegacyDataBackupCompletedTableSign
-//  private val backupCompletedTableNameForTransactionalTargetTableNameReplacePattern = "_class_.+" + transactionalLegacyDataBackupCompletedTableSign +".*"
-//
-//
-//  private val transactionalTmpTableSign = "_trans_"
-//
-//
-//  def main (args: Array[String] ): Unit = {
-////    println("asd_asdqw".replaceAll("_","."))
-//
-//    val list = new util.ArrayList[String]()
-//    list.add("asd")
-//    list.add("z")
-//    list.add("vrr")
-//
-//
-//    list.sort(new Comparator[String] {
-//      override def compare (a: String, b: String): Int = b.compareTo(a)
-//    })
-//
-//    println(list)
-//
-////    val t ="ssp_user_dwi_uuid_stat_class_com_mobikok_ssp_data_streaming_entity_UuidStat_backup_completed_20170621_092945_684__1"
-////    val tt = t.replaceFirst(backupCompletedTableNameForTransactionalTmpTableNameReplacePattern, transactionalTmpTableSign)
-////    val table =  t.replaceFirst(backupCompletedTableNameForTransactionalTargetTableNameReplacePattern, "")
-////    println(tt)
-////    println(table)
-//
-//
-//  }
-//}
+object MySqlJDBCClient{
+  trait Callback[T]{
+    def onCallback(rs: ResultSet):T
+  }
+}
 
-
-
-//
-//object x {
-//
-//  def main (args: Array[String]): Unit = {
-//   /* val classPattern = "_class_(.+)".r
-//    classPattern.findAllIn("asdad_class_1U_asd_S").matchData.foreach{x=>
-//      println(x.group(1).replaceAll("_","."))
-//    }
-//
-//    val string = "one493two483three"
-//    val pattern = """two(\d+)three""".r
-//    pattern.findAllIn(string).matchData foreach {
-//      m => println(m.group(1))
-//    }
-//*/
-//    //    val s= Array("123","we")
-////   val s2 = s +: "xx"
-////      s2.foreach{x=>
-////        println(
-////          x
-////        )
-////
-////      }
-//
-//
-////        println("cccccc1")
-////        new HiveJDBCClient("jdbc:hive2://node17:10000/default", null, null).execute("create table ss23(data string)")
-////        println("cccccc2")
-//  }
-//}
 

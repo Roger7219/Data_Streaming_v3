@@ -6,7 +6,7 @@ import com.mobikok.message.{MessageConsumerCommitReq, MessagePullReq}
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
-import com.mobikok.ssp.data.streaming.util.{OM, RunAgainIfError, StringUtil}
+import com.mobikok.ssp.data.streaming.util.{ModuleTracer, OM, RunAgainIfError, StringUtil}
 import com.typesafe.config.Config
 import org.apache.spark.sql.SaveMode
 import org.apache.spark.sql.functions._
@@ -27,8 +27,8 @@ class HistoryDataHandler extends Handler {
   var aggFields: Array[String] = _
   var unionFields: Array[(String, String)] = _
 
-  override def init (moduleName: String, bigQueryClient: BigQueryClient, greenplumClient: GreenplumClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config): Unit = {
-    super.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient, kylinClientV2, hbaseClient, hiveContext,argsConfig, handlerConfig)
+  override def init (moduleName: String, bigQueryClient: BigQueryClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config, clickHouseClient: ClickHouseClient, moduleTracer: ModuleTracer): Unit = {
+    super.init(moduleName, bigQueryClient, rDBConfig, kafkaClient, messageClient, hbaseClient, hiveContext,argsConfig, handlerConfig, clickHouseClient, moduleTracer)
 
     viewConsumerTopics = handlerConfig.getObjectList("items").map { x =>
       val c = x.toConfig
@@ -54,7 +54,7 @@ class HistoryDataHandler extends Handler {
     unionFields = handlerConfig.getConfigList("groupby.aggs").map{field => (field.getString("expr"), field.getString("as"))}.toArray
   }
 
-  override def handle(): Unit = {
+  override def doHandle(): Unit = {
     LOG.warn("HistoryDataHandler handler starting")
     RunAgainIfError.run{
       viewConsumerTopics.foreach{ topics =>

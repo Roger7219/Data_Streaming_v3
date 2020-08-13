@@ -7,7 +7,7 @@ import com.mobikok.message.client.MessageClient
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
-import com.mobikok.ssp.data.streaming.util.MySqlJDBCClientV2.Callback
+import com.mobikok.ssp.data.streaming.util.MySqlJDBCClient.Callback
 import com.mobikok.ssp.data.streaming.util._
 import com.mobikok.ssp.data.streaming.util.http.{Entity, Requests}
 import com.typesafe.config.Config
@@ -24,14 +24,14 @@ class MonitorOfferEcpcAndCrHandler extends Handler {
   val consumer = "monitor_offer_cer"
   var dmTable : String = null
   var topics: Array[String] = null
-  var mySqlJDBCClient: MySqlJDBCClientV2 = null
+  var mySqlJDBCClient: MySqlJDBCClient = null
 
   var requests: Requests = new Requests(1)
 
   var lastSendEmailTime = 0L
 
-  override def init (moduleName: String, bigQueryClient: BigQueryClient, greenplumClient: GreenplumClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config): Unit = {
-    super.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient, kylinClientV2, hbaseClient, hiveContext, argsConfig, handlerConfig)
+  override def init (moduleName: String, bigQueryClient: BigQueryClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config, clickHouseClient: ClickHouseClient, moduleTracer: ModuleTracer): Unit = {
+    super.init(moduleName, bigQueryClient, rDBConfig, kafkaClient, messageClient, hbaseClient, hiveContext, argsConfig, handlerConfig, clickHouseClient, moduleTracer)
 
     dmTable = handlerConfig.getString("table")
     topics = handlerConfig.getStringList("message.topics").toArray(new Array[String](0))
@@ -40,18 +40,18 @@ class MonitorOfferEcpcAndCrHandler extends Handler {
     val rdbUser = handlerConfig.getString(s"rdb.user")
     val rdbPassword = handlerConfig.getString(s"rdb.password")
 
-    mySqlJDBCClient = new MySqlJDBCClientV2(
-      moduleName, rdbUrl, rdbUser, rdbPassword
+    mySqlJDBCClient = new MySqlJDBCClient(
+      rdbUrl, rdbUser, rdbPassword
     )
     SQLMixUpdater.init(mySqlJDBCClient)
   }
 
 
-  override def handle (): Unit = {
+  override def doHandle (): Unit = {
     LOG.warn("MonitorOfferEcpcAndCrHandler handler starting")
 
     RunAgainIfError.run({
-      MessageClientUtil.pullAndSortByBDateDescHivePartitionParts(messageClient, consumer, new MessageClientUtil.Callback[util.List[HivePartitionPart]]{
+      JavaMC.pullAndSortByBDateDescHivePartitionParts(messageClient, consumer, new JavaMC.Callback[util.List[HivePartitionPart]]{
 
         def doCallback (ps: util.List[HivePartitionPart]): java.lang.Boolean = {
           var isSendedEmail = false

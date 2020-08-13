@@ -1,26 +1,19 @@
 package com.mobikok.ssp.data.streaming
 
-import java.util
-
 import com.mobikok.ssp.data.streaming.entity.UuidStat
-import com.mobikok.ssp.data.streaming.client.{HBaseClient, TransactionManager}
-import com.mobikok.ssp.data.streaming.util.DataFrameUtil
 import com.typesafe.config.{Config, ConfigFactory}
-import org.apache.hadoop.util.bloom.BloomFilter
-import org.apache.hadoop.util.hash.Hash
 import org.apache.log4j.{Level, Logger}
-import org.apache.spark.sql.{Row, SQLContext, SaveMode}
+import org.apache.spark.sql.functions._
 import org.apache.spark.sql.hive.HiveContext
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
+import org.apache.spark.sql.{Row, SQLContext, SaveMode}
 import org.apache.spark.{SparkConf, SparkContext}
-import org.apache.spark.sql.functions._
 /**
   * Created by Administrator on 2017/6/20.
   */
 object Spark2HiveTest {
 
   import scala.collection.JavaConversions._
-  import org.apache.spark.sql.functions
 
   Logger.getLogger("org.apache.spark").setLevel(Level.WARN)
 
@@ -28,7 +21,6 @@ object Spark2HiveTest {
 
 
   var config: Config = ConfigFactory.load
-  val transactionManager = new TransactionManager(config)
   var sparkConf = new SparkConf()
     .set("hive.exec.dynamic.partition", "true")
     .set("hive.exec.dynamic.partition.mode", "nonstrict")

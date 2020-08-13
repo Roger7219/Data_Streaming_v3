@@ -1,9 +1,9 @@
 package com.mobikok.ssp.data.streaming
 
-import com.mobikok.ssp.data.streaming.client.{HBaseClient, MixTransactionManager, TransactionManager}
+import com.mobikok.ssp.data.streaming.client.HBaseClient
 import com.mobikok.ssp.data.streaming.entity.{SspTrafficDWI, UuidStat}
 import com.mobikok.ssp.data.streaming.entity.feature.HBaseStorable
-import com.mobikok.ssp.data.streaming.module.support.AlwaysTransactionalStrategy
+import com.mobikok.ssp.data.streaming.transaction.{AlwaysTransactionalStrategy, TransactionManager}
 import com.mobikok.ssp.data.streaming.util.{CSTTime, ModuleTracer, OM}
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.hadoop.conf.Configuration
@@ -38,7 +38,7 @@ object HBaseClientPutPhoenixDataTest  {
 
   val sc:SparkContext = null //new SparkContext(sparkConf)
 
-  val hbaseClient = new HBaseClient("test_moudle", sc, config, new MixTransactionManager(
+  val hbaseClient = new HBaseClient("test_moudle", sc, config, new TransactionManager(
     config,
     new AlwaysTransactionalStrategy(CSTTime.formatter("yyyy-MM-dd HH:00:00"), CSTTime.formatter("yyyy-MM-dd 00:00:00"))
   ), new ModuleTracer ())

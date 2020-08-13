@@ -10,7 +10,7 @@ import com.mobikok.message.client.MessageClient
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
-import com.mobikok.ssp.data.streaming.util.{OM, RunAgainIfError}
+import com.mobikok.ssp.data.streaming.util.{ModuleTracer, OM, RunAgainIfError}
 import com.typesafe.config.Config
 import org.apache.spark.sql.SaveMode
 import org.apache.spark.sql.functions._
@@ -32,8 +32,8 @@ class MonitorTopNHandler extends Handler {
   var topNTable = null.asInstanceOf[String]
 
 
-  override def init (moduleName: String, bigQueryClient: BigQueryClient, greenplumClient: GreenplumClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config): Unit = {
-    super.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient, kylinClientV2, hbaseClient, hiveContext, argsConfig, handlerConfig)
+  override def init (moduleName: String, bigQueryClient: BigQueryClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config, clickHouseClient: ClickHouseClient, moduleTracer: ModuleTracer): Unit = {
+    super.init(moduleName, bigQueryClient, rDBConfig, kafkaClient, messageClient, hbaseClient, hiveContext, argsConfig, handlerConfig, clickHouseClient, moduleTracer)
 
     dmTable = handlerConfig.getString("table.dm");
     topNTable = handlerConfig.getString("table.topn")
@@ -157,7 +157,7 @@ class MonitorTopNHandler extends Handler {
 
   }
 
-  override def handle (): Unit = {
+  override def doHandle (): Unit = {
     LOG.warn("TopStatHandler starting!")
 
     val ms:Resp[util.List[Message]] = messageClient.pullMessage(new MessagePullReq(topStatHandlerConsumer, topics))

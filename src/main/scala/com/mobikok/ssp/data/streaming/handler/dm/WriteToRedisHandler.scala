@@ -28,15 +28,15 @@ class WriteToRedisHandler extends Handler{
   var rdbPassword: String = null
   var rdbProp: java.util.Properties = null
   var rdbTable: String = null
-  var mySqlJDBCClient: MySqlJDBCClientV2 = null
+  var mySqlJDBCClient: MySqlJDBCClient = null
 
   var consumer = "writeToRedisCer"
   var dmTable : String = null
   var topics: Array[String] = null
 
 
-  override def init (moduleName: String, bigQueryClient:BigQueryClient,greenplumClient:GreenplumClient, rDBConfig:RDBConfig,kafkaClient: KafkaClient, messageClient:MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig,handlerConfig: Config): Unit = {
-    super.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient: KafkaClient,messageClient, kylinClientV2, hbaseClient, hiveContext, argsConfig, handlerConfig)
+  override def init (moduleName: String, bigQueryClient:BigQueryClient, rDBConfig:RDBConfig,kafkaClient: KafkaClient, messageClient:MessageClient, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig,handlerConfig: Config, clickHouseClient: ClickHouseClient, moduleTracer: ModuleTracer): Unit = {
+    super.init(moduleName, bigQueryClient, rDBConfig, kafkaClient: KafkaClient,messageClient, hbaseClient, hiveContext, argsConfig, handlerConfig, clickHouseClient, moduleTracer)
 
     dmTable = handlerConfig.getString("table")
     topics = handlerConfig.getStringList("message.topics").toArray(new Array[String](0))
@@ -54,14 +54,14 @@ class WriteToRedisHandler extends Handler{
       }
     }
 
-    mySqlJDBCClient = new MySqlJDBCClientV2(
-      moduleName, rdbUrl, rdbUser, rdbPassword
+    mySqlJDBCClient = new MySqlJDBCClient(
+      rdbUrl, rdbUser, rdbPassword
     )
 
     jedisPool = WriteToRedisHandler.initRedis()
   }
 
-  override def handle (): Unit = {
+  override def doHandle (): Unit = {
 
     // 延时问题
     LOG.warn(s"CountryCarrierInfoToRedisHandler read mysql table $rdbTable starting")
@@ -88,7 +88,7 @@ class WriteToRedisHandler extends Handler{
       writeToRedis[CountryCarrierConfig](bidList, info=>String.format(Constants.KEY_COUNTRY_CONFIG, info.getCountryId, info.getCarrierId) )
 
   //write offer BidPrice info
-      MessageClientUtil.pullAndSortByBDateDescHivePartitionParts(messageClient, consumer, new MessageClientUtil.Callback[util.List[HivePartitionPart]]{
+      JavaMC.pullAndSortByBDateDescHivePartitionParts(messageClient, consumer, new JavaMC.Callback[util.List[HivePartitionPart]]{
 
         def doCallback (ps: util.List[HivePartitionPart]):java.lang.Boolean={
 

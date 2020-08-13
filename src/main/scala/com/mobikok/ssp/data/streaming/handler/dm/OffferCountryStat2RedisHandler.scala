@@ -39,13 +39,13 @@ class OffferCountryStat2RedisHandler extends Handler {
   var rdbPassword: String = null
 
   var rdbProp: java.util.Properties = null
-  var mySqlJDBCClient: MySqlJDBCClientV2 = null
+  var mySqlJDBCClient: MySqlJDBCClient = null
 
 
   private val jedisPool:JedisResourcePool = RoundRobinJedisPool.create().curatorClient(HOST_PORT, 30000).zkProxyDir(ZK_PROXY_DIR).build();
 
-  override def init (moduleName: String, bigQueryClient: BigQueryClient, greenplumClient: GreenplumClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config): Unit = {
-    super.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient, kylinClientV2, hbaseClient, hiveContext, argsConfig, handlerConfig)
+  override def init (moduleName: String, bigQueryClient: BigQueryClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config, clickHouseClient: ClickHouseClient, moduleTracer: ModuleTracer): Unit = {
+    super.init(moduleName, bigQueryClient, rDBConfig, kafkaClient, messageClient, hbaseClient, hiveContext, argsConfig, handlerConfig, clickHouseClient, moduleTracer)
 
     rdbUrl = handlerConfig.getString(s"rdb.url")
     rdbUser = handlerConfig.getString(s"rdb.user")
@@ -59,12 +59,12 @@ class OffferCountryStat2RedisHandler extends Handler {
       }
     }
 
-    mySqlJDBCClient = new MySqlJDBCClientV2(
-      moduleName, rdbUrl, rdbUser, rdbPassword
+    mySqlJDBCClient = new MySqlJDBCClient(
+      rdbUrl, rdbUser, rdbPassword
     )
   }
 
-  override def handle (): Unit = {
+  override def doHandle (): Unit = {
     LOG.warn("OffferCountryStat2RedisHandler handler starting")
 
     RunAgainIfError.run({
@@ -100,7 +100,7 @@ class OffferCountryStat2RedisHandler extends Handler {
                |LEFT JOIN CAMPAIGN C ON C.ID = O.CampaignId
                |LEFT JOIN ADVERTISER A ON A.ID =C.AdverId
                |WHERE O.Status=1 AND O.AmStatus=1 AND C.Status=1 AND O.Modes LIKE CONCAT('%,',2,',%') AND C.AdverId!=0
-             """.stripMargin, new MySqlJDBCClientV2.Callback[DataFrame] {
+             """.stripMargin, new MySqlJDBCClient.Callback[DataFrame] {
               override def onCallback(rs: ResultSet): DataFrame = {
                 OM.assembleAsDataFrame(rs, hiveContext)
               }

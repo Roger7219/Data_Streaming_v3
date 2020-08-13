@@ -1,6 +1,6 @@
 package com.mobikok.ssp.data.streaming
 
-import com.mobikok.ssp.data.streaming.util.MySqlJDBCClientV2
+import com.mobikok.ssp.data.streaming.util.MySqlJDBCClient
 
 /**
   * Created by Administrator on 2017/8/7.
@@ -24,8 +24,8 @@ object MySqlJDBCClientV2Test {
       }
     }
 
-    val mySqlJDBCClient = new MySqlJDBCClientV2(
-      "moduleName_test", rdbUrl, rdbUser, rdbPassword
+    val mySqlJDBCClient = new MySqlJDBCClient(
+      rdbUrl, rdbUser, rdbPassword
     )
     val sqls =
       s"""

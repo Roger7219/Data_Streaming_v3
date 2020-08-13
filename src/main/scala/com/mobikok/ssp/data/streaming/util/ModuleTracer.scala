@@ -4,11 +4,11 @@ import java.text.DecimalFormat
 import java.util
 import java.util.{Date, Random}
 
-import com.mobikok.ssp.data.streaming.client.cookie.TransactionCookie
 import com.mobikok.ssp.data.streaming.config.DynamicConfig
 import com.mobikok.ssp.data.streaming.exception.AppException
 import com.mobikok.ssp.data.streaming.module.Module
 import com.mobikok.ssp.data.streaming.module.support.MixModulesBatchController
+import com.mobikok.ssp.data.streaming.transaction.TransactionCookie
 import com.typesafe.config.Config
 
 import scala.collection.mutable
@@ -80,10 +80,14 @@ class ModuleTracer(moduleName: String, config: Config, mixModulesBatchController
     trace(s"thread: ${Thread.currentThread().getId}")
   }
   def startBatch(transactionOrder: Long, parentTid: String): Unit = {
-    startBatch(transactionOrder, parentTid, null, "")
+    start0(transactionOrder, parentTid, null, "")
   }
 
-  def startBatch(transactionOrder: Long, parentTid: String, parentThreadId: java.lang.Long, prefix: String): Unit = {
+  def startAsyncHandle(transactionOrder: Long, parentTid: String, parentThreadId: java.lang.Long): Unit = {
+    start0(transactionOrder, parentTid, parentThreadId, "    ")
+  }
+
+  private def start0(transactionOrder: Long, parentTid: String, parentThreadId: java.lang.Long, prefix: String): Unit = {
     batchBeginTime.set(new Date().getTime)
     batchContinueTime.set(batchBeginTime.get())
     batchActualTime.set(0)
@@ -206,7 +210,7 @@ class ModuleTracer(moduleName: String, config: Config, mixModulesBatchController
 
                     Thread.sleep(1000*5) // 稍等一会儿kill自身，确保上述日志能打印出来
 
-                    YarnAPPManagerUtil.killApps(n)
+                    YarnAppManagerUtil.killApps(n)
                   }
                   Thread.sleep(maxWaitingTimeMS)
                 }else {

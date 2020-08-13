@@ -1,12 +1,9 @@
 package com.mobikok.ssp.data.streaming.client
 
-import com.mobikok.ssp.data.streaming.entity.{AggTrafficDWI, UuidStat}
-import com.mobikok.ssp.data.streaming.util.ModuleTracer
+import com.mobikok.ssp.data.streaming.entity.AggTrafficDWI
 import com.typesafe.config.{Config, ConfigFactory}
-import org.apache.spark.sql.hive.HiveContext
 import org.apache.spark.{SparkConf, SparkContext}
-
-import scala.beans.BeanProperty
+import org.apache.spark.sql.hive.HiveContext
 
 /**
   * Created by Administrator on 2017/6/20.
@@ -14,8 +11,7 @@ import scala.beans.BeanProperty
 object HBaseClientTest {
 
   var config: Config = ConfigFactory.load
-  val transactionManager = new TransactionManager(config)
-  var sparkConf = null/*new SparkConf()
+  var sparkConf:SparkConf = null/*new SparkConf()
     .set("hive.exec.dynamic.partition.mode", "nonstrict")
     .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
     .setAppName("wordcount")

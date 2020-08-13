@@ -3,6 +3,7 @@ package com.mobikok.ssp.data.streaming.client.cookie
 import java.util
 
 import com.mobikok.ssp.data.streaming.entity.{OffsetRange, TopicPartition}
+import com.mobikok.ssp.data.streaming.transaction.TransactionCookie
 
 import scala.beans.BeanProperty
 

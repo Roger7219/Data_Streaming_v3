@@ -34,15 +34,15 @@ class OfferHandlerV2 extends Handler{
   var rdbPassword: String = null
 
   var rdbProp: java.util.Properties = null
-  var mySqlJDBCClient: MySqlJDBCClientV2 = null
+  var mySqlJDBCClient: MySqlJDBCClient = null
 
   var offerHandlerConsumer = "offerHandler"
 
   val TOADY_NEED_INIT_CER = "OfferHandlerV2_toady_need_init_cer"
   val TOADY_NEED_INIT_TOPIC = "OfferHandlerV2_toady_need_init_topic"
 
-  override def init (moduleName: String, bigQueryClient:BigQueryClient,greenplumClient:GreenplumClient, rDBConfig:RDBConfig,kafkaClient: KafkaClient, messageClient:MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config): Unit = {
-    super.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient: KafkaClient,messageClient, kylinClientV2, hbaseClient, hiveContext, argsConfig, handlerConfig)
+  override def init (moduleName: String, bigQueryClient:BigQueryClient, rDBConfig:RDBConfig,kafkaClient: KafkaClient, messageClient:MessageClient, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config, clickHouseClient: ClickHouseClient, moduleTracer: ModuleTracer): Unit = {
+    super.init(moduleName, bigQueryClient, rDBConfig, kafkaClient: KafkaClient,messageClient, hbaseClient, hiveContext, argsConfig, handlerConfig, clickHouseClient, moduleTracer)
 
 //    dmDayTable = handlerConfig.getString("dm.table")
 
@@ -58,14 +58,14 @@ class OfferHandlerV2 extends Handler{
       }
     }
 
-    mySqlJDBCClient = new MySqlJDBCClientV2(
-      moduleName, rdbUrl, rdbUser, rdbPassword
+    mySqlJDBCClient = new MySqlJDBCClient(
+      rdbUrl, rdbUser, rdbPassword
     )
     SQLMixUpdater.init(mySqlJDBCClient)
   }
 
   var prevDay: String = null
-  override def handle (): Unit = {
+  override def doHandle (): Unit = {
 
     LOG.warn("OfferHandler read mysql table OFFER started")
 

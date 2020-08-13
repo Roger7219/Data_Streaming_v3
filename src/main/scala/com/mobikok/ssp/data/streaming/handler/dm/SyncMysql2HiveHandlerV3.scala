@@ -26,11 +26,11 @@ class SyncMysql2HiveHandlerV3 extends Handler {
   val syncUpdateMysql2HiveCer = "SyncUpdateMysql2HiveCer"
   var updateWhereTopic = Array("config_update")
 
-  var mySqlJDBCClient: MySqlJDBCClientV2 = null
+  var mySqlJDBCClient: MySqlJDBCClient = null
   @volatile var lock = new Object()
 
-  override def init(moduleName: String, bigQueryClient: BigQueryClient, greenplumClient: GreenplumClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config): Unit = {
-    super.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient, kylinClientV2, hbaseClient, hiveContext, argsConfig, handlerConfig)
+  override def init(moduleName: String, bigQueryClient: BigQueryClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config, clickHouseClient: ClickHouseClient, moduleTracer: ModuleTracer): Unit = {
+    super.init(moduleName, bigQueryClient, rDBConfig, kafkaClient, messageClient, hbaseClient, hiveContext, argsConfig, handlerConfig, clickHouseClient, moduleTracer)
 
     tableDetails = handlerConfig.getConfigList("tables").map { x =>
       x.getString("mysql") -> (x.getString("hive"), if(x.hasPath("uuid")) x.getString("uuid") else null)
@@ -48,12 +48,12 @@ class SyncMysql2HiveHandlerV3 extends Handler {
       }
     }
 
-    mySqlJDBCClient = new MySqlJDBCClientV2(
-      moduleName, rdbUrl, rdbUser, rdbPassword
+    mySqlJDBCClient = new MySqlJDBCClient(
+      rdbUrl, rdbUser, rdbPassword
     )
   }
 
-  override def handle(): Unit = {
+  override def doHandle(): Unit = {
     // 上个批次还在处理时，等待当前批次
     lock.synchronized{
       LOG.warn(s"SyncMysql2HiveHandler start")

@@ -3,24 +3,12 @@ package com.mobikok.ssp.data.streaming
 import java.io.{FileInputStream, InputStream}
 import java.nio.channels.Channels
 
-import com.fasterxml.jackson.core.`type`.TypeReference
 import com.google.auth.oauth2.ServiceAccountCredentials
 import com.google.cloud.bigquery.JobInfo.WriteDisposition
 import com.google.cloud.bigquery._
-import com.mobikok.message.client.MessageClient
-import com.mobikok.message.{MessageConsumerCommitReq, MessagePullReq}
-import com.mobikok.ssp.data.streaming.client.{GreenplumClient, HBaseClient, KafkaClient, KylinClientV2}
-import com.mobikok.ssp.data.streaming.config.RDBConfig
-import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
-import com.mobikok.ssp.data.streaming.util.OM
-import com.typesafe.config.Config
 import org.apache.commons.io.IOUtils
-import org.apache.hadoop.fs.{FileSystem, Path, PathFilter}
+import org.apache.hadoop.fs.FileSystem
 import org.apache.hadoop.hdfs.HdfsConfiguration
-import org.apache.spark.sql.SaveMode
-import org.apache.spark.sql.hive.HiveContext
-
-import scala.collection.JavaConversions._
 
 /**
   * Created by admin on 2017/9/4.

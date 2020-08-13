@@ -3,8 +3,8 @@ package com.mobikok.ssp.data.streaming.module.support
 import java.util
 import java.util.Date
 
-import com.mobikok.ssp.data.streaming.client.MixTransactionManager
 import com.mobikok.ssp.data.streaming.exception.{AppException, ModuleException}
+import com.mobikok.ssp.data.streaming.transaction.TransactionManager
 import com.mobikok.ssp.data.streaming.util.{Logger, OM}
 import org.apache.spark.sql.{Column, DataFrame}
 import org.apache.spark.sql.hive.HiveContext
@@ -17,7 +17,7 @@ import org.apache.spark.sql.functions._
 /**
   * Created by Administrator on 2017/10/16.
   */
-class MixModulesBatchController(config:Config, runnableModuleNames: Array[String], dwrShareTable: String, mixTransactionManager: MixTransactionManager, hiveContext: HiveContext, shufflePartitions: Int) {
+class MixModulesBatchController(config:Config, runnableModuleNames: Array[String], _dwrShareTable: String, transactionManager: TransactionManager, hiveContext: HiveContext, shufflePartitions: Int) {
 
   def isRunnable(moduleName: String): Boolean = runnableModuleNames.contains(moduleName)
   def isInitable(moduleName: String): Boolean = {
@@ -26,7 +26,7 @@ class MixModulesBatchController(config:Config, runnableModuleNames: Array[String
       if(runnableModuleNames.contains(moduleName)) {
         result = true
       } else {
-        val sms = mixTransactionManager.prevRunningSameTransactionGroupModules(moduleName)
+        val sms = transactionManager.prevRunningSameTransactionGroupModules(moduleName)
         result = sms.contains(moduleName)
       }
       result
@@ -35,14 +35,14 @@ class MixModulesBatchController(config:Config, runnableModuleNames: Array[String
   val LOG: Logger = new Logger(getClass.getName, new Date().getTime)
 
   //moduleName, unionReadied, isMaster
-  @volatile private var moduleNamesMappingCurrBatchModuleUnionReadied: java.util.HashMap[String, Boolean] = new util.HashMap[String, Boolean]()
+  @volatile private var moduleNamesMappingCurrBatchModuleUnionReadied = new util.HashMap[String, Boolean]()
 
   //all mix module
-  @volatile private var allMixModuleNames: util.HashSet[String] = new util.HashSet[String]()
+  @volatile private var allMixModuleNames = new util.HashSet[String]()
 
   //配置文件里的设置master=true
   //moduleName, isMaster
-  @volatile private var moduleIsMasterOfSettingFilePlainVlaueMap: java.util.HashMap[String, Boolean] = new util.HashMap[String, Boolean]()
+  @volatile private var moduleIsMasterOfSettingFilePlainVlaueMap = new util.HashMap[String, Boolean]()
 
   @volatile private var cacheGroupByDwr: DataFrame = null
 
@@ -53,6 +53,10 @@ class MixModulesBatchController(config:Config, runnableModuleNames: Array[String
 
   var dwrGroupByUnionAggExprsAndAlias:List[Column] = null
   var dwrGroupByDimensionFieldsAlias:List[Column] = null
+
+  def dwrShareTable(): String={
+    _dwrShareTable
+  }
 
   def isMultipleModulesOperateSameDwrTable (): Boolean = {
     moduleNamesMappingCurrBatchModuleUnionReadied.size() > 1
@@ -82,10 +86,10 @@ class MixModulesBatchController(config:Config, runnableModuleNames: Array[String
       }
 
       if (i > 1) {
-        throw new AppException(s"Too many modules settings for dwr table '$dwrShareTable', Make sure that only one module is master, plain settings(is master):\n" + OM.toJOSN(moduleIsMasterOfSettingFilePlainVlaueMap))
+        throw new AppException(s"Too many modules settings for dwr table '${_dwrShareTable}', Make sure that only one module is master, plain settings(is master):\n${OM.toJOSN(moduleIsMasterOfSettingFilePlainVlaueMap)}")
       }
       else if (i == 0) {
-        throw new AppException(s"No master module specified for dwr table '$dwrShareTable', plain settings(is master):\n" + OM.toJOSN(moduleIsMasterOfSettingFilePlainVlaueMap))
+        throw new AppException(s"No master module specified for dwr table '${_dwrShareTable}', plain settings(is master):\n${OM.toJOSN(moduleIsMasterOfSettingFilePlainVlaueMap)}")
       }
     }
   }
@@ -123,7 +127,7 @@ class MixModulesBatchController(config:Config, runnableModuleNames: Array[String
         moduleNamesMappingCurrBatchModuleUnionReadied.put(moduleName, true)
 
         LOG.warn(s"$moduleName - curr batch module union readied",
-          s"""tid: ${mixTransactionManager.getCurrentTransactionParentId()}
+          s"""tid: ${transactionManager.getCurrentTransactionParentId()}
              |union readied: ${OM.toJOSN(moduleNamesMappingCurrBatchModuleUnionReadied)}
           """.stripMargin)
 
@@ -194,10 +198,12 @@ class MixModulesBatchController(config:Config, runnableModuleNames: Array[String
     res
   }
 
-  def set (newDF: => DataFrame): Unit = {
+  // 同步执行, 上一个handler dwr层作为下一个handler dwr层的输入
+  // 该方法待删，没必要,因为dwrhandler只有isMaster=true的一个module执行，不存在多module并发线程安全问题
+  def set(moduleDwrHandle: => DataFrame): Unit = {
     synchronizedCall(new Callback {
       override def onCallback (): Unit = {
-        cacheGroupByDwr = newDF
+        cacheGroupByDwr = moduleDwrHandle
       }
     }, lock)
   }
@@ -225,7 +231,7 @@ class MixModulesBatchController(config:Config, runnableModuleNames: Array[String
         if(runnableModuleNames.contains(moduleName)) {
           moduleNamesMappingCurrBatchModuleUnionReadied.put(moduleName, false)
           moduleIsMasterOfSettingFilePlainVlaueMap.put(moduleName, isMasterOfConfigSpecify)
-          mixTransactionManager.addModuleName(moduleName)
+          transactionManager.addModuleName(moduleName)
         }
         allMixModuleNames.add(moduleName)
 
@@ -282,8 +288,8 @@ class MixModulesBatchController(config:Config, runnableModuleNames: Array[String
 //    assertJustOnlyOneMasterModule()
 //  }
 
-  def getMixTransactionManager (): MixTransactionManager = {
-    mixTransactionManager
+  def getTransactionManager(): TransactionManager = {
+    transactionManager
   }
 
   def synchronizedCall (callback: Callback, lock: Object): Unit = {
@@ -299,12 +305,3 @@ class MixModulesBatchController(config:Config, runnableModuleNames: Array[String
 
 }
 
-
-
-object xxtest{
-
-  def main(args: Array[String]): Unit = {
-    println(List(col("x"), col("ee")).equals(List(col("x"), col("ee"))))
-  }
-
-}

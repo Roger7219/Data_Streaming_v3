@@ -1,10 +1,6 @@
 package com.mobikok.ssp.data.streaming.util
 
 import java.util
-import java.util.Collections
-
-import com.mobikok.ssp.data.streaming.OptimizedMixApp.getClass
-import com.mobikok.ssp.data.streaming.concurrent.GlobalAppRunningStatusV2.Callback
 
 case class KV (fieldName: String, fieldValue: Any)
 /**
@@ -15,8 +11,8 @@ object SQLMixUpdater {
   private[this] val LOG = new Logger(getClass)
 
   private val LOCK = new Object
-  private var mySqlJDBCClientV2:MySqlJDBCClientV2 = null
-  private var batchBuration: java.lang.Long = null //默认5分钟更新一次
+  private var mySqlJDBCClient:MySqlJDBCClient = _
+  private var batchBuration: java.lang.Long = _ //默认5分钟更新一次
 
   // (table, (where, (update field, update value) ))
   private var data: util.Map[String, util.HashMap[String, util.HashMap[String, Any]]] = new util.HashMap[String, util.HashMap[String, util.HashMap[String, Any]]]()
@@ -75,7 +71,7 @@ object SQLMixUpdater {
 
   def execute(): Unit ={
     synchronizedCall{
-      val sqls = data.entrySet().foreach{x=>
+      data.entrySet().foreach{x=>
         val table = x.getKey
         val sqls =x.getValue.entrySet().map{y=>
           val w = y.getKey
@@ -99,7 +95,7 @@ object SQLMixUpdater {
         .toArray
 
         LOG.warn("Time executing sql", "take(10)", sqls.take(10), "count", sqls.length)
-        mySqlJDBCClientV2.executeBatch(sqls, 500)
+        mySqlJDBCClient.executeBatch(sqls, 500)
       }
 
       data = new util.HashMap[String, util.HashMap[String, util.HashMap[String, Any]]]()
@@ -158,21 +154,21 @@ object SQLMixUpdater {
     c
   }
 
-  def init(mySqlJDBCClientV2: MySqlJDBCClientV2, batchBuration:Int): Unit ={
+  def init(mySqlJDBCClient: MySqlJDBCClient, batchBuration:Int): Unit ={
     synchronizedCall{
-      if(this.mySqlJDBCClientV2 != null) {
-        if(!this.mySqlJDBCClientV2.url.equals(mySqlJDBCClientV2.url)){
-          throw new RuntimeException("SQLMixUpdater is initialized many times, but the db url must be consistent every time. Original url: " + this.mySqlJDBCClientV2.url + ", New url: " + mySqlJDBCClientV2.url)
+      if(this.mySqlJDBCClient != null) {
+        if(!this.mySqlJDBCClient.url.equals(mySqlJDBCClient.url)){
+          throw new RuntimeException("SQLMixUpdater is initialized many times, but the db url must be consistent every time. Original url: " + this.mySqlJDBCClient.url + ", New url: " + mySqlJDBCClient.url)
         }
       }
-      this.mySqlJDBCClientV2 = mySqlJDBCClientV2
+      this.mySqlJDBCClient = mySqlJDBCClient
       this.batchBuration = batchBuration
       autoTimeCommitUpdate()
     }
 
   }
-  def init(mySqlJDBCClientV2: MySqlJDBCClientV2): Unit ={
-    init(mySqlJDBCClientV2, 1000*60*5)
+  def init(mySqlJDBCClient: MySqlJDBCClient): Unit ={
+    init(mySqlJDBCClient, 1000*60*5)
   }
 }
 

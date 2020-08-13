@@ -23,8 +23,8 @@ class ClickHouseQueryByBTimeHandler extends Handler {
 
   @volatile var LOCK = new Object()
 
-  override def init(moduleName: String, bigQueryClient: BigQueryClient, greenplumClient: GreenplumClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config): Unit = {
-    super.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient, kylinClientV2, hbaseClient, hiveContext, argsConfig, handlerConfig)
+  override def init(moduleName: String, bigQueryClient: BigQueryClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config, clickHouseClient: ClickHouseClient, moduleTracer: ModuleTracer): Unit = {
+    super.init(moduleName, bigQueryClient, rDBConfig, kafkaClient, messageClient, hbaseClient, hiveContext, argsConfig, handlerConfig, clickHouseClient, moduleTracer)
 
     viewConsumerTopics = handlerConfig.getObjectList("items").map { item =>
       val config = item.toConfig
@@ -45,7 +45,7 @@ class ClickHouseQueryByBTimeHandler extends Handler {
     }
   }
 
-  override def handle(): Unit = {
+  override def doHandle(): Unit = {
 
     // 上个批次还在处理时，等待上一批次结束
     LOCK.synchronized{

@@ -8,8 +8,8 @@ import com.mobikok.message.client.MessageClient
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
-import com.mobikok.ssp.data.streaming.util.MessageClientUtil.Callback
-import com.mobikok.ssp.data.streaming.util.{BigQueryJDBCClient, MessageClientUtil, RunAgainIfError}
+import com.mobikok.ssp.data.streaming.util.JavaMC.Callback
+import com.mobikok.ssp.data.streaming.util.{BigQueryJDBCClient, JavaMC, ModuleTracer, RunAgainIfError}
 import com.typesafe.config.Config
 import io.codis.jodis.RoundRobinJedisPool
 import org.apache.spark.sql.hive.HiveContext
@@ -43,16 +43,16 @@ class RedisDayMonthLimitHandler extends Handler {
 
   private val jedisPool:JedisResourcePool = RoundRobinJedisPool.create().curatorClient(HOST_PORT, 30000).zkProxyDir(ZK_PROXY_DIR).build();
 
-  override def init (moduleName: String, bigQueryClient: BigQueryClient, greenplumClient: GreenplumClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config): Unit = {
-    super.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient, kylinClientV2, hbaseClient, hiveContext, argsConfig, handlerConfig)
+  override def init (moduleName: String, bigQueryClient: BigQueryClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config, clickHouseClient: ClickHouseClient, moduleTracer: ModuleTracer): Unit = {
+    super.init(moduleName, bigQueryClient, rDBConfig, kafkaClient, messageClient, hbaseClient, hiveContext, argsConfig, handlerConfig, clickHouseClient, moduleTracer)
   }
 
   var bigQueryJDBCClient = new BigQueryJDBCClient("jdbc:bigquery://https://www.googleapis.com/bigquery/v2:443;ProjectId=dogwood-seeker-182806;OAuthType=0;OAuthServiceAcctEmail=kairenlo@msn.cn;OAuthPvtKeyPath=/usr/bigquery/key.json;Timeout=3600;")
 
-  override def handle (): Unit = {
+  override def doHandle (): Unit = {
     LOG.warn("RedisDayMonthLimitHandler handler starting")
 
-    MessageClientUtil.pullAndSortByBDateDescHivePartitionParts(messageClient, consumer, new Callback[util.List[HivePartitionPart]] {
+    JavaMC.pullAndSortByBDateDescHivePartitionParts(messageClient, consumer, new Callback[util.List[HivePartitionPart]] {
       def doCallback(ps: util.List[HivePartitionPart]): java.lang.Boolean ={
 
 

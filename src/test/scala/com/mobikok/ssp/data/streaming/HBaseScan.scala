@@ -3,7 +3,7 @@ package com.mobikok.ssp.data.streaming
 import com.mobikok.ssp.data.streaming.HBaseClientPutTest.sparkConf
 import com.mobikok.ssp.data.streaming.entity.UuidStat
 import com.mobikok.ssp.data.streaming.entity.feature.HBaseStorable
-import com.mobikok.ssp.data.streaming.client.{HBaseClient, TransactionManager}
+import com.mobikok.ssp.data.streaming.client.HBaseClient
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.hbase.HBaseConfiguration

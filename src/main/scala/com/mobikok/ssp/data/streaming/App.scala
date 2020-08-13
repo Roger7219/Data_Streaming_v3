@@ -2,88 +2,195 @@ package com.mobikok.ssp.data.streaming
 
 import java.io.File
 import java.text.SimpleDateFormat
-import java.util
 
-import com.mobikok.ssp.data.streaming.config.ArgsConfig
-import com.mobikok.ssp.data.streaming.entity.UuidStat
+import com.fasterxml.jackson.core.`type`.TypeReference
+import com.mobikok.message.client.MessageClient
+import com.mobikok.ssp.data.streaming.App.{appName, argsConfig}
+import com.mobikok.ssp.data.streaming.client.HBaseClient
+import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
+import com.mobikok.ssp.data.streaming.entity.{HivePartitionPart, LatestOffsetRecord, UuidStat}
 import com.mobikok.ssp.data.streaming.exception.AppException
 import com.mobikok.ssp.data.streaming.module.Module
-import com.mobikok.ssp.data.streaming.util.CSTTime
-import com.typesafe.config.{Config, ConfigFactory}
+import com.mobikok.ssp.data.streaming.module.support.MixModulesBatchController
+import com.mobikok.ssp.data.streaming.transaction.{OptimizedTransactionalStrategy, TransactionManager}
+import com.mobikok.ssp.data.streaming.util._
+import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.SparkConf
+import org.apache.spark.sql.hive.HiveContext
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 
 import scala.collection.JavaConversions._
+import scala.collection.immutable.Nil
 
 /**
-  * 已弃用！用MixApp或OptimizedMixApp代替！！！
   * Created by Administrator  on 2017/6/8.
   */
-@deprecated
 class App {
-
 }
 
-/**
-  * 已弃用！用MixApp或OptimizedMixApp代替！！！
-  * Created by Administrator  on 2017/6/8.
-  */
-@deprecated
 object App {
 
   private[this] val LOG = Logger.getLogger(getClass().getName())
-  var config: Config = null
+  var ssc: StreamingContext = null
+  var mySqlJDBCClient: MySqlJDBCClient = null
+  var allModulesConfig: Config = null
+  var runnableModulesConfig: Config = null
   var argsConfig: ArgsConfig = new ArgsConfig()
-  val dataFormat: SimpleDateFormat = CSTTime.formatter("yyyyMMdd-HHmmss")//new SimpleDateFormat("yyyyMMdd-HHmmss")
+  val dataFormat: SimpleDateFormat = CSTTime.formatter("yyyyMMdd-HHmmss") //new SimpleDateFormat("yyyyMMdd-HHmmss")
+  //加载获取spark-submit启动命令中参数配置
+  var sparkConf: SparkConf = null
+  var appName: String = null
+  var appId: String = null
+  var version: String = null
+  var kafkaTopicVersion: String = null
+
+  var dwiLoadTimeFormat = CSTTime.formatter("yyyy-MM-dd HH:00:00")
+  var dwrLoadTimeFormat = CSTTime.formatter("yyyy-MM-dd 00:00:00")
+  //table, list<module>
+  private var shareTableModulesControllerMap = null.asInstanceOf[java.util.HashMap[String, MixModulesBatchController]]
 
 
   def main (args: Array[String]): Unit = {
     try {
 
-      if(args.length > 0) {
+      loadConfigFile(args)
+      // 初始化流统计配置与实例化相关Module
+      initSparkStreaming()
+      startSparkStreaming()
 
-        config = ConfigFactory.parseFile(new File(args(0)))//load(args(0))
-        LOG.warn(s"Load Config File (exists: ${new File(args(0)).exists()}): " + args(0) + "\n" +config.root().unwrapped().toString + "\n")
-
-        argsConfig = new ArgsConfig().init(args.tail)
-
-        LOG.warn("\nArgsConfig: \n" + argsConfig.toString)
-
-      }else {
-        LOG.warn("Load Config File In Classpath")
-        config = ConfigFactory.load
-      }
-
-      val ssc = init()
-
-      callStartModuleByConf() { case (concurrentGroup, moduleName, moduleClass/*, structType*/) =>
-
-        val m: Module = Class
-          .forName(moduleClass)
-          .getConstructor(classOf[Config], argsConfig.getClass ,concurrentGroup.getClass, moduleName.getClass,/*structType.getClass,*/ ssc.getClass)
-          .newInstance(config, argsConfig, concurrentGroup, moduleName, /*structType,*/ ssc).asInstanceOf[Module]
-
-        m.init
-        m.start
-        m.handler
-  //       m.stop()
-      }
-
-  //    ssc.checkpoint(config.getString("spark.conf.streaming.checkpoint"))
-      ssc.start
-      ssc.awaitTermination
-    }catch {case e:Exception=>
-      throw new AppException("App run fail !!", e)
+    }catch {case e:Throwable=>
+      throw new AppException(s"${this.getClass.getSimpleName}(${this.appName}) run fail !!", e)
     }
   }
 
-  def init () = {
+  def startSparkStreaming(){
+    ssc.start
+    ssc.awaitTermination
+  }
 
+  def loadConfigFile(args: Array[String]){
+    sparkConf = new SparkConf(true)
+    //      获取spark-submit启动命令中的--name参数指定的
+    appName = sparkConf.get("spark.app.name").trim
+    appId = YarnAppManagerUtil.getLatestRunningApp(appName).getApplicationId.toString
+
+    LOG.warn("Starting App", "name", appName, "id", appId)
+
+    if(args.length > 0) {
+      var f = new File(args(0))
+      if(!f.exists()) {
+        throw new AppException(s"The modules config file '${args(0)}' does not exist")
+      }
+
+      allModulesConfig = ConfigFactory.parseFile(f)//load(args(0))
+
+      LOG.warn(s"Load Config File (exists: ${f.exists()}): " + args(0) + "\nsetting plain:" +allModulesConfig.root().unwrapped().toString + s"\nargs config plain: ${java.util.Arrays.deepToString(args.tail.asInstanceOf[Array[Object]])}")
+
+      argsConfig = new ArgsConfig().init(args.tail)
+      version = argsConfig.get(ArgsConfig.VERSION, ArgsConfig.Value.VERSION_DEFAULT)
+      kafkaTopicVersion = argsConfig.get(ArgsConfig.TOPIC_VERSION, ArgsConfig.Value.KAFKA_TOPIC_VERSION_DEFAULT)
+
+      if(!ArgsConfig.Value.VERSION_DEFAULT.equals(version) && !appName.endsWith(s"v$version")) throw new IllegalArgumentException(s"App name suffix must be: v$version, Suggests app name: ${appName}_v${version}")
+
+      LOG.warn("\nParsed ArgsConfig: \n" + argsConfig.toString)
+
+    }else {
+      LOG.warn("Load Config File In Classpath")
+      allModulesConfig = ConfigFactory.load
+    }
+  }
+
+  def initSparkStreaming() = {
+    initLoggerLevel()
+    initModulesConfig()
+    initMC()
+    initRDBConfig()
+    initStreamingContext()
+    initModulesInstances()
+  }
+
+  def generateMixMoudlesBatchController(hiveContext: HiveContext, shufflePartitions:Int, moduleName: String, runnableModuleNames: Array[String]): MixModulesBatchController ={
+
+    if(shareTableModulesControllerMap == null) {
+      shareTableModulesControllerMap = new java.util.HashMap[String, MixModulesBatchController]()
+      var ms: Config = null
+      try {
+        ms = allModulesConfig.getConfig("modules")
+      }catch {case e:Exception=>}
+
+      if(ms != null) {
+        ms.root().foreach{x=>
+          var t:String = null
+          val m = x._1
+          var isM = false
+          try {
+            if(allModulesConfig.getBoolean(s"modules.${m}.dwr.store")) {
+              t = allModulesConfig.getString(s"modules.${m}.dwr.table")
+            }
+          }catch {case e:Exception=>
+            LOG.warn("Get the dwr table name failed, Caused by " + e.getMessage)
+          }
+          if(t == null) {
+            t = s"non_sharing_dwr_table_module_$m"
+          }
+          try{
+            isM = allModulesConfig.getBoolean(s"modules.$m.master")
+          }catch {case e:Exception=>}
+
+          //---------------------------------- Generate l_time DateFormat START ---------------------------------
+          try {
+            dwiLoadTimeFormat =  CSTTime.formatter(allModulesConfig.getString(s"modules.$m.dwi.l_time.format")) //DateFormatUtil.CST(allModulesConfig.getString(s"modules.$m.dwi.l_time.format"))
+          }catch { case _: Exception =>}
+
+          try {
+            dwrLoadTimeFormat = CSTTime.formatter(allModulesConfig.getString(s"modules.$m.dwr.l_time.format"))//DateFormatUtil.CST(allModulesConfig.getString(s"modules.$m.dwr.l_time.format"))
+          }catch {case _:Exception => }
+
+          //---------------------------------- Generate l_time DateFormat END ---------------------------------
+
+          var cer = shareTableModulesControllerMap.get(t)
+          if(cer == null) {
+            cer = new MixModulesBatchController(allModulesConfig, runnableModuleNames, t, new TransactionManager(allModulesConfig, new OptimizedTransactionalStrategy(dwiLoadTimeFormat, dwrLoadTimeFormat)), hiveContext, shufflePartitions)
+            shareTableModulesControllerMap.put(t, cer)
+          }else {
+            if(!dwrLoadTimeFormat.toPattern.equals(cer.getTransactionManager().dwrLTimeDateFormat().toPattern) || !dwiLoadTimeFormat.toPattern.equals(cer.getTransactionManager().dwiLTimeDateFormat().toPattern)) {
+              throw new AppException(
+                s"""Moudle '$m' config is wrong, Share same dwr table moudles must be the same 'dwi.l_time.format' and same 'dwr.l_time.format', Detail:
+                   |dwrLoadTimeFormat: ${dwrLoadTimeFormat.toPattern}
+                   |cer.dwrLoadTimeDateFormat: ${cer.getTransactionManager().dwrLTimeDateFormat().toPattern}
+                   |dwiLoadTimeFormat: ${dwiLoadTimeFormat.toPattern}
+                   |cer.dwiLoadTimeDateFormat: ${cer.getTransactionManager().dwiLTimeDateFormat().toPattern}
+                 """.stripMargin
+              )
+            }
+          }
+          cer.addMoudle(m, isM)
+        }
+
+        //效验
+        shareTableModulesControllerMap.entrySet().foreach{x=>
+          x.getValue.assertJustOnlyOneMasterModule()
+        }
+
+      }
+
+    }
+
+    for(e <- shareTableModulesControllerMap.entrySet()){
+      if(e.getValue.isContainsModule(moduleName)) {
+        return e.getValue
+      }
+    }
+
+    throw new AppException(s"Cannot generate MoudlesShareTableBatchController instance for module: $moduleName, shareTableModulesControllerMap: ${shareTableModulesControllerMap.toList.map{x=>(x._1, x._2.modules().toList)}}")
+  }
+
+  def initLoggerLevel(): Unit ={
     Logger.getRootLogger.setLevel(Level.WARN)
     Logger.getLogger("com.mobikok.ssp.data.streaming").setLevel(Level.DEBUG)
-//    Logger.getLogger(classOf[Hive]).setLevel(Level.WARN)
-//    Logger.getLogger("org.apache.spark").setLevel(Level.INFO)
+    //    Logger.getLogger(classOf[Hive]).setLevel(Level.WARN)
+    //    Logger.getLogger("org.apache.spark").setLevel(Level.INFO)
     Logger.getLogger("org.apache.hadoop.hbase").setLevel(Level.INFO)
     Logger.getLogger("org.apache.spark.streaming.kafka010").setLevel(Level.INFO)
 
@@ -92,29 +199,17 @@ object App {
     Logger.getLogger("org.apache.spark.repl.SparkIMain$exprTyper").setLevel(Level.INFO)
     Logger.getLogger("org.apache.spark.repl.SparkILoop$SparkILoopInterpreter").setLevel(Level.INFO)
 
+    Logger.getLogger("org.apache.spark.sql.hive.HiveExternalCatalog").setLevel(Level.ERROR)
     Logger.getLogger("org.apache.hadoop.hbase.MetaTableAccessor").setLevel(Level.ERROR)
+  }
 
+  def initRDBConfig(): Unit ={
+    mySqlJDBCClient = new MySqlJDBCClient(allModulesConfig.getString(s"rdb.url"), allModulesConfig.getString(s"rdb.user"), allModulesConfig.getString(s"rdb.password"))
+    RDBConfig.init(mySqlJDBCClient)
+  }
 
-
-//    Logger.getLogger("org.apache.spark.ContextCleaner").setLevel(Level.WARN)
-//    Logger.getLogger("org.apache.spark.storage.BlockManagerInfo").setLevel(Level.WARN)
-//    Logger.getLogger("org.apache.spark.sql.catalyst.parser.CatalystSqlParser").setLevel(Level.WARN)
-
-    LOG.info("Spark Conf: \n" + config
-      .getConfig("spark.conf.set")
-      .entrySet()
-      .map { x =>
-        x.getKey + "=" + x.getValue.unwrapped.toString
-      }.mkString("\n", "\n", "\n"))
-
-    val conf = new SparkConf()
-      .setAll(config
-        .getConfig("spark.conf.set")
-        .entrySet()
-        .map { x =>
-          (x.getKey, x.getValue.unwrapped.toString)
-        })
-      .setAppName(config.getString("spark.conf.app.name"))
+  def initStreamingContext(): Unit ={
+    val conf = initSparkConf()
 
     conf.registerKryoClasses(Array(
       classOf[UuidStat],
@@ -123,74 +218,324 @@ object App {
       classOf[org.apache.spark.sql.Column]
     ))
 
-    val ssc = new StreamingContext(conf, Seconds(config.getInt("spark.conf.streaming.batch.buration")))
+    ssc = new StreamingContext(conf, Seconds(allModulesConfig.getInt("spark.conf.streaming.batch.buration")))
 
-    ssc
-    //    val hiveContext = new HiveContext(ssc.sparkContext)
-    //    val sqlContext = new SQLContext(ssc.sparkContext)
-    //    (hiveContext, sqlContext, ssc)
+    //check task Whether has been launched.
+    if(YarnAppManagerUtil.isAppRunning(appName)){
+      if("true".equals(argsConfig.get(ArgsConfig.FORCE_KILL_PREV_REPEATED_APP))) {
+        YarnAppManagerUtil.killApps(appName, false, appId)
+      }else {
+        throw new RuntimeException(s"This app '$appName' has already submit,forbid to re-submit!")
+      }
+    }
   }
 
+  def initModulesInstances(): Unit ={
+    initAllModuleInstance() { case (concurrentGroup, moduleName, moduleClass/*, structType*/) =>
 
-  def callStartModuleByConf ()(startModule: (String, String, String/*, StructType*/) => Unit) = {
+      val shufflePartitions = allModulesConfig.getInt("spark.conf.set.spark.sql.shuffle.partitions")
+      val runnableModuleNames = runnableModulesConfig.getConfig("modules").root.map(_._1).toArray
+      var cer = generateMixMoudlesBatchController(new HiveContext(ssc.sparkContext), shufflePartitions, moduleName, runnableModuleNames)
+
+
+      val m: Module = Class
+        .forName(moduleClass)
+        .getConstructor(classOf[Config], argsConfig.getClass, concurrentGroup.getClass, cer.getClass, moduleName.getClass, runnableModuleNames.getClass, ssc.getClass)
+        .newInstance(allModulesConfig, argsConfig, concurrentGroup, cer, moduleName, runnableModuleNames, ssc).asInstanceOf[Module]
+
+      val isInitable = cer.isInitable(moduleName)
+      val isRunnable = cer.isRunnable(moduleName)
+      LOG.warn(s"Module is instanced !! \nmoduleName: $moduleName, \ninitable: $isInitable, \nrunnable: $isRunnable\n")
+
+      if(isInitable){
+        m.init
+      }
+
+      if(isRunnable) {
+        m.handler
+      }
+    }
+
+  }
+
+  def initSparkConf (): SparkConf ={
+
+//    //加载获取spark-submit启动命令中参数配置
+//    val conf = new SparkConf(true)
+
+    // 获取spark-submit启动命令中的--name参数指定的
+//    val cmdAppName = sparkConf.get("spark.app.name").trim
+    // 一律用spark-submit启动命令中的--name参数值作为app name
+    allModulesConfig = allModulesConfig.withValue("spark.conf.set.spark.app.name", ConfigValueFactory.fromAnyRef(appName))
+
+    LOG.info("Final Spark Conf: \n" + allModulesConfig
+      .getConfig("spark.conf.set")
+      .entrySet()
+      .map { x =>
+        x.getKey + "=" + x.getValue.unwrapped.toString
+      }.mkString("\n", "\n", "\n")
+    )
+
+    sparkConf.setAll(allModulesConfig
+      .getConfig("spark.conf.set")
+      .entrySet()
+      .map { x =>
+        (x.getKey, x.getValue.unwrapped.toString)
+      })
+
+    if(getClass.getName.equals(appName)) {
+      throw new AppException(s"Spark app name cannot be a main class name '$appName' ")
+    }
+    if(StringUtil.isEmpty(appName)) {
+      throw new AppException("Spark app name not specified !!")
+    }
+
+//    // 最终还是采用spark-submit启动命令中的--name参数值
+//    conf.setAppName(cmdAppName)
+
+    sparkConf
+  }
+
+  def initMC(): Unit ={
+    MC.init(new MessageClient(allModulesConfig.getString("message.client.url")))
+  }
+
+  def initModulesConfig(): Unit ={
     var refs: java.util.List[String]= null
     var ms: Config = null
+//    val appName = sparkConf.get("spark.app.name")
 
     try {
-      ms = config.getConfig("modules")
+      ms = allModulesConfig.getConfig("modules")
     }catch {case e:Exception=>}
     if(ms != null) {
       ms.root().foreach{x=>
-        config = config.withValue(s"modules.${x._1}.concurrent.group", config.getValue("spark.conf.app.name"))
+        val name = x._1
+        val vName = versionFeaturesModuleName(version, name)
+
+        if(!ArgsConfig.Value.VERSION_DEFAULT.equals(version)) {
+
+          // 给module nmae加上对应version信息
+          allModulesConfig = allModulesConfig.withValue(s"modules.${vName}", x._2)
+
+          if(allModulesConfig.hasPath(s"modules.${x._1}.dwi.table"))
+            allModulesConfig = allModulesConfig.withValue(
+              s"modules.${vName}.dwi.table",
+              ConfigValueFactory.fromAnyRef(versionFeaturesTableName(version,  allModulesConfig.getValue(s"modules.${x._1}.dwi.table").unwrapped().toString)))
+
+          if(allModulesConfig.hasPath(s"modules.${x._1}.dwr.table"))
+            allModulesConfig = allModulesConfig.withValue(
+              s"modules.${vName}.dwr.table",
+              ConfigValueFactory.fromAnyRef(versionFeaturesTableName(version,  allModulesConfig.getValue(s"modules.${x._1}.dwr.table").unwrapped().toString)))
+
+          // 清理
+          allModulesConfig = allModulesConfig.withoutPath(s"modules.${name}")
+        }
+
+        // 给kafka partitions中的topic加上对应的version信息
+        var vTps =
+            (if(allModulesConfig.hasPath(s"modules.${vName}.kafka.consumer.partitions"))
+              allModulesConfig.getConfigList(s"modules.${vName}.kafka.consumer.partitions")
+            else
+              allModulesConfig.getConfigList(s"modules.${vName}.kafka.consumer.partitoins") //兼容早期版本错别字：partitoins
+            )
+            .map{y=>
+            var tp = new java.util.HashMap[String, Any]()
+            tp.put("topic", versionFeaturesKafkaTopicName(kafkaTopicVersion, y.getString("topic")))
+            if(y.hasPath("partition")) tp.put("partition", y.getInt("partition"))
+            tp
+          }
+        allModulesConfig = allModulesConfig.withValue(s"modules.${vName}.kafka.consumer.partitions", ConfigValueFactory.fromIterable(vTps))
+
+        // 读取kafka服务器，获取tipic对应的partition并补全配置
+        var tps = allModulesConfig
+          .getConfigList(s"modules.${vName}.kafka.consumer.partitions")
+          .filter{y=> !y.hasPath("partition")}
+          .map{y=> y.getString("topic")}
+          .map{y=> KafkaOffsetTool.getTopicPartitions(allModulesConfig.getString("kafka.consumer.set.bootstrap.servers"), java.util.Collections.singletonList(y))}
+          .flatMap{y=> y}
+          .map{y=> y.asTuple}
+          .union(allModulesConfig.getConfigList(s"modules.${vName}.kafka.consumer.partitions")
+            .filter{y=> y.hasPath("partition")}
+            .map{y=> (y.getString("topic"), y.getInt("partition"))})
+          .distinct
+          .map{y=>
+            var tp = new java.util.HashMap[String, Any]()
+            tp.put("topic", y._1)
+            tp.put("partition", y._2)
+            tp
+          }
+        allModulesConfig = allModulesConfig.withValue(s"modules.${vName}.kafka.consumer.partitions", ConfigValueFactory.fromIterable(tps))
+
+        if(argsConfig.has(ArgsConfig.EX)) {
+          //拿到用户配置的ex
+          val exDims = argsExDimColmunNames(argsConfig).map(_.trim).toSet
+          if(allModulesConfig.hasPath(s"modules.${vName}.dwr.groupby.fields")){
+            // 排除dwr.groupby.fields中不需要统计的字段
+            var fields = allModulesConfig
+              .getConfigList(s"modules.${vName}.dwr.groupby.fields")
+              .map{y=>
+                var filed = new java.util.HashMap[String, String]()
+                // 复制字段
+                y.root().foreach{case(key, value)=>
+                  filed.put(key, value.unwrapped().toString)
+                }
+                // 重置字段值
+                if(exDims.contains(y.getString("as"))){
+                  filed.put("expr", "null")
+                }else{
+                  filed.put("expr", y.getString("expr"))
+                }
+//                filed.put("as", y.getString("as"))
+                filed
+              }
+            allModulesConfig = allModulesConfig.withValue(s"modules.${vName}.dwr.groupby.fields", ConfigValueFactory.fromIterable(fields))
+          }
+        }
       }
     }
 
     try {
-      refs = config.getStringList("ref.modules")
+      refs = allModulesConfig.getStringList("ref.modules")
     }catch {
       case e:Exception =>
-        LOG.warn("No ref modules config !")
+        LOG.warn("No ref modules config ")
     }
     if(refs != null) {
       refs.foreach{x=>
 
-        val refC = ConfigFactory.parseFile(new File(x))//load(args(0))
+        var f = new File(x)
+        if(!f.exists()) {
+          throw new AppException(s"The ref modules config file '$x' does not exist")
+        }
 
-        LOG.warn(s"\nApp ref config file ${x}(exists: ${new File(x).exists()}):\n" + refC.root().unwrapped().toString +"\n")
+        val refC = ConfigFactory.parseFile(f)//load(args(0))
 
-        config = config.withFallback(refC)
+        LOG.warn(s"\nApp ref config file ${x}(exists: ${f.exists()}):\n" + refC.root().unwrapped().toString +"\n")
+
+        allModulesConfig = allModulesConfig.withFallback(refC)
 
         refC.getConfig("modules").root().foreach{y=>
-          config = config.withValue(s"modules.${y._1}", y._2)
-          config = config.withValue(s"modules.${y._1}.concurrent.group", refC.getValue("spark.conf.app.name"))
+          allModulesConfig = allModulesConfig.withValue(s"modules.${y._1}", y._2)
+          //config = config.withValue(s"modules.${y._1}.concurrent.group", refC.getValue("spark.conf.app.name"))
         }
 
       }
     }
 
-    LOG.warn("\nApp final config content:\n" + config.root().unwrapped().toString +"\n")
-
-    try {
-
-      ms = config.getConfig("modules")
+    //reset buration by command argsConfig: buration=?
+    try{
+      if(argsConfig.has(ArgsConfig.STREAMING_BATCH_BURATION)) {
+        LOG.warn(s"reset duration by command arg-config buration=${argsConfig.get(ArgsConfig.STREAMING_BATCH_BURATION)}")
+        allModulesConfig = allModulesConfig.withValue("spark.conf.streaming.batch.buration", ConfigValueFactory.fromAnyRef(argsConfig.get(ArgsConfig.STREAMING_BATCH_BURATION)) )
+      }
     }catch {
       case e:Exception=>
-        LOG.warn("No modules config !!!")
+        throw new AppException("buration config error !!!", e)
     }
 
-    if(ms != null) {
-      ms.root.foreach { x =>
+    //reset maxRatePerPartition by command argsConfig: rate=?
+    try{
+      if(argsConfig.has(ArgsConfig.RATE)) {
+        LOG.warn(s"reset maxRatePerPartition by command arg-config rate=${argsConfig.get(ArgsConfig.RATE)}")
 
-        callStartModule(ms.getString(s"${x._1}.concurrent.group"), x._1, startModule)
+        val partitionNum = needRunModuleNames(argsConfig).map { x =>
+          allModulesConfig.getList(s"modules.${x}.kafka.consumer.partitions").size()
+        }.sum
+
+        /*val partitionNum = allModulesConfig.getConfig("modules").root().map{x =>
+          allModulesConfig.getList(s"modules.${x._1}.kafka.consumer.partitions").size()
+        }.max*/
+
+        val maxRatePerPartition = Math.ceil(java.lang.Double.valueOf(argsConfig.get(ArgsConfig.RATE))/Integer.valueOf(argsConfig.get(ArgsConfig.STREAMING_BATCH_BURATION))/partitionNum).toInt
+
+        LOG.warn("reset maxRatePerPartition ", "partitionNum ",partitionNum, "maxRatePerPartition ", maxRatePerPartition)
+        allModulesConfig = allModulesConfig.withValue("spark.conf.set.spark.streaming.kafka.maxRatePerPartition", ConfigValueFactory.fromAnyRef(maxRatePerPartition))
+      }
+    }catch {
+      case e:Exception=>
+        throw new AppException("No maxRatePerPartition can be configured !!!", e)
+    }
+
+    runnableModulesConfig = allModulesConfig
+
+    // 去掉不需要运行的模块配置
+    if(argsConfig.has(ArgsConfig.MODULES)) {
+      val rms = needRunModuleNames(argsConfig)
+
+      allModulesConfig.getConfig("modules").root().foreach{ x=>
+        if(!rms.contains(x._1)) {
+          runnableModulesConfig = runnableModulesConfig.withoutPath(s"modules.${x._1}")
+        }
+      }
+
+      rms.foreach {x =>
+        try{
+          //验证模块是否配置
+          runnableModulesConfig.getConfig(s"modules.${x}")
+        }catch {case e:Throwable=>
+          throw new AppException(s"Get module '${x}' config fail", e)
+        }
       }
     }
 
+    var concurrents = ConfigValueFactory.fromAnyRef(runnableModulesConfig.getConfig("modules").root().size())
+    allModulesConfig = allModulesConfig.withValue("spark.conf.set.spark.streaming.concurrentJobs", concurrents)
+    runnableModulesConfig = runnableModulesConfig.withValue("spark.conf.set.spark.streaming.concurrentJobs", concurrents)
+
+    try {
+      ms = runnableModulesConfig.getConfig("modules")
+      if(ms.root().size() == 0) {
+        throw new AppException("No any modules be configured !!!")
+      }
+
+    } catch {case e:Exception=>
+      throw new AppException("No modules be configured !!!", e)
+    }
+
+    LOG.warn("\nApp runnable modules final config content:\n" + runnableModulesConfig.root().unwrapped().toString +"\n")
+
   }
 
-  private def callStartModule(concurrentGroup: String, moduleName: String, startModule: (String, String, String/*, StructType*/) => Unit) = {
+  def argsExDimColmunNames(argsConfig: ArgsConfig):Array[String] = {
+    argsConfig.get(ArgsConfig.EX).split(",")
+  }
+
+  def needRunModuleNames(argsConfig: ArgsConfig): Array[String] ={
+    val ns = argsModuleNames(argsConfig).map(_.trim).distinct
+    if(ns.isEmpty) allModulesConfig.getConfig("modules").root().map{case(moduleName, _)=> moduleName}.toArray
+    else ns
+
+  }
+  def argsModuleNames(argsConfig: ArgsConfig):Array[String] = {
+    if(argsConfig.has(ArgsConfig.MODULES)) argsConfig.get(ArgsConfig.MODULES).split(",").map(x=>versionFeaturesModuleName(version, x))
+    else Array.empty[String]
+  }
+
+  def versionFeaturesModuleName(version: String, moduleName: String): String = {
+    return if(ArgsConfig.Value.VERSION_DEFAULT.equals(version)) moduleName else s"${moduleName}_v${version}".trim
+  }
+
+  def versionFeaturesTableName(version: String, table: String): String = {
+    return if(ArgsConfig.Value.VERSION_DEFAULT.equals(version)) table else s"${table}_v${version}".trim
+  }
+
+  def versionFeaturesKafkaTopicName(kafkaTopicVersion: String, kafkaTopic: String): String = {
+    return if(ArgsConfig.Value.KAFKA_TOPIC_VERSION_DEFAULT.equals(kafkaTopicVersion)) kafkaTopic else s"${kafkaTopic}_v${kafkaTopicVersion}".trim
+  }
+
+  def initAllModuleInstance()(newModule: (String, String, String/*, StructType*/) => Unit) : Unit = {
+    // 初始化与当前runnable模块关联同一个dwr表的模块
+    allModulesConfig.getConfig("modules").root.map{ case(moduleName, _)=>
+        initModuleInstance(moduleName, moduleName, newModule)
+    }.toArray
+
+  }
+
+  private def initModuleInstance(concurrentGroup: String, moduleName: String, newModule: (String, String, String/*, StructType*/) => Unit): Unit = {
     val n = moduleName
-    val mc = config.getString(s"modules.${n}.class")
-    startModule(concurrentGroup, n, mc)
+    val mc = allModulesConfig.getString(s"modules.${n}.class")
+    newModule(concurrentGroup, n, mc)
   }
 
 

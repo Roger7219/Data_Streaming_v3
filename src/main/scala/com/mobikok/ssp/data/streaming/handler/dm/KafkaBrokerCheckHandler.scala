@@ -7,7 +7,7 @@ import com.mobikok.message.client.MessageClient
 import com.mobikok.monitor.client.{MonitorClient, MonitorMessage}
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
-import com.mobikok.ssp.data.streaming.util.{CSTTime, HttpUtils}
+import com.mobikok.ssp.data.streaming.util.{CSTTime, HttpUtils, ModuleTracer}
 import com.typesafe.config.Config
 import org.apache.spark.sql.hive.HiveContext
 
@@ -20,15 +20,15 @@ class KafkaBrokerCheckHandler extends Handler{
 
   var monitorClient: MonitorClient = null
 
-  override def init (moduleName: String, bigQueryClient:BigQueryClient ,greenplumClient:GreenplumClient, rDBConfig:RDBConfig,kafkaClient: KafkaClient, messageClient: MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config): Unit = {
-    super.init(moduleName,bigQueryClient, greenplumClient, rDBConfig,kafkaClient, messageClient, kylinClientV2, hbaseClient, hiveContext, argsConfig, handlerConfig)
+  override def init (moduleName: String, bigQueryClient:BigQueryClient, rDBConfig:RDBConfig,kafkaClient: KafkaClient, messageClient: MessageClient, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config, clickHouseClient: ClickHouseClient, moduleTracer: ModuleTracer): Unit = {
+    super.init(moduleName,bigQueryClient, rDBConfig,kafkaClient, messageClient, hbaseClient, hiveContext, argsConfig, handlerConfig, clickHouseClient, moduleTracer)
 
     monitorClient = new MonitorClient(messageClient)
 
   }
 
 
-  override def handle(): Unit = {
+  override def doHandle(): Unit = {
 
     LOG.warn(s"KafkaBrokerCheckHandler handle start")
 

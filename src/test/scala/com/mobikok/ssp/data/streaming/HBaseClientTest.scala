@@ -1,24 +1,9 @@
 package com.mobikok.ssp.data.streaming
 
-import com.mobikok.ssp.data.streaming.HBaseClientPutTest.sparkConf
+import com.mobikok.ssp.data.streaming.client.HBaseClient
 import com.mobikok.ssp.data.streaming.entity.UuidStat
-import com.mobikok.ssp.data.streaming.entity.feature.HBaseStorable
-import com.mobikok.ssp.data.streaming.client.{HBaseClient, TransactionManager}
-import com.mobikok.ssp.data.streaming.util.ModuleTracer
 import com.typesafe.config.{Config, ConfigFactory}
-import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.hbase.HBaseConfiguration
-import org.apache.hadoop.hbase.client.{Put, Result, Scan}
-import org.apache.hadoop.hbase.io.ImmutableBytesWritable
-import org.apache.hadoop.hbase.mapreduce.{TableInputFormat, TableOutputFormat}
-import org.apache.hadoop.hbase.protobuf.ProtobufUtil
-import org.apache.hadoop.hbase.util.{Base64, Bytes}
-import org.apache.hadoop.mapreduce.Job
-import org.apache.spark.rdd.RDD
-import org.apache.spark.{SparkConf, SparkContext}
-
-import scala.collection.JavaConversions._
-import scala.collection.mutable.Map
+import org.apache.spark.SparkContext
 
 /**
   * Created by Administrator on 2017/6/20.
@@ -26,7 +11,6 @@ import scala.collection.mutable.Map
 object HBaseClientTest {
 
   var config: Config = ConfigFactory.load
-  val transactionManager = new TransactionManager(config)
   var sparkConf = null /* new SparkConf()
     .set("hive.exec.dynamic.partition.mode", "nonstr4ict")
     .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")

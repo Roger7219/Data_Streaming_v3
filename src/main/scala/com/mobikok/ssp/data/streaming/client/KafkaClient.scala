@@ -6,8 +6,9 @@ import java.util.{Collections, Comparator, Date, Properties}
 
 import com.mobikok.ssp.data.streaming.entity.{OffsetRange, TopicPartition}
 import com.mobikok.ssp.data.streaming.exception.{HiveClientException, KafkaClientException, MySQLJDBCClientException}
-import com.mobikok.ssp.data.streaming.client.cookie.{HiveRollbackableTransactionCookie, KafkaNonTransactionCookie, KafkaRollbackableTransactionCookie, TransactionCookie}
-import com.mobikok.ssp.data.streaming.module.support.TransactionalStrategy
+import com.mobikok.ssp.data.streaming.client.cookie._
+import com.mobikok.ssp.data.streaming.transaction._
+import com.mobikok.ssp.data.streaming.util.MySqlJDBCClient.Callback
 import com.mobikok.ssp.data.streaming.util._
 import com.mysql.jdbc.Driver
 import com.typesafe.config.{Config, ConfigException}
@@ -37,7 +38,7 @@ PRIMARY KEY (`topic`,`partition`,`module_name`)
 /**
   * Created by Administrator on 2017/6/14.
   */
-class KafkaClient (moduleName: String, config: Config /*databaseUrl: String, user: String, password: String,*/ , transactionManager: MixTransactionManager) extends Transactional {
+class KafkaClient (moduleName: String, config: Config, transactionManager: TransactionManager, moduleTracer: ModuleTracer) extends TransactionalClient {
 
   def getLastOffsetAsJava (topics: Array[String]): java.util.Map[kafka.common.TopicAndPartition, java.lang.Long] = {
     return KafkaOffsetTool.getLatestOffset(consumerBootstrapServers, topics.toList , "last_offsert_reader");
@@ -71,6 +72,21 @@ class KafkaClient (moduleName: String, config: Config /*databaseUrl: String, use
   val LOG: Logger = new Logger(moduleName, getClass.getName, new Date().getTime)
   var table: String = null
 
+  private def ddl(): Unit ={
+    mySqlJDBCClient.execute(
+      s"""
+        |CREATE TABLE IF NOT EXISTS `$table`  (
+        |  `topic` varchar(100) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL DEFAULT '',
+        |  `partition` varchar(100) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL DEFAULT '',
+        |  `offset` bigint(20) NULL DEFAULT NULL,
+        |  `module_name` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL DEFAULT '',
+        |  `update_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        |  PRIMARY KEY (`topic`, `partition`, `module_name`) USING BTREE
+        |) ENGINE = InnoDB CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Compact;
+        |
+      """.stripMargin)
+  }
+
   override def init (): Unit = {
     LOG.warn(s"KafkaClient init started")
     classOf[Driver]
@@ -89,37 +105,49 @@ class KafkaClient (moduleName: String, config: Config /*databaseUrl: String, use
     //    createTableIfNotExists(table + transactionalLegacyDataBackupTableSign, table)
     //    createTableIfNotExists(table + transactionalTmpTableSign, table)
 
+    ddl()
+
     LOG.warn(s"KafkaClient init completed")
   }
 
   def getCommitedOffset (topics: String*): Map[TopicPartition, Long] = {
-    val r = mySqlJDBCClient.executeQuery(
+    val b = mySqlJDBCClient.executeQuery(
       s"""select * from $table where """
         + topics
         .map { x =>
           s""" module_name = "$moduleName" and topic = "$x" """
         }
-        .mkString(" or ")
+        .mkString(" or "),
+      new Callback[ArrayBuffer[(TopicPartition, Long)]] {
+        override def onCallback(rs: ResultSet): ArrayBuffer[(TopicPartition, Long)] = {
+          val b = new ArrayBuffer[(TopicPartition, Long)]
+          while (rs.next()) {
+            b.append(new TopicPartition(rs.getString("topic"), rs.getInt("partition")) -> rs.getLong("offset"))
+          }
+          b
+        }
+      }
     )
-    val b = new ArrayBuffer[(TopicPartition, Long)]
-    while (r.next()) {
-      b.append(new TopicPartition(r.getString("topic"), r.getInt("partition")) -> r.getLong("offset"))
-    }
-
-    try { r.close() }catch {case e:Exception=>}
-
     b.toMap
+
+//    val b = new ArrayBuffer[(TopicPartition, Long)]
+//    while (r.next()) {
+//      b.append(new TopicPartition(r.getString("topic"), r.getInt("partition")) -> r.getLong("offset"))
+//    }
+//
+//    try { r.close() }catch {case e:Exception=>}
+
   }
 
   //  def setOffset (tid: String, offsets: Map[TopicPartition, Long]): KafkaTransactionCookie = {
   //    KafkaTransactionCookie(tid, offsets)
   //  }
 
-  def setOffset (transactionParentId: String, offsetRanges: Array[OffsetRange]): TransactionCookie = {
+  def setOffset (transactionParentId: String, offsetRanges: Array[OffsetRange]): KafkaTransactionCookie = {
 
     val tid = transactionManager.generateTransactionId(transactionParentId)
 
-    if(!transactionManager.needTransactionalAction()) {
+    if(!transactionManager.needRealTransactionalAction()) {
       offsetRanges.foreach { x =>
         mySqlJDBCClient.execute(
           s"""
@@ -176,7 +204,7 @@ class KafkaClient (moduleName: String, config: Config /*databaseUrl: String, use
       )
     }
 
-    new KafkaRollbackableTransactionCookie(
+    val cookie = new KafkaRollbackableTransactionCookie(
       transactionParentId,
       tid,
       tt,
@@ -186,6 +214,8 @@ class KafkaClient (moduleName: String, config: Config /*databaseUrl: String, use
       offsets,
       offsetRanges
     )
+    LOG.warn("kafkaClient.setOffset completed", cookie)
+    cookie
   }
 
   def setOffset(offsets: mutable.Map[kafka.common.TopicAndPartition, Long]) {
@@ -222,6 +252,7 @@ class KafkaClient (moduleName: String, config: Config /*databaseUrl: String, use
   override def commit (cookie: TransactionCookie): Unit = {
 
     try {
+      moduleTracer.trace("kafka commit start")
 
       if(cookie.isInstanceOf[KafkaNonTransactionCookie]) {
         return
@@ -272,6 +303,9 @@ class KafkaClient (moduleName: String, config: Config /*databaseUrl: String, use
              | """.stripMargin
         )
       }
+
+      LOG.warn("kafkaClient offset committed", cookie)
+      moduleTracer.trace("kafka commit done")
     } catch {
       case e: Exception =>
 //        try {
@@ -282,10 +316,10 @@ class KafkaClient (moduleName: String, config: Config /*databaseUrl: String, use
 
   }
 
-  override def rollback (cookies: TransactionCookie*): Cleanable = {
+  override def rollback (cookies: TransactionCookie*): TransactionRoolbackedCleanable = {
 
     try {
-      val cleanable = new Cleanable()
+      val cleanable = new TransactionRoolbackedCleanable()
       //      val bt = table + transactionalLegacyDataBackupTableSign
 
       cleanHistoryAllAppModuleBackupAndTmpTable()
@@ -293,17 +327,28 @@ class KafkaClient (moduleName: String, config: Config /*databaseUrl: String, use
       if (cookies.isEmpty) {
         LOG.warn(s"KafkaClient rollback started(cookies is empty)")
         //Revert to the legacy data!!
-        val brs = mySqlJDBCClient.executeQuery(s"""show tables like "%$transactionalLegacyDataBackupCompletedTableSign%" """)
-
-        val bts = new util.ArrayList[String]()
-        while (brs.next()) {
-          bts.add(brs.getString(1))
-        }
-        Collections.sort(bts, new Comparator[String] {
-          override def compare (a: String, b: String): Int = b.compareTo(a)
+        val bts = mySqlJDBCClient.executeQuery(s"""show tables like "%$transactionalLegacyDataBackupCompletedTableSign%" """, new Callback[util.List[String]] {
+          override def onCallback(brs: ResultSet): util.List[String] = {
+            val bts = new util.ArrayList[String]()
+            while (brs.next()) {
+              bts.add(brs.getString(1))
+            }
+            Collections.sort(bts, new Comparator[String] {
+              override def compare (a: String, b: String): Int = b.compareTo(a)
+            })
+            bts
+          }
         })
 
-        try { brs.close() }catch {case e:Exception=>}
+//        val bts = new util.ArrayList[String]()
+//        while (brs.next()) {
+//          bts.add(brs.getString(1))
+//        }
+//        Collections.sort(bts, new Comparator[String] {
+//          override def compare (a: String, b: String): Int = b.compareTo(a)
+//        })
+//
+//        try { brs.close() }catch {case e:Exception=>}
 
         bts.foreach { b =>
 
@@ -312,31 +357,48 @@ class KafkaClient (moduleName: String, config: Config /*databaseUrl: String, use
             .split(TransactionManager.parentTransactionIdSeparator)(0)
 
           //Key code !!
-          val needRollback = transactionManager.isActiveButNotAllCommited(parentTid)
+          val needRollback = transactionManager.isActiveButNotAllCommitted(parentTid)
 
           if (needRollback /*!transactionManager.isCommited(parentTid)*/) {
             //var empty = true
             //if (mySqlJDBCClient.executeQuery(s"select * from $x limit 1").next()) {
             //  empty = false
             //}
-            val empty = !mySqlJDBCClient.executeQuery(s"select * from $b limit 1").next()
+            val empty = !mySqlJDBCClient.executeQuery(s"select * from $b limit 1", new Callback[Boolean](){
+              override def onCallback(rs: ResultSet): Boolean = {
+                rs.next()
+              }
+            })//.next()
 
             val tt = b.replaceFirst(backupCompletedTableNameForTransactionalTmpTableNameReplacePattern, transactionalTmpTableSign)
             if (empty) {
-              //Delete
-              val r = mySqlJDBCClient.executeQuery(s"select * from $tt")
               LOG.warn(s"KafkaClient rollback", s"Revert to the legacy data, Delete by transactionalTmpTable: ${tt}")
-              while (r.next()) {
-                mySqlJDBCClient.execute(
-                  s"""
-                     | delete from $table
-                     | where topic = "${r.getString("topic")}"
-                     | and `partition` = "${r.getString("partition")}"
-                     | and module_name = "$moduleName"
+              //Delete
+              mySqlJDBCClient.executeQuery(s"select * from $tt", new Callback[Unit] {
+                override def onCallback(r: ResultSet): Unit = {
+                  while (r.next()) {
+                    mySqlJDBCClient.execute(
+                      s"""
+                         | delete from $table
+                         | where topic = "${r.getString("topic")}"
+                         | and `partition` = "${r.getString("partition")}"
+                         | and module_name = "$moduleName"
                  """.stripMargin)
-              }
+                  }
+                }
+              })
 
-              try { r.close() }catch {case e:Exception=>}
+//              while (r.next()) {
+//                mySqlJDBCClient.execute(
+//                  s"""
+//                     | delete from $table
+//                     | where topic = "${r.getString("topic")}"
+//                     | and `partition` = "${r.getString("partition")}"
+//                     | and module_name = "$moduleName"
+//                 """.stripMargin)
+//              }
+//
+//              try { r.close() }catch {case e:Exception=>}
 
             } else {
               //Overwrite
@@ -353,28 +415,52 @@ class KafkaClient (moduleName: String, config: Config /*databaseUrl: String, use
 
         }
 // fix bug
-        var x: ResultSet = mySqlJDBCClient.executeQuery(s"""show tables like "%${transactionalLegacyDataBackupCompletedTableSign}%" """)
-        while (x.next()) {
-          val t = x.getString(1)
-          cleanable.addAction{mySqlJDBCClient.execute(s"drop table if exists ${t}")}
-//          mySqlJDBCClient.execute(s"drop table ${x.getString(1)}")
-        }
+        mySqlJDBCClient.executeQuery(s"""show tables like "%${transactionalLegacyDataBackupCompletedTableSign}%" """, new Callback[Unit] {
+          override def onCallback(rs: ResultSet): Unit = {
+            while (rs.next()) {
+              val t = rs.getString(1)
+              cleanable.addAction{mySqlJDBCClient.execute(s"drop table if exists ${t}")}
+              //          mySqlJDBCClient.execute(s"drop table ${x.getString(1)}")
+            }
+          }
+        })
+//        while (rs.next()) {
+//          val t = rs.getString(1)
+//          cleanable.addAction{mySqlJDBCClient.execute(s"drop table if exists ${t}")}
+////          mySqlJDBCClient.execute(s"drop table ${x.getString(1)}")
+//        }
 
-        x = mySqlJDBCClient.executeQuery(s"""show tables like "%${transactionalLegacyDataBackupProgressingTableSign}%" """)
-        while (x.next()) {
-          val t = x.getString(1)
-          cleanable.addAction{mySqlJDBCClient.execute(s"drop table ${t}")}
-          //          mySqlJDBCClient.execute(s"drop table ${x.getString(1)}")
-        }
+        mySqlJDBCClient.executeQuery(s"""show tables like "%${transactionalLegacyDataBackupProgressingTableSign}%" """, new Callback[Unit](){
+          override def onCallback(rs: ResultSet): Unit = {
+            while (rs.next()) {
+              val t = rs.getString(1)
+              cleanable.addAction{mySqlJDBCClient.execute(s"drop table ${t}")}
+              //          mySqlJDBCClient.execute(s"drop table ${x.getString(1)}")
+            }
+          }
+        })
+//        while (x.next()) {
+//          val t = x.getString(1)
+//          cleanable.addAction{mySqlJDBCClient.execute(s"drop table ${t}")}
+//          //          mySqlJDBCClient.execute(s"drop table ${x.getString(1)}")
+//        }
 
-        x = mySqlJDBCClient.executeQuery(s"""show tables like "%${transactionalTmpTableSign}%" """)
-        while (x.next()) {
-          val t = x.getString(1)
-          cleanable.addAction{mySqlJDBCClient.execute(s"drop table if exists ${t}")}
-//          mySqlJDBCClient.execute(s"drop table ${x.getString(1)}")
-        }
-
-        try { x.close() }catch {case e:Exception=>}
+        mySqlJDBCClient.executeQuery(s"""show tables like "%${transactionalTmpTableSign}%" """, new Callback[Unit]() {
+          override def onCallback(rs: ResultSet): Unit = {
+            while (rs.next()) {
+              val t = rs.getString(1)
+              cleanable.addAction{mySqlJDBCClient.execute(s"drop table if exists ${t}")}
+              //          mySqlJDBCClient.execute(s"drop table ${x.getString(1)}")
+            }
+          }
+        })
+//        while (x.next()) {
+//          val t = x.getString(1)
+//          cleanable.addAction{mySqlJDBCClient.execute(s"drop table if exists ${t}")}
+////          mySqlJDBCClient.execute(s"drop table ${x.getString(1)}")
+//        }
+//
+//        try { x.close() }catch {case e:Exception=>}
 
         return cleanable
       }
@@ -389,25 +475,41 @@ class KafkaClient (moduleName: String, config: Config /*databaseUrl: String, use
           val parentTid = x.id.split(TransactionManager.parentTransactionIdSeparator)(0)
 
           //Key code !!
-          val needRollback = transactionManager.isActiveButNotAllCommited(parentTid)
+          val needRollback = transactionManager.isActiveButNotAllCommitted(parentTid)
 
           if (needRollback/*!transactionManager.isCommited(parentTid)*/) {
 
-            val empty = !mySqlJDBCClient.executeQuery(s"select * from $x limit 1").next()
+            val empty = !mySqlJDBCClient.executeQuery(s"select * from $x limit 1", new Callback[Boolean](){
+              override def onCallback(rs: ResultSet): Boolean = {
+                rs.next()
+              }
+            })//.next()
             //Revert to the legacy data!!
             if (empty) {
               //Delete
               LOG.warn(s"KafkaClient rollback", s"Revert to the legacy data, Delete by transactionalTmpTable: ${x.transactionalTmpTable}")
-              val r = mySqlJDBCClient.executeQuery(s"select * from ${x.transactionalTmpTable}")
-              while (r.next()) {
-                mySqlJDBCClient.execute(
-                  s"""
-                     | delete from $table
-                     | where topic = "${r.getString("topic")}"
-                     | and `partition` = "${r.getString("partition")}"
-                     | and module_name = "$moduleName"
+              val r = mySqlJDBCClient.executeQuery(s"select * from ${x.transactionalTmpTable}", new Callback[Unit] {
+                override def onCallback(rs: ResultSet): Unit = {
+                  while (rs.next()) {
+                    mySqlJDBCClient.execute(
+                      s"""
+                         | delete from $table
+                         | where topic = "${rs.getString("topic")}"
+                         | and `partition` = "${rs.getString("partition")}"
+                         | and module_name = "$moduleName"
                  """.stripMargin)
-              }
+                  }
+                }
+              })
+//              while (r.next()) {
+//                mySqlJDBCClient.execute(
+//                  s"""
+//                     | delete from $table
+//                     | where topic = "${r.getString("topic")}"
+//                     | and `partition` = "${r.getString("partition")}"
+//                     | and module_name = "$moduleName"
+//                 """.stripMargin)
+//              }
 
             } else {
               //Overwrite
@@ -457,19 +559,33 @@ class KafkaClient (moduleName: String, config: Config /*databaseUrl: String, use
         val tabs = Array("_ts_", "_bc_", "_bp_")
 
         for(t <- tabs) {
-          val x= mySqlJDBCClient.executeQuery(s"""show tables like "%${t}%" """)
-
-          while (x.next()) {
-            val t = x.getString(1)
-            // 正则匹配时间
-            RegexUtil.matchedGroups(t, "([0-9]{4}[0-1][0-9][0-3][0-9]_[0-2][0-9][0-6][0-9][0-6][0-9])_[0-9]{3}__[0-9]")
-              .map{x=>
-                // 删除15天以前的事务表
-                if( System.currentTimeMillis() - CSTTime.ms(x,"yyyyMMdd_HHmmss") > 15L*24*60*60*1000) {
-                  mySqlJDBCClient.execute(s"drop table if exists ${t}")
-                }
+          mySqlJDBCClient.executeQuery(s"""show tables like "%${t}%" """, new Callback[Unit] {
+            override def onCallback(rs: ResultSet): Unit = {
+              while (rs.next()) {
+                val t = rs.getString(1)
+                // 正则匹配时间
+                RegexUtil.matchedGroups(t, "([0-9]{4}[0-1][0-9][0-3][0-9]_[0-2][0-9][0-6][0-9][0-6][0-9])_[0-9]{3}__[0-9]")
+                  .map{x=>
+                    // 删除15天以前的事务表
+                    if( System.currentTimeMillis() - CSTTime.ms(x,"yyyyMMdd_HHmmss") > 15L*24*60*60*1000) {
+                      mySqlJDBCClient.execute(s"drop table if exists ${t}")
+                    }
+                  }
               }
-          }
+            }
+          })
+
+//          while (x.next()) {
+//            val t = x.getString(1)
+//            // 正则匹配时间
+//            RegexUtil.matchedGroups(t, "([0-9]{4}[0-1][0-9][0-3][0-9]_[0-2][0-9][0-6][0-9][0-6][0-9])_[0-9]{3}__[0-9]")
+//              .map{x=>
+//                // 删除15天以前的事务表
+//                if( System.currentTimeMillis() - CSTTime.ms(x,"yyyyMMdd_HHmmss") > 15L*24*60*60*1000) {
+//                  mySqlJDBCClient.execute(s"drop table if exists ${t}")
+//                }
+//              }
+//          }
         }
 
       }

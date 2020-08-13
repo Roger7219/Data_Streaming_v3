@@ -2,12 +2,9 @@ package com.mobikok.ssp.data.streaming;
 
 import com.mobikok.message.client.MessageClient;
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart;
-import com.mobikok.ssp.data.streaming.entity.SspTrafficDWI;
-import com.mobikok.ssp.data.streaming.entity.feature.HBaseStorable;
-import com.mobikok.ssp.data.streaming.util.MessageClientUtil;
+import com.mobikok.ssp.data.streaming.util.JavaMC;
 import com.mobikok.ssp.data.streaming.util.OM;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -19,7 +16,7 @@ public class OMJavaTest {
     public static void main(String[] args) {
         MessageClient c =new MessageClient("","http://node14:5555");
 
-        MessageClientUtil.pullAndSortByLTimeDescHivePartitionParts(c, "c1", new MessageClientUtil.Callback<List<HivePartitionPart>>() {
+        JavaMC.pullAndSortByLTimeDescHivePartitionParts(c, "c1", new JavaMC.Callback<List<HivePartitionPart>>() {
             public Boolean doCallback(List<HivePartitionPart> resp){
                 System.out.println(OM.toJOSN(resp));
                 return true;

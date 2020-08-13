@@ -3,8 +3,8 @@ package com.mobikok.ssp.data.streaming
 import java.sql.ResultSet
 import java.util.Date
 
-import com.mobikok.ssp.data.streaming.util.{MySqlJDBCClientV2, OM, ZipUtil}
-import com.mobikok.ssp.data.streaming.util.MySqlJDBCClientV2.Callback
+import com.mobikok.ssp.data.streaming.util.{MySqlJDBCClient, OM, ZipUtil}
+import com.mobikok.ssp.data.streaming.util.MySqlJDBCClient.Callback
 
 /**
   * Created by Administrator on 2018/1/17.
@@ -12,8 +12,7 @@ import com.mobikok.ssp.data.streaming.util.MySqlJDBCClientV2.Callback
 object AdxThirdPartyReportTest {
 
   def adx_third_party_report(): Unit ={
-    var mySqlJDBCClientV2 = new MySqlJDBCClientV2(
-      "",
+    var mySqlJDBCClientV2 = new MySqlJDBCClient(
       "jdbc:mysql://node17:3306/sight",
       "root",
       "root_root")

@@ -5,7 +5,7 @@ import java.sql.ResultSet
 import com.mobikok.message.client.MessageClient
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
-import com.mobikok.ssp.data.streaming.util.MySqlJDBCClientV2.Callback
+import com.mobikok.ssp.data.streaming.util.MySqlJDBCClient.Callback
 import com.mobikok.ssp.data.streaming.util._
 import com.typesafe.config.Config
 import org.apache.spark.sql.catalyst.analysis.NoSuchTableException
@@ -37,11 +37,11 @@ class SyncMysql2HiveHandlerV4 extends Handler {
   var LAST_ID_CER_PREFIX = "lastIdCerV4"
   var LAST_ID_TOPIC_PREFIX = "lastIdTopicV4"
 
-  var mySqlJDBCClient: MySqlJDBCClientV2 = null
+  var mySqlJDBCClient: MySqlJDBCClient = null
   @volatile var LOCK = new Object()
 
-  override def init(moduleName: String, bigQueryClient: BigQueryClient, greenplumClient: GreenplumClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config): Unit = {
-    super.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient, kylinClientV2, hbaseClient, hiveContext, argsConfig, handlerConfig)
+  override def init(moduleName: String, bigQueryClient: BigQueryClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config, clickHouseClient: ClickHouseClient, moduleTracer: ModuleTracer): Unit = {
+    super.init(moduleName, bigQueryClient, rDBConfig, kafkaClient, messageClient, hbaseClient, hiveContext, argsConfig, handlerConfig, clickHouseClient, moduleTracer)
 
     hiveTableDetails = handlerConfig.getConfigList("tables").map { x =>
 
@@ -96,8 +96,8 @@ class SyncMysql2HiveHandlerV4 extends Handler {
       }
     }
 
-    mySqlJDBCClient = new MySqlJDBCClientV2(
-      moduleName, rdbUrl, rdbUser, rdbPassword
+    mySqlJDBCClient = new MySqlJDBCClient(
+      rdbUrl, rdbUser, rdbPassword
     )
 
     //    Only for test
@@ -118,7 +118,7 @@ class SyncMysql2HiveHandlerV4 extends Handler {
 
   }
 
-  override def handle(): Unit = {
+  override def doHandle(): Unit = {
     // 上个批次还在处理时，等待当前批次
     LOCK.synchronized{
       LOG.warn(s"${classOf[SyncMysql2HiveHandlerV4].getSimpleName} start")

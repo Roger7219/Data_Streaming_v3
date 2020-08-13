@@ -2,7 +2,6 @@ package com.mobikok.ssp.data.streaming.handler.dwi
 
 import java.util.Date
 
-import com.mobikok.ssp.data.streaming.client.cookie.TransactionCookie
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.util.DateFormatUtil
 import io.codis.jodis.{JedisResourcePool, RoundRobinJedisPool}
@@ -12,6 +11,7 @@ import java.util
 import java.util.Date
 
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
+import com.mobikok.ssp.data.streaming.transaction.{TransactionCookie, TransactionManager, TransactionRoolbackedCleanable}
 import com.mobikok.ssp.data.streaming.util._
 import com.typesafe.config.Config
 import org.apache.spark.sql.{Column, DataFrame, SQLContext}
@@ -47,8 +47,8 @@ class ProgrammedBidHandler extends Handler {
   private val jedisPool:JedisResourcePool = RoundRobinJedisPool.create().curatorClient(HOST_PORT, 30000).zkProxyDir(ZK_PROXY_DIR).build()
 
 
-  override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, argsConfig: ArgsConfig, handlerConfig: Config, globalConfig: Config, expr: String, as: Array[String]): Unit = {
-    super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, handlerConfig, globalConfig, expr, as)
+  override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, argsConfig: ArgsConfig, handlerConfig: Config, globalConfig: Config, moduleTracer: ModuleTracer): Unit = {
+    super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, handlerConfig, globalConfig, moduleTracer)
 
     rdbUrl = handlerConfig.getString(s"rdb.url")
     rdbUser = handlerConfig.getString(s"rdb.user")
@@ -63,7 +63,7 @@ class ProgrammedBidHandler extends Handler {
     }
   }
 
-  override def handle (newDwi: DataFrame): (DataFrame, Array[TransactionCookie]) = {
+  def doHandle (newDwi: DataFrame): DataFrame= {
 
     LOG.warn(s"ProgrammedBidHandler handle start")
 
@@ -206,7 +206,7 @@ class ProgrammedBidHandler extends Handler {
 
     LOG.warn(s"ProgrammedBidHandler handle done")
 
-    (newDwi, Array())
+    newDwi
 
   }
 
@@ -230,17 +230,11 @@ class ProgrammedBidHandler extends Handler {
     LOG.warn("update BidConfig", "subId", subId, "countryId", countryId, "bidConfig", v)
   }
 
-  override def init (): Unit = {}
-
-  override def commit (cookie: TransactionCookie): Unit = {
+  override def doCommit (): Unit = {
 
   }
 
-  override def rollback (cookies: TransactionCookie*): Cleanable = {
-    new Cleanable()
-  }
-
-  override def clean (cookies: TransactionCookie*): Unit = {
+  override def doClean (): Unit = {
   }
 }
 

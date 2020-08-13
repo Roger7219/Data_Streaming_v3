@@ -23,15 +23,15 @@ class OfferAutoSoldoutHandler extends Handler{
   var rdbPassword: String = null
 
   var rdbProp: java.util.Properties = null
-  var mySqlJDBCClient: MySqlJDBCClientV2 = null
+  var mySqlJDBCClient: MySqlJDBCClient = null
 
   val AUTO_SLOTOUT_CER = "OfferAutoSoldoutHandler_autoSlotout_cer"
   val AUTO_SLOTOUT_TOPIC = "OfferAutoSoldoutHandler_autoSlotout_topic"
   val AUTO_SLOTOUT_OFFER_CHECK_CER = "OfferAutoSoldCheck_cer"
   val AUTO_SLOTOUT_OFFER_CHECK_TOPIC = "OfferAutoSoldCheck_topic"
 
-  override def init (moduleName: String, bigQueryClient:BigQueryClient,greenplumClient:GreenplumClient, rDBConfig:RDBConfig,kafkaClient: KafkaClient, messageClient:MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config): Unit = {
-    super.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient: KafkaClient,messageClient, kylinClientV2, hbaseClient, hiveContext, argsConfig, handlerConfig)
+  override def init (moduleName: String, bigQueryClient:BigQueryClient, rDBConfig:RDBConfig,kafkaClient: KafkaClient, messageClient:MessageClient, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config, clickHouseClient: ClickHouseClient, moduleTracer: ModuleTracer): Unit = {
+    super.init(moduleName, bigQueryClient, rDBConfig, kafkaClient: KafkaClient,messageClient, hbaseClient, hiveContext, argsConfig, handlerConfig, clickHouseClient, moduleTracer)
 
 //    dwrDayTable = handlerConfig.getString("dwr.table")
 
@@ -47,14 +47,14 @@ class OfferAutoSoldoutHandler extends Handler{
       }
     }
 
-    mySqlJDBCClient = new MySqlJDBCClientV2(
-      moduleName, rdbUrl, rdbUser, rdbPassword
+    mySqlJDBCClient = new MySqlJDBCClient(
+      rdbUrl, rdbUser, rdbPassword
     )
 
     SQLMixUpdater.init(mySqlJDBCClient)
   }
 
-  override def handle (): Unit = {
+  override def doHandle (): Unit = {
 
     LOG.warn("OfferAutoSoldoutHandler started")
 

@@ -6,7 +6,7 @@ import com.mobikok.message.client.MessageClient
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.exception.HandlerException
-import com.mobikok.ssp.data.streaming.util.CSTTime
+import com.mobikok.ssp.data.streaming.util.{CSTTime, ModuleTracer}
 import com.typesafe.config.Config
 import org.apache.spark.mllib.recommendation.{ALS, MatrixFactorizationModel, Rating}
 import org.apache.spark.rdd.RDD
@@ -24,14 +24,14 @@ class ALSHandler extends Handler {
 
   val seqTimeFormat = CSTTime.formatter("yyyyMMdd_HHmmss_SSS")//new SimpleDateFormat("yyyyMMdd_HHmmss_SSS")
 
-  override def init (moduleName: String, bigQueryClient: BigQueryClient, greenplumClient:GreenplumClient, rDBConfig:RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config): Unit = {
+  override def init (moduleName: String, bigQueryClient: BigQueryClient, rDBConfig:RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config, clickHouseClient: ClickHouseClient, moduleTracer: ModuleTracer): Unit = {
 
-    super.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient: KafkaClient, messageClient, kylinClientV2, hbaseClient, hiveContext, argsConfig, handlerConfig)
+    super.init(moduleName, bigQueryClient, rDBConfig, kafkaClient: KafkaClient, messageClient, hbaseClient, hiveContext, argsConfig, handlerConfig, clickHouseClient, moduleTracer: ModuleTracer)
     dwrTable = handlerConfig.getString("dwr.table")
     modelOutputDir = handlerConfig.getString("model.output.dir")
   }
 
-  override def handle (): Unit = {
+  override def doHandle (): Unit = {
     try {
 
       val dwr = hiveContext

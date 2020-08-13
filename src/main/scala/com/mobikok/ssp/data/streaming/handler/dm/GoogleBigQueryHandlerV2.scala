@@ -6,7 +6,7 @@ import com.mobikok.message.{MessageConsumerCommitReq, MessagePullReq}
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
-import com.mobikok.ssp.data.streaming.util.{OM, RunAgainIfError, StringUtil}
+import com.mobikok.ssp.data.streaming.util.{ModuleTracer, OM, RunAgainIfError, StringUtil}
 import com.typesafe.config.Config
 import org.apache.spark.sql.hive.HiveContext
 
@@ -20,8 +20,8 @@ class GoogleBigQueryHandlerV2 extends Handler {
   //view, consumer, topics
   var viewConsumerTopics = null.asInstanceOf[Array[(String, String, Array[String])]]
 
-  override def init (moduleName: String, bigQueryClient: BigQueryClient, greenplumClient: GreenplumClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config): Unit = {
-    super.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient, kylinClientV2, hbaseClient, hiveContext, argsConfig, handlerConfig)
+  override def init (moduleName: String, bigQueryClient: BigQueryClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config, clickHouseClient: ClickHouseClient, moduleTracer: ModuleTracer): Unit = {
+    super.init(moduleName, bigQueryClient, rDBConfig, kafkaClient, messageClient, hbaseClient, hiveContext, argsConfig, handlerConfig, clickHouseClient, moduleTracer)
 
     viewConsumerTopics = handlerConfig.getObjectList("items").map { x =>
       val c = x.toConfig
@@ -32,7 +32,7 @@ class GoogleBigQueryHandlerV2 extends Handler {
     }.toArray
   }
 
-  override def handle (): Unit = {
+  override def doHandle (): Unit = {
     LOG.warn("GoogleBigQueryHandler handler starting")
 
     viewConsumerTopics.foreach{ x=>

@@ -7,7 +7,7 @@ import com.mobikok.message.client.MessageClient
 import com.mobikok.message.{MessageConsumerCommitReq, MessagePullReq, MessagePushReq}
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
-import com.mobikok.ssp.data.streaming.util.MySqlJDBCClientV2.Callback
+import com.mobikok.ssp.data.streaming.util.MySqlJDBCClient.Callback
 import com.mobikok.ssp.data.streaming.util._
 import com.typesafe.config.Config
 import org.apache.spark.sql.catalyst.analysis.NoSuchTableException
@@ -40,11 +40,11 @@ class SyncMysql2HiveHandler extends Handler {
   var needIncrConsumer = "NeedIncrConsumer"
 
   var lastIncrSyncMS = CSTTime.now.ms()
-  var mySqlJDBCClient: MySqlJDBCClientV2 = null
+  var mySqlJDBCClient: MySqlJDBCClient = null
   //  val tableSuffix = "_test"
 
-  override def init(moduleName: String, bigQueryClient: BigQueryClient, greenplumClient: GreenplumClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config): Unit = {
-    super.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient, kylinClientV2, hbaseClient, hiveContext, argsConfig, handlerConfig)
+  override def init(moduleName: String, bigQueryClient: BigQueryClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config, clickHouseClient: ClickHouseClient, moduleTracer: ModuleTracer): Unit = {
+    super.init(moduleName, bigQueryClient, rDBConfig, kafkaClient, messageClient, hbaseClient, hiveContext, argsConfig, handlerConfig, clickHouseClient, moduleTracer)
 
     tables = handlerConfig.getConfigList("tables").map { x =>
       (x.getString("mysql"), x.getString("hive"), x.getBoolean("isIncr"))
@@ -66,13 +66,13 @@ class SyncMysql2HiveHandler extends Handler {
       }
     }
 
-    mySqlJDBCClient = new MySqlJDBCClientV2(
-      moduleName, rdbUrl, rdbUser, rdbPassword
+    mySqlJDBCClient = new MySqlJDBCClient(
+      rdbUrl, rdbUser, rdbPassword
     )
   }
 
 
-  override def handle(): Unit = {
+  override def doHandle(): Unit = {
 
     //解決lastId之前的數據更新后，不能同步至hive的問題
     val pd = messageClient

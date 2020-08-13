@@ -3,14 +3,27 @@ package com.mobikok.ssp.data.streaming.config
 import java.sql.ResultSet
 import java.util.Date
 
-import com.mobikok.ssp.data.streaming.util.MySqlJDBCClientV2.Callback
-import com.mobikok.ssp.data.streaming.util.{MySqlJDBCClient, MySqlJDBCClientV2, StringUtil}
+import com.mobikok.ssp.data.streaming.util.MySqlJDBCClient.Callback
+import com.mobikok.ssp.data.streaming.util.{MySqlJDBCClient, StringUtil}
 
 /**
   * Created by Administrator on 2017/8/24.
   */
-class RDBConfig(mySqlJDBCClient: MySqlJDBCClientV2) {
+class RDBConfig(mySqlJDBCClient: MySqlJDBCClient) {
 
+  ddl()
+
+  private def ddl(): Unit ={
+    mySqlJDBCClient.execute(
+      """
+        |CREATE TABLE IF NOT EXISTS `config`  (
+        |  `name` varchar(100) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL DEFAULT '',
+        |  `value` varchar(100) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL,
+        |  `comment` varchar(100) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL,
+        |  PRIMARY KEY (`name`) USING BTREE
+        |) ENGINE = InnoDB CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Compact;
+      """.stripMargin)
+  }
 
   def readRDBConfig (name: String): String = {
 //    val rs = mySqlJDBCClient.executeQuery(s"""select value from config where name = "$name" """)
@@ -47,10 +60,11 @@ class RDBConfig(mySqlJDBCClient: MySqlJDBCClientV2) {
 
 }
 
+// 单例模式，RDB(mysql)保存了一些配置信息
 object RDBConfig {
 
   var RDB_CONFIG: RDBConfig = null
-  def init(mySqlJDBCClient: MySqlJDBCClientV2): Unit = {
+  def init(mySqlJDBCClient: MySqlJDBCClient): Unit = {
     RDB_CONFIG = new RDBConfig(mySqlJDBCClient)
   }
 

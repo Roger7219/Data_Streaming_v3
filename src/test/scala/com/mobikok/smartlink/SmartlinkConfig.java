@@ -4,7 +4,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.*;
 
-import com.mobikok.ssp.data.streaming.util.MySqlJDBCClientV2;
+import com.mobikok.ssp.data.streaming.util.MySqlJDBCClient;
 import com.mobikok.ssp.data.streaming.util.OM;
 import io.codis.jodis.JedisResourcePool;
 import io.codis.jodis.RoundRobinJedisPool;
@@ -22,7 +22,7 @@ public class SmartlinkConfig {
 
 
 	//[{"id":1,"url":"","weight":50,"countryIds":"","type":0},{"id":1030001,"url":"http://104.250.136.138:3333/api/smartlink?s=2708&at=4&rt=api&s1={s1}&s2={s2}&s3={s3}&s4={s4}&s5={s5}","weight":50,"countryIds":"","type":0}]
-	private static MySqlJDBCClientV2 mySqlJDBCClient = new MySqlJDBCClientV2("",
+	private static MySqlJDBCClient mySqlJDBCClient = new MySqlJDBCClient(
 			"jdbc:mysql://104.250.149.202:4000/kok_ssp?rewriteBatchedStatements=true&autoReconnect=true&useUnicode=true&characterEncoding=utf8",
 			"root",
 			"@dfei$@DCcsYG"
@@ -56,7 +56,7 @@ public class SmartlinkConfig {
 		final int[] linkStartId = {1000000};
 		mySqlJDBCClient.executeQuery(
 				"SELECT id, publisherId FROM APP where mode = 2 ", 
-				new MySqlJDBCClientV2.Callback<Object>(){
+				new MySqlJDBCClient.Callback<Object>(){
 
 					public Object onCallback(final ResultSet rs) {
 						try {

@@ -20,13 +20,12 @@ class IntegrationModeCapsHandler extends  Handler{
   val TOADY_NEED_INIT_CER = "IntegrationModeCapHandler_ToadyNeedInit_cer"
   val TOADY_NEED_INIT_TOPIC = "IntegrationModeCapHandler_ToadyNeedInit_topic"
 
-  var mySqlJDBCClient: MySqlJDBCClientV2 = null
+  var mySqlJDBCClient: MySqlJDBCClient = null
 
-  override def init (moduleName: String, bigQueryClient:BigQueryClient, greenplumClient:GreenplumClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext,argsConfig: ArgsConfig, handlerConfig: Config): Unit = {
-    super.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient, kylinClientV2, hbaseClient, hiveContext, argsConfig, handlerConfig)
+  override def init (moduleName: String, bigQueryClient:BigQueryClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, hbaseClient: HBaseClient, hiveContext: HiveContext,argsConfig: ArgsConfig, handlerConfig: Config, clickHouseClient: ClickHouseClient, moduleTracer: ModuleTracer): Unit = {
+    super.init(moduleName, bigQueryClient, rDBConfig, kafkaClient, messageClient, hbaseClient, hiveContext, argsConfig, handlerConfig, clickHouseClient, moduleTracer)
 
-    mySqlJDBCClient = new MySqlJDBCClientV2(
-      moduleName,
+    mySqlJDBCClient = new MySqlJDBCClient(
       handlerConfig.getString(s"rdb.url"),
       handlerConfig.getString(s"rdb.user"),
       handlerConfig.getString(s"rdb.password")
@@ -35,7 +34,7 @@ class IntegrationModeCapsHandler extends  Handler{
 
   }
 
-  override def handle (): Unit = {
+  override def doHandle (): Unit = {
   
     val now = CSTTime.now.date
 

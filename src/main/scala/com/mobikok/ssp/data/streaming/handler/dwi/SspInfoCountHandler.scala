@@ -1,7 +1,8 @@
 package com.mobikok.ssp.data.streaming.handler.dwi
-import com.mobikok.ssp.data.streaming.client.cookie.TransactionCookie
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
+import com.mobikok.ssp.data.streaming.transaction.{TransactionCookie, TransactionManager, TransactionRoolbackedCleanable}
+import com.mobikok.ssp.data.streaming.util.ModuleTracer
 import com.typesafe.config.Config
 import org.apache.spark.sql.{DataFrame, SaveMode}
 import org.apache.spark.storage.StorageLevel
@@ -13,12 +14,12 @@ import org.apache.spark.storage.StorageLevel
 class SspInfoCountHandler extends Handler{
   val tableName = "ssp_info_dwi"
 
-  override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, argsConfig: ArgsConfig, handlerConfig: Config, globalConfig: Config, expr: String, as: Array[String]): Unit = {
-    super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, handlerConfig, globalConfig, expr, as)
+  override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, argsConfig: ArgsConfig, handlerConfig: Config, globalConfig: Config, moduleTracer: ModuleTracer): Unit = {
+    super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, handlerConfig, globalConfig, moduleTracer)
 
   }
 
-  override def handle(newDwi: DataFrame): (DataFrame, Array[TransactionCookie]) = {
+  def doHandle(newDwi: DataFrame): DataFrame = {
 
     LOG.warn("SspInfoCountHandler start")
     newDwi
@@ -55,21 +56,11 @@ class SspInfoCountHandler extends Handler{
 
     LOG.warn("SspInfoCountHandler end")
 
-    (df, Array())
+    df
 
   }
 
-  override def init (): Unit = {}
+  def doCommit (): Unit = {}
 
-  override def commit (cookie: TransactionCookie): Unit = {
-    hbaseClient.commit(cookie)
-  }
-
-  override def rollback (cookies: TransactionCookie*): Cleanable = {
-    hbaseClient.rollback(cookies:_*)
-  }
-
-  override def clean (cookies: TransactionCookie*): Unit = {
-    hbaseClient.clean(cookies:_*)
-  }
+  def doClean (): Unit = {}
 }

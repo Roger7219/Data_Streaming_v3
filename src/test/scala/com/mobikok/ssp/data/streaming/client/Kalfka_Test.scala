@@ -3,8 +3,7 @@ package com.mobikok.ssp.data.streaming.client
 import java.io.File
 import java.util.{Date, Properties}
 
-import com.mobikok.ssp.data.streaming.App.config
-import com.mobikok.ssp.data.streaming.module.support.AlwaysTransactionalStrategy
+import com.mobikok.ssp.data.streaming.transaction.{AlwaysTransactionalStrategy, TransactionManager}
 import com.mobikok.ssp.data.streaming.util.CSTTime
 import com.typesafe.config.ConfigFactory
 import kafka.producer.{KeyedMessage, Producer, ProducerConfig}
@@ -38,10 +37,10 @@ object Kalfka_Test {
   private val producer = new KafkaProducer[String, String](props)
 
   val config = ConfigFactory.parseFile(new File("E:\\yuanma\\datastreaming\\src\\main\\resources\\agg\\test2\\dw.test.conf"))
-  val kafkaClient = new KafkaClient("", config, new MixTransactionManager(
+  val kafkaClient = new KafkaClient("", config, new TransactionManager(
     config,
     new AlwaysTransactionalStrategy(CSTTime.formatter("yyyy-MM-dd HH:00:00"), CSTTime.formatter("yyyy-MM-dd 00:00:00"))
-  ))
+  ), null)
 
   //produce mesg and send mesg
 

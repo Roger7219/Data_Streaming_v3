@@ -12,7 +12,8 @@ import com.mobikok.message.client.MessageClient
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
 import com.mobikok.ssp.data.streaming.exception.{HBaseClientException, HiveClientException}
 import com.mobikok.ssp.data.streaming.client.cookie._
-import com.mobikok.ssp.data.streaming.module.support.{HiveContextGenerater, OptimizedTransactionalStrategy, TransactionalStrategy}
+import com.mobikok.ssp.data.streaming.transaction.{TransactionCookie, TransactionManager, TransactionRoolbackedCleanable, TransactionalClient}
+import com.mobikok.ssp.data.streaming.udf.HiveContextCreator
 import com.mobikok.ssp.data.streaming.util._
 import com.typesafe.config.Config
 import org.apache.hadoop.fs.Path
@@ -35,13 +36,13 @@ import scala.math.Ordering
 /**
   * Created by Administrator on 2017/6/8.
   */
-class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messageClient: MessageClient, transactionManager: TransactionManager, moduleTracer: ModuleTracer) extends Transactional {
+class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messageClient: MessageClient, transactionManager: TransactionManager, moduleTracer: ModuleTracer) extends TransactionalClient {
 
   //private[this] val LOG = Logger.getLogger(getClass().getName());
 
   private var hiveJDBCClient: HiveJDBCClient = null
-  var hiveContext: HiveContext = HiveContextGenerater.generate(ssc.sparkContext)
-  var compactionHiveContext:HiveContext = HiveContextGenerater.generate(ssc.sparkContext)
+  var hiveContext: HiveContext = HiveContextCreator.create(ssc.sparkContext)
+  var compactionHiveContext:HiveContext = HiveContextCreator.create(ssc.sparkContext)
   var hdfsUtil: HdfsUtil = null
 
   private val transactionalTmpTableSign = s"_m_${moduleName}_trans_"
@@ -91,7 +92,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
       moduleTracer.trace(s"${makeShowPartition(ps).mkString("\n        ", "\n        ", "")}")
       LOG.warn("Into partitions", makeShowPartition(ps).mkString("\n"))
 
-      if(!transactionManager.needTransactionalAction()) {
+      if(!transactionManager.needRealTransactionalAction()) {
 
         df.selectExpr(fs:_*)
           .coalesce(fileNumber)
@@ -263,7 +264,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
         moduleTracer.trace(s"${makeShowPartition(ps).mkString("\n        ", "\n        ", "")}")
         LOG.warn("Union sum partitions", makeShowPartition(ps).mkString("\n"))
 
-        if(transactionManager.needTransactionalAction()) {
+        if(transactionManager.needRealTransactionalAction()) {
           //支持事务，先写入临时表，commit()时在写入目标表
 //          createTableIfNotExists(tt, table)
 //          updated
@@ -293,7 +294,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
         moduleTracer.trace("        union sum and write")
       }
 
-      if(transactionManager.needTransactionalAction()) {
+      if(transactionManager.needRealTransactionalAction()) {
         return new HiveRollbackableTransactionCookie(
           transactionParentId,
           tid,
@@ -357,7 +358,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
       moduleTracer.trace(s"            ${makeShowPartition(ps).mkString("\n        ", "\n        ", "")}")
       LOG.warn("Overwrite partitions", makeShowPartition(ps).mkString("\n"))
 
-      if(!transactionManager.needTransactionalAction()) {
+      if(!transactionManager.needRealTransactionalAction()) {
         df.selectExpr(fs:_*)
           .coalesce(fileNumber)
           //.repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
@@ -425,6 +426,26 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
         //y._1 + "=" + y._2
       }.mkString(", ")
     }
+  }
+
+  // 将分区信息转成DF格式
+  // 目前仅支持b_time、b_date和l_time分区作为Dataframe列名
+  def partitionsAsDataFrame(ps : Array[Array[HivePartitionPart]]): DataFrame ={
+    var rows = ps.map{x=>
+      val row = new Array[String](3)
+      x.map{y=>
+        y.name match {
+          case "b_time" => row(0) = y.value
+          case "b_date" => row(1) = y.value
+          case "l_time" => row(2) = y.value
+        }
+      }
+      (row(0), row(1), row(2))
+    }.toSeq
+
+    hiveContext
+      .createDataFrame(rows)
+      .toDF("b_time", "b_date", "l_time")
   }
 
   private def lTimePartitionsAlterSQL(ps : Array[Array[HivePartitionPart]]): Array[String] = {
@@ -793,10 +814,10 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 //    }
 //    ls.toArray[Array[HivePartitionPart]]
 //  }
-  override def rollback (cookies: TransactionCookie*): Cleanable = {
+  override def rollback (cookies: TransactionCookie*): TransactionRoolbackedCleanable = {
 
     try {
-      val cleanable = new Cleanable()
+      val cleanable = new TransactionRoolbackedCleanable()
       if (cookies.isEmpty) {
         LOG.warn(s"HiveClient rollback started(cookies is empty)")
         //Revert to the legacy data!!
@@ -825,7 +846,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
               .split(transactionalLegacyDataBackupCompletedTableSign)(1)
 
             //Key code !!
-            val needRollback = transactionManager.isActiveButNotAllCommited(parentTid)
+            val needRollback = transactionManager.isActiveButNotAllCommitted(parentTid)
 
             if (needRollback) {
               //val t = x.getAs[String]("database") + "." + x.getAs[String]("tableName")
@@ -955,7 +976,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
         val parentTid = x.id.split(TransactionManager.parentTransactionIdSeparator)(0)
 
         //Key code !!
-        val needRollback = transactionManager.isActiveButNotAllCommited(parentTid)
+        val needRollback = transactionManager.isActiveButNotAllCommitted(parentTid)
 
         if (needRollback) {
           //Revert to the legacy data!!

@@ -1,10 +1,10 @@
 package com.mobikok.ssp.data.streaming.handler.dwi
 
 import com.mobikok.ssp.data.streaming.client._
-import com.mobikok.ssp.data.streaming.client.cookie.TransactionCookie
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.SspUserIdHistory
-import com.mobikok.ssp.data.streaming.util.{CSTTime, MC, OM, PushReq}
+import com.mobikok.ssp.data.streaming.transaction.{TransactionCookie, TransactionManager, TransactionRoolbackedCleanable}
+import com.mobikok.ssp.data.streaming.util._
 import com.typesafe.config.Config
 import org.apache.spark.sql.functions.expr
 import org.apache.spark.sql.DataFrame
@@ -18,14 +18,14 @@ class SspUserCountHandler extends Handler {
   val SSPUSERCOUNT_DROP_EXCEEDTABLE_CER = "sspUserCount_dropExceedTable_cer"
   val SSPUSERCOUNT_DROP_EXCEEDTABLE_TOPIC = "sspUserCount_dropExceedTable_topic"
 
-  override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, argsConfig: ArgsConfig, handlerConfig: Config, globalConfig: Config, expr: String, as: Array[String]): Unit = {
-    super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, handlerConfig, globalConfig, expr, as)
+  override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, argsConfig: ArgsConfig, handlerConfig: Config, globalConfig: Config, moduleTracer: ModuleTracer): Unit = {
+    super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, handlerConfig, globalConfig, moduleTracer)
 
     userIdHistoryTable = handlerConfig.getString("uid.history.table")
   }
 
 
-  override def handle (newDwi: DataFrame): (DataFrame, Array[TransactionCookie]) = {
+  override def doHandle (newDwi: DataFrame): DataFrame = {
 
     LOG.warn(s"SspUserCountHandler handle starting")
 
@@ -47,7 +47,6 @@ class SspUserCountHandler extends Handler {
          |
        """.stripMargin)*/
 
-    val partentTid = transactionManager.beginTransaction(moduleName)
     val userIdHistoryTodayTable = s"${userIdHistoryTable}_${CSTTime.now.date()}"
 
     val userIdDf = newDwi
@@ -257,21 +256,13 @@ class SspUserCountHandler extends Handler {
     })
 
     LOG.warn(s"SspUserCountHandler handle end!")
-    (newDwi, Array())
+    newDwi
 
   }
 
-  override def init (): Unit = {}
-
-  override def commit (cookie: TransactionCookie): Unit = {
-    hbaseClient.commit(cookie)
+  override def doCommit (): Unit = {
   }
 
-  override def rollback (cookies: TransactionCookie*): Cleanable = {
-    hbaseClient.rollback(cookies:_*)
-  }
-
-  override def clean (cookies: TransactionCookie*): Unit = {
-    hbaseClient.clean(cookies:_*)
+  override def doClean (): Unit = {
   }
 }

@@ -12,7 +12,7 @@ trait Module {
 //  def isInitable(): Boolean
 
   def init() : Unit
-  def start() : Unit
+//  def start() : Unit
   def handler() : Unit
   def stop() : Unit
 

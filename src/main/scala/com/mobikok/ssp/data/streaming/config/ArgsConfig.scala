@@ -67,31 +67,32 @@ class ArgsConfig {
 
 object ArgsConfig{
 
-  val REBRUSH = "rebrush"
+//  val REBRUSH = "rebrush"
   val MODULES = "modules"
   val STREAMING_BATCH_BURATION = "buration"
   val FORCE_KILL_PREV_REPEATED_APP = "kill"
   val RATE = "rate"
-  val KAFKA_OFFSET_ROLLBACK = "offsetRollback"
-  val KAFKA_OFFSET_ROLLBACK_LATEST_HOURS = "rollbackHours"
-  val CLONE = "clone"
+//  val KAFKA_OFFSET_ROLLBACK = "offsetRollback"
+//  val KAFKA_OFFSET_ROLLBACK_LATEST_HOURS = "rollbackHours"
+//  val CLONE = "clone"
   val VERSION = "version"
   val EX = "ex" //Exclude，排除指定的维度字段
-  var VERSION_TOPIC = "version.topic" // 指定kafka topic版本
+  var TOPIC_VERSION = "topic.version" // 指定kafka topic版本
 
   val OFFSET = "offset" // earliest or latest
-  var ROLLBACK = "rollback"
+//  var ROLLBACK = "rollback"
 
   object Value{
-    val REBRUSH_RUNNING = "running"
-    val REBRUSH_DONE = "done"
+//    val REBRUSH_RUNNING = "running"
+//    val REBRUSH_DONE = "done"
     val VERSION_DEFAULT = "0"
+    val KAFKA_TOPIC_VERSION_DEFAULT = "0"
 
     val OFFSET_EARLIEST = "earliest"
     val OFFSET_LATEST = "latest"
 
-    val ROLLBACK_TRUE = "true"
-    val ROLLBACK_FALSE = "false"
+//    val ROLLBACK_TRUE = "true"
+//    val ROLLBACK_FALSE = "false"
 
   }
 

@@ -1,6 +1,7 @@
 package com.mobikok.ssp.data.streaming.client.cookie
 
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
+import com.mobikok.ssp.data.streaming.transaction.TransactionCookie
 import org.apache.spark.sql.SaveMode
 
 import scala.beans.BeanProperty

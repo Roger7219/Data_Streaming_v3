@@ -56,8 +56,8 @@ class AccelerateTableHandlerV3 extends Handler {
   var selectBTimeAccExprTemplet:String = null
   var selectLTimeAccExprTemplet:String = null
 
-  override def init (moduleName: String, bigQueryClient: BigQueryClient, greenplumClient: GreenplumClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config): Unit = {
-    super.init(moduleName, bigQueryClient, greenplumClient, rDBConfig, kafkaClient, messageClient, kylinClientV2, hbaseClient, hiveContext, argsConfig, handlerConfig)
+  override def init (moduleName: String, bigQueryClient: BigQueryClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config, clickHouseClient: ClickHouseClient, moduleTracer: ModuleTracer): Unit = {
+    super.init(moduleName, bigQueryClient, rDBConfig, kafkaClient, messageClient, hbaseClient, hiveContext, argsConfig, handlerConfig, clickHouseClient, moduleTracer)
 
     viewConsumerTopics = handlerConfig.getObjectList("items").map { x =>
       val c = x.toConfig
@@ -248,7 +248,7 @@ class AccelerateTableHandlerV3 extends Handler {
     true
   }
 
-  override def handle (): Unit = {
+  override def doHandle (): Unit = {
     LOG.warn("AccelerateTableHandler handler starting")
 
       viewConsumerTopics.foreach{ case(view, consumer, topics, templateSqls, unionGroup, unionSelect, createBaseTableSql)=>

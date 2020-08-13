@@ -1,6 +1,6 @@
 package com.mobikok.ssp.data.streaming
 
-import com.mobikok.ssp.data.streaming.client.{HBaseClient, TransactionManager}
+import com.mobikok.ssp.data.streaming.client.HBaseClient
 import com.mobikok.ssp.data.streaming.entity.SspTrafficDWI
 import com.mobikok.ssp.data.streaming.entity.feature.HBaseStorable
 import com.mobikok.ssp.data.streaming.util.OM

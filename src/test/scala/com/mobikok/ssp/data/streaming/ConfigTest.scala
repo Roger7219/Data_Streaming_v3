@@ -1,11 +1,4 @@
 package com.mobikok.ssp.data.streaming
-
-import java.io.File
-import java.util.Date
-
-import com.typesafe.config.{Config, ConfigFactory}
-
-import scala.collection.JavaConversions._
 /**
   * Created by Administrator on 2017/7/17.
   */
@@ -18,8 +11,11 @@ object ConfigTest {
 //      println(x.getStringList("params")(0))
 //    }
 
-    println(new Date().getHours)
+    ff()
 
+  }
 
+  def ff(s:String*): Unit ={
+    print(s)
   }
 }

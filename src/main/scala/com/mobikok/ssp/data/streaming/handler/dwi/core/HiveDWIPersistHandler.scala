@@ -1,55 +1,32 @@
 package com.mobikok.ssp.data.streaming.handler.dwi.core
 
-import java.util
-
 import com.mobikok.ssp.data.streaming.client._
-import com.mobikok.ssp.data.streaming.client.cookie.{HiveTransactionCookie, TransactionCookie}
+import com.mobikok.ssp.data.streaming.client.cookie.HiveTransactionCookie
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
-import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
 import com.mobikok.ssp.data.streaming.handler.dwi.Handler
-import com.mobikok.ssp.data.streaming.util.{MC, OM, PushReq, ThreadPool}
+import com.mobikok.ssp.data.streaming.transaction.TransactionManager
+import com.mobikok.ssp.data.streaming.util.{MC, ModuleTracer, OM, PushReq}
 import com.typesafe.config.Config
 import org.apache.spark.sql.DataFrame
 
-import scala.collection.JavaConversions._
-
 class HiveDWIPersistHandler extends Handler {
-
-//  val COOKIE_KIND_DWI_T = "dwiT"
 
   // 有配置表示enable
   var table: String = _
-  var cookie: TransactionCookie = _
+  var cookie: HiveTransactionCookie = _
 
-  val batchTransactionCookiesCache = new util.ArrayList[TransactionCookie]()
-
-  override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, argsConfig: ArgsConfig, handlerConfig: Config, globalConfig: Config, expr: String, as: Array[String]): Unit = {
+  override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, argsConfig: ArgsConfig, handlerConfig: Config, globalConfig: Config, moduleTracer: ModuleTracer): Unit = {
+    super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, handlerConfig, globalConfig, moduleTracer)
     isAsynchronous = true
-    super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, handlerConfig, globalConfig, expr, as)
     table = globalConfig.getString(s"modules.$moduleName.dwi.table")
   }
 
-  override def rollback(cookies: TransactionCookie*): Cleanable = {
-    hiveClient.rollback(cookies: _*)
-  }
-
-
-  override def handle(newDwi: DataFrame): (DataFrame, Array[TransactionCookie]) = {
-//    val partitionFields = globalConfig.getStringList(s"modules.$moduleName.dwi.partition.fields")
+  override def doHandle(newDwi: DataFrame): DataFrame = {
     val partitionFields = Array("repeated", "l_time", "b_date", "b_time", "b_version")
-
-//    val ps = newDwi
-//      .dropDuplicates(partitionFields)
-//      .collect()
-//      .map { x =>
-//        partitionFields.map { y =>
-//          HivePartitionPart(y, x.getAs[String](y))
-//        }.toArray
-//      }
 
     if(isOverwriteFixedLTime) {
       cookie = hiveClient.overwrite(
-        transactionManager.asInstanceOf[MixTransactionManager].getCurrentTransactionParentId(),
+        transactionManager.getCurrentTransactionParentId(),
         table,
         isOverwriteFixedLTime,
         newDwi,
@@ -57,24 +34,24 @@ class HiveDWIPersistHandler extends Handler {
         partitionFields.tail:_*)
     } else {
       cookie = hiveClient.into(
-        transactionManager.asInstanceOf[MixTransactionManager].getCurrentTransactionParentId(),
+        transactionManager.getCurrentTransactionParentId(),
         table,
         newDwi,
         partitionFields.head,
         partitionFields.tail:_*)
     }
 
-    batchTransactionCookiesCache.add(cookie)
+    transactionManager.collectTransactionCookie(hiveClient, cookie)
 
     LOG.warn("hiveClient write dwiTable completed", cookie)
-    (newDwi, Array(cookie))
+    newDwi
   }
 
-  override def commit(c: TransactionCookie): Unit = {
+  override def doCommit(): Unit = {
     hiveClient.commit(cookie)
 
     // push message
-    val dwiT = cookie.asInstanceOf[HiveTransactionCookie]
+    val dwiT = cookie
     var topic = dwiT.targetTable
     if (dwiT != null && dwiT.partitions != null && dwiT.partitions.nonEmpty) {
       val key = OM.toJOSN(dwiT.partitions.map { x => x.sortBy { y => y.name + y.value } }.sortBy { x => OM.toJOSN(x) })
@@ -82,27 +59,38 @@ class HiveDWIPersistHandler extends Handler {
       LOG.warn(s"MessageClient push done", s"topic: $topic, \nkey: $key")
 
       topic = moduleName
-      ThreadPool.LOCK.synchronized {
-        MC.push(PushReq(topic, key))
-      }
+      MC.push(PushReq(topic, key))
       LOG.warn(s"MessageClient push done", s"topic: $topic, \nkey: $key")
 
     } else {
       LOG.warn(s"MessageClient dwi no hive partitions to push", s"topic: $topic")
     }
+    cookie = null
   }
 
-  override def clean(cookies: TransactionCookie*): Unit = {
-    var result = Array[TransactionCookie]()
-
-    val mixTransactionManager = transactionManager.asInstanceOf[MixTransactionManager]
-    if (mixTransactionManager.needTransactionalAction()) {
-//      val needCleans = batchTransactionCookiesCache.filter{ x => !x.parentId.equals(mixTransactionManager.getCurrentTransactionParentId())}
-      val needCleans = batchTransactionCookiesCache.filter(!_.parentId.equals(mixTransactionManager.getCurrentTransactionParentId()))
-      batchTransactionCookiesCache.removeAll(needCleans)
-      result = needCleans.toArray
-    }
-    hiveClient.clean(result:_*)
+  override def doClean(): Unit = {
+    transactionManager.cleanLastTransactionCookie(hiveClient)
   }
 
 }
+
+
+
+
+
+
+
+
+
+
+//    batchTransactionCookiesCache.add(cookie)
+//  val batchTransactionCookiesCache = new util.ArrayList[TransactionCookie]()
+//    var result = Array[TransactionCookie]()
+//
+//    val mixTransactionManager = transactionManager
+//    if (mixTransactionManager.needRealTransactionalAction()) {
+//      val needCleans = batchTransactionCookiesCache.filter(!_.parentId.equals(mixTransactionManager.getCurrentTransactionParentId()))
+//      batchTransactionCookiesCache.removeAll(needCleans)
+//      result = needCleans.toArray
+//    }
+//    hiveClient.clean(result:_*)

@@ -9,7 +9,7 @@ import com.fasterxml.jackson.core.`type`.TypeReference
 import com.fasterxml.jackson.databind.cfg.MapperConfig
 import com.fasterxml.jackson.databind.introspect.AnnotatedMethod
 import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper, PropertyNamingStrategy, SerializationFeature}
-import com.mobikok.ssp.data.streaming.util.MySqlJDBCClientV2.Callback
+import com.mobikok.ssp.data.streaming.util.MySqlJDBCClient.Callback
 import org.apache.commons.io.IOUtils
 import org.apache.spark.sql.hive.HiveContext
 import org.apache.spark.sql.types.DecimalType.DoubleDecimal

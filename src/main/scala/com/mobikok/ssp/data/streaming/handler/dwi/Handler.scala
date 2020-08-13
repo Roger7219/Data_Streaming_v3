@@ -3,9 +3,9 @@ package com.mobikok.ssp.data.streaming.handler.dwi
 import java.util.Date
 
 import com.mobikok.ssp.data.streaming.client._
-import com.mobikok.ssp.data.streaming.client.cookie.TransactionCookie
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
-import com.mobikok.ssp.data.streaming.util.Logger
+import com.mobikok.ssp.data.streaming.transaction.{TransactionCookie, TransactionManager, TransactionalHandler}
+import com.mobikok.ssp.data.streaming.util.{Logger, ModuleTracer}
 import com.typesafe.config.Config
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.hive.HiveContext
@@ -13,7 +13,7 @@ import org.apache.spark.sql.hive.HiveContext
 /**
   * Created by Administrator on 2017/7/13.
   */
-trait Handler extends Transactional with com.mobikok.ssp.data.streaming.handler.Handler {
+trait Handler extends TransactionalHandler with com.mobikok.ssp.data.streaming.handler.Handler {
 
   var LOG: Logger = _
   var moduleName: String = _
@@ -28,14 +28,9 @@ trait Handler extends Transactional with com.mobikok.ssp.data.streaming.handler.
   var version: String = _
   var moduleConfig: Config = _
   var isOverwriteFixedLTime: Boolean = _
+  var moduleTracer: ModuleTracer = _
 
   var transactionManager: TransactionManager = _
-  var exprStr: String = _
-  var as: Array[String] = _
-
-//  var isAsynchronous = false // 表示该handler是否异步执行
-
-  override def init(): Unit = {}
 
   def init (moduleName: String,
             transactionManager:TransactionManager,
@@ -46,8 +41,7 @@ trait Handler extends Transactional with com.mobikok.ssp.data.streaming.handler.
             argsConfig: ArgsConfig,
             handlerConfig: Config,
             globalConfig: Config,
-            expr: String,
-            as: Array[String]): Unit = {
+            moduleTracer: ModuleTracer): Unit = {
 
     LOG = new Logger(moduleName, getClass.getName, new Date().getTime)
 
@@ -61,23 +55,54 @@ trait Handler extends Transactional with com.mobikok.ssp.data.streaming.handler.
     this.argsConfig = argsConfig
     this.handlerConfig = handlerConfig
     this.globalConfig = globalConfig
-    this.exprStr = expr
-    this.as = as
     this.version = argsConfig.get(ArgsConfig.VERSION, ArgsConfig.Value.VERSION_DEFAULT)
     this.moduleConfig = globalConfig.getConfig(s"modules.$moduleName")
     this.isOverwriteFixedLTime = if(moduleConfig.hasPath("overwrite")) moduleConfig.getBoolean("overwrite") else false
+    this.moduleTracer = moduleTracer
 
     try {
-      isAsynchronous = handlerConfig.getBoolean("isAsynchronous")
+      isAsynchronous = handlerConfig.getBoolean("async")
     } catch {
-      case e: Exception =>
+      case _: Exception =>
     }
   }
 
-  def handle (newDwi: DataFrame): (DataFrame, Array[TransactionCookie])
+  protected def doHandle (newDwi: DataFrame): DataFrame
+  protected def doCommit(): Unit
+  protected def doClean(): Unit
+
+  final def handle (newDwi: DataFrame): DataFrame = {
+    var returnDwi: DataFrame = newDwi
+    LOG.warn(s"dwi ${getClass.getSimpleName} handle start")
+    moduleTracer.trace(s"dwi ${getClass.getSimpleName} handle start")
+
+    returnDwi = doHandle(newDwi)
+
+    LOG.warn(s"dwi ${getClass.getSimpleName} handle done")
+    moduleTracer.trace(s"dwi ${getClass.getSimpleName} handle done")
+    returnDwi
+  }
+
+  final def commit(): Unit={
+    LOG.warn(s"dwi ${getClass.getSimpleName} commit start")
+    moduleTracer.trace(s"dwi ${getClass.getSimpleName} commit start")
+
+    doCommit()
+
+    LOG.warn(s"dwi ${getClass.getSimpleName} commit done")
+    moduleTracer.trace(s"dwi ${getClass.getSimpleName} commit done")
+  }
+  final def clean(): Unit={
+    LOG.warn(s"dwi ${getClass.getSimpleName} clean start")
+    moduleTracer.trace(s"dwi ${getClass.getSimpleName} clean start")
+
+    doClean()
+
+    LOG.warn(s"dwi ${getClass.getSimpleName} clean done")
+    moduleTracer.trace(s"dwi ${getClass.getSimpleName} clean done")
+  }
 
   def sql(sqlText: String): DataFrame ={
-//    LOG.warn("Execute HQL", sqlText)
     hiveClient.sql(sqlText)
   }
 }

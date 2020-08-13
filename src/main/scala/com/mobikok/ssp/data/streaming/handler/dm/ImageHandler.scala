@@ -19,7 +19,7 @@ class ImageHandler extends Handler {
 
   private val simpleDateFormat: SimpleDateFormat = CSTTime.formatter("yyyy-MM-dd")//new SimpleDateFormat("yyyy-MM-dd")
 
-  var mySqlJDBCClient: MySqlJDBCClientV2 = null
+  var mySqlJDBCClient: MySqlJDBCClient = null
   var rdbUrl: String = null
   var rdbUser: String = null
   var rdbPassword: String = null
@@ -30,9 +30,9 @@ class ImageHandler extends Handler {
   val TOPIC = "ssp_report_overall_dwr"
   val CONSUMER = "ImageHandler_cer"
 
-  override def init (moduleName: String, bigQueryClient:BigQueryClient, greenplumClient:GreenplumClient,rDBConfig:RDBConfig, kafkaClient: KafkaClient,messageClient: MessageClient, kylinClientV2: KylinClientV2, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config): Unit = {
+  override def init (moduleName: String, bigQueryClient:BigQueryClient, rDBConfig:RDBConfig, kafkaClient: KafkaClient,messageClient: MessageClient, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config, clickHouseClient: ClickHouseClient, moduleTracer: ModuleTracer): Unit = {
 
-    super.init(moduleName, bigQueryClient,greenplumClient, rDBConfig, kafkaClient: KafkaClient,messageClient, kylinClientV2, hbaseClient, hiveContext, argsConfig, handlerConfig)
+    super.init(moduleName, bigQueryClient, rDBConfig, kafkaClient: KafkaClient,messageClient, hbaseClient, hiveContext, argsConfig, handlerConfig, clickHouseClient, moduleTracer)
 
 //    dwrTable = handlerConfig.getString("dm.table")
 
@@ -48,12 +48,12 @@ class ImageHandler extends Handler {
       }
     }
 
-    mySqlJDBCClient = new MySqlJDBCClientV2(
-      moduleName, rdbUrl, rdbUser, rdbPassword
+    mySqlJDBCClient = new MySqlJDBCClient(
+      rdbUrl, rdbUser, rdbPassword
     )
   }
 
-  override def handle (): Unit = {
+  override def doHandle (): Unit = {
 
     try {
 
@@ -65,63 +65,61 @@ class ImageHandler extends Handler {
       MC.pullBDateDesc(CONSUMER, Array(TOPIC), {x=>
 
         //是否包含当天的b_date
-        if(x.filter(y=>d.equals(y.value)).isEmpty) {
-          return true
-        }
+        if(x.filter(y=>d.equals(y.value)).nonEmpty) {
 
-        // IMAGE_PERCENT表中只有一条配置记录
-        val ip = hiveContext
-          .read
-          .jdbc(rdbUrl, "(select * from IMAGE_PERCENT limit 1) as t0", rdbProp)
-          .repartition(1)
-          .alias("ip")
-        ip.createOrReplaceTempView("ip")
+          // IMAGE_PERCENT表中只有一条配置记录
+          val ip = hiveContext
+            .read
+            .jdbc(rdbUrl, "(select * from IMAGE_PERCENT limit 1) as t0", rdbProp)
+            .repartition(1)
+            .alias("ip")
+          ip.createOrReplaceTempView("ip")
 
-        RunAgainIfError.run{
-          val ipJoined = sql(
-            s"""
-               | select
-               |   st.imageId,
-               |   st.todayShowCount ,
-               |   st.todayClickCount,
-               |   cast(ip.Ctr as double) as ctr
-               | from (
-               |
-               |   select
-               |     imageId,
-               |     sum(clickCount) as todayClickCount,
-               |     sum(showCount)  as todayShowCount
-               |   from $dwrTable
-               |   where b_date = '$d' and imageId > 0 and appId <> 814 and appId <> 42 and appId <> 72
-               |   group by imageId
-               | ) st
-               | cross join ip
-        """.stripMargin)
+          RunAgainIfError.run{
+            val ipJoined = sql(
+              s"""
+                 | select
+                 |   st.imageId,
+                 |   st.todayShowCount ,
+                 |   st.todayClickCount,
+                 |   cast(ip.Ctr as double) as ctr
+                 | from (
+                 |
+                 |   select
+                 |     imageId,
+                 |     sum(clickCount) as todayClickCount,
+                 |     sum(showCount)  as todayShowCount
+                 |   from $dwrTable
+                 |   where b_date = '$d' and imageId > 0 and appId <> 814 and appId <> 42 and appId <> 72
+                 |   group by imageId
+                 | ) st
+                 | cross join ip
+          """.stripMargin)
 
-        LOG.warn("ImageHandler ipJoined take(10)", ipJoined.take(10))
+          LOG.warn("ImageHandler ipJoined take(10)", ipJoined.take(10))
 
-        val s0 = ListBuffer[String]()
+          val s0 = ListBuffer[String]()
 
-        ipJoined
-          .collect()
-          .foreach { z =>
+          ipJoined
+            .collect()
+            .foreach { z =>
 
-            val cc = z.getAs[Long]("todayClickCount")
-            val sc = z.getAs[Long]("todayShowCount")
-            val ctr = z.getAs[Double]("ctr")
-            s0 += s"""
-                     | update IMAGE_INFO
-                     | set
-                     | todayClickCount = ${cc},
-                     | todayShowCount = ${sc},
-                     | status = if( ShowCount > 0 and ShowCount < ${sc} and $cc/$sc < $ctr, 0, status)
-                     | where id =  ${z.getAs[Int]("imageId")}
-                 """.stripMargin
+              val cc = z.getAs[Long]("todayClickCount")
+              val sc = z.getAs[Long]("todayShowCount")
+              val ctr = z.getAs[Double]("ctr")
+              s0 += s"""
+                       | update IMAGE_INFO
+                       | set
+                       | todayClickCount = ${cc},
+                       | todayShowCount = ${sc},
+                       | status = if( ShowCount > 0 and ShowCount < ${sc} and $cc/$sc < $ctr, 0, status)
+                       | where id =  ${z.getAs[Int]("imageId")}
+                   """.stripMargin
+            }
+
+            mySqlJDBCClient.executeBatch(s0.toArray[String], 500)
           }
-
-          mySqlJDBCClient.executeBatch(s0.toArray[String], 500)
         }
-
 
         true
       })

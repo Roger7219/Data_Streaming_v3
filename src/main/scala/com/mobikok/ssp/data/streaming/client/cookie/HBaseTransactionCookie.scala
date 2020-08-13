@@ -1,6 +1,7 @@
 package com.mobikok.ssp.data.streaming.client.cookie
 
 import com.mobikok.ssp.data.streaming.entity.feature.HBaseStorable
+import com.mobikok.ssp.data.streaming.transaction.TransactionCookie
 
 import scala.beans.BeanProperty
 

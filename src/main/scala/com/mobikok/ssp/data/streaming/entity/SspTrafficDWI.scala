@@ -126,10 +126,6 @@ case class  SspTrafficDWI (
   override def structType: StructType = SspTrafficDWISchema.structType
 
   override def assembleFields (row: Array[Byte], source: collection.Map[(String, String), Array[Byte]]): Unit = {
-//    val v = parseRowkey(
-//      row,
-//      classOf[String]
-//    )
 
     repeats = ifNull(source.get(("0","repeats")), null,  Bytes.toInt(source.get(("0","repeats")).get) + Int.MaxValue + 1)
     rowkey = ifNull(source.get(("0","rowkey")), null, Bytes.toString(source.get(("0","rowkey")).get))

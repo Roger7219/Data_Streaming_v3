@@ -1,56 +1,53 @@
 package com.mobikok.ssp.data.streaming.client
 
-import java.text.SimpleDateFormat
 import java.util
 import java.util.Date
+import java.util.concurrent.{CopyOnWriteArrayList, CopyOnWriteArraySet, ExecutorService}
 import java.util.regex.Pattern
 
-import com.mobikok.ssp.data.streaming.App.config
-import com.mobikok.ssp.data.streaming.exception.HBaseClientException
-import com.mobikok.ssp.data.streaming.entity.UuidStat
-import com.mobikok.ssp.data.streaming.entity.feature.HBaseStorable
 import com.mobikok.ssp.data.streaming.client.cookie._
-import com.mobikok.ssp.data.streaming.util.{CSTTime, Logger, ModuleTracer, OM}
+import com.mobikok.ssp.data.streaming.entity.feature.HBaseStorable
+import com.mobikok.ssp.data.streaming.exception.HBaseClientException
+import com.mobikok.ssp.data.streaming.transaction.{TransactionCookie, TransactionManager, TransactionRoolbackedCleanable, TransactionalClient}
+import com.mobikok.ssp.data.streaming.util._
 import com.typesafe.config.Config
-import org.apache.derby.iapi.sql.dictionary.TableDescriptor
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.hbase.{HBaseConfiguration, HColumnDescriptor, HTableDescriptor, TableName}
+import org.apache.hadoop.hbase.client._
+import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp
+import org.apache.hadoop.hbase.filter.{BinaryComparator, FilterList, RowFilter}
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable
+import org.apache.hadoop.hbase.io.compress.Compression
 import org.apache.hadoop.hbase.mapreduce.{TableInputFormat, TableOutputFormat}
 import org.apache.hadoop.hbase.protobuf.ProtobufUtil
+import org.apache.hadoop.hbase.regionserver.BloomType
 import org.apache.hadoop.hbase.util.{Base64, Bytes}
+import org.apache.hadoop.hbase.{HBaseConfiguration, HTableDescriptor, TableName}
 import org.apache.hadoop.mapreduce.Job
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
-
-import scala.collection.mutable.{ArrayBuffer, ListBuffer, Map}
-import org.apache.hadoop.hbase.util._
-
-import scala.collection.JavaConverters._
-import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.hbase.client._
+import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.hive.HiveContext
-import org.apache.spark.sql.types.{StructField, StructType}
-import org.apache.spark.sql.{DataFrame, SQLContext}
-import org.apache.spark.streaming.StreamingContext
 
 import scala.collection.JavaConversions._
-import scala.collection.JavaConverters._
-import scala.math.Ordering
+import scala.collection.mutable.Map
+import scala.collection.parallel.ForkJoinTaskSupport
+import scala.concurrent.forkjoin.ForkJoinPool
 
 /**
   * 暂时只支持单客户端，多可客户端有并发问题
   * Created by Administrator on 2017/6/8.
   */
-class HBaseClient (moduleName: String, sc: SparkContext, config: Config, transactionManager: MixTransactionManager, moduleTracer: ModuleTracer) extends Transactional {
+class HBaseClient(moduleName: String, sc: SparkContext, config: Config, transactionManager: TransactionManager, moduleTracer: ModuleTracer) extends TransactionalClient {
   //  private[this] val LOG = Logger.getLogger(getClass().getName())
-  private val LOG: Logger = new Logger(moduleName, getClass.getName, new Date().getTime)
+  val LOG: Logger = new Logger(moduleName, getClass.getName, new Date().getTime)
 
-  private var hiveContext: HiveContext = null;
+  @volatile var hiveContext: HiveContext = null;
 
-  private var directHBaseConf: Configuration = null
-  private var directHBaseConnection: Connection = null
-  private var directHBaseAdmin: Admin = null
+  @volatile var directHBaseConf: Configuration = null
+  @volatile var directHBaseConnection: Connection = null
+  @volatile var directHBaseAdmin: Admin = null
+
+  var threadPool: ExecutorService = null
 
   private val transactionalTmpTableSign = s"_m_${moduleName}_trans_"
 
@@ -62,41 +59,55 @@ class HBaseClient (moduleName: String, sc: SparkContext, config: Config, transac
   private val backupCompletedTableNameForTransactionalTmpTableNameReplacePattern = "_class_.+" + transactionalLegacyDataBackupCompletedTableSign
   private val backupCompletedTableNameForTransactionalTargetTableNameReplacePattern = "_class_.+" + transactionalLegacyDataBackupCompletedTableSign + ".*"
 
+  @volatile var inited = false
   override def init (): Unit = {
-    LOG.warn(s"HBaseClient init started")
-    hiveContext = new HiveContext(sc)
-    directHBaseConf = HBaseConfiguration.create
-    config
-      .getConfig("hbase.set")
-      .entrySet()
-      .foreach { x =>
-        directHBaseConf.set(x.getKey, x.getValue.unwrapped().toString)
+    new Thread(new Runnable {
+      override def run (): Unit = {
+        LOG.warn(s"HBaseClient init started")
+        hiveContext = new HiveContext(sc)
+        directHBaseConf = HBaseConfiguration.create
+        config
+          .getConfig("hbase.set")
+          .entrySet()
+          .foreach { x =>
+            directHBaseConf.set(x.getKey, x.getValue.unwrapped().toString)
+          }
+        directHBaseConnection = ConnectionFactory.createConnection(directHBaseConf)
+        directHBaseAdmin = directHBaseConnection.getAdmin
+
+        //    config.getStringList("hbase.transactional.tables").foreach { x =>
+        //      if (!generalAdmin.isTableAvailable(TableName.valueOf(s"$x$transactionalTmpTableSuffix"))) {
+        //
+        //        val like = generalAdmin.getTableDescriptor(TableName.valueOf(x))
+        //
+        //        val desc: HTableDescriptor = new HTableDescriptor(TableName.valueOf(s"$x$transactionalTmpTableSuffix"))
+        //
+        //        like.getFamilies.foreach { x =>
+        //          desc.addFamily(x)
+        //        }
+        //        generalAdmin.createTable(desc)
+        //      }
+        //    }
+        LOG.warn(s"HBaseClient init completed")
+        threadPool = ExecutorServiceUtil.createdExecutorService(10000)
+        inited = true
       }
+    }).start()
 
-    directHBaseConnection = ConnectionFactory.createConnection(directHBaseConf)
-    directHBaseAdmin = directHBaseConnection.getAdmin
+  }
 
-    //    config.getStringList("hbase.transactional.tables").foreach { x =>
-    //      if (!generalAdmin.isTableAvailable(TableName.valueOf(s"$x$transactionalTmpTableSuffix"))) {
-    //
-    //        val like = generalAdmin.getTableDescriptor(TableName.valueOf(x))
-    //
-    //        val desc: HTableDescriptor = new HTableDescriptor(TableName.valueOf(s"$x$transactionalTmpTableSuffix"))
-    //
-    //        like.getFamilies.foreach { x =>
-    //          desc.addFamily(x)
-    //        }
-    //        generalAdmin.createTable(desc)
-    //      }
-    //    }
-    LOG.warn(s"HBaseClient init completed")
-
+  def waitInit(): Unit ={
+    while (!inited) {
+      Thread.sleep(1000L)
+    }
   }
 
   def gets[T <: HBaseStorable] (table: String,
                                 rowkeys: Array[_ <: Object],
                                 hbaseStorableClass: Class[T]
                                ): util.ArrayList[T] = {
+    waitInit()
+
     var result: util.ArrayList[T] = null
     var b = true
     while (b)
@@ -111,12 +122,76 @@ class HBaseClient (moduleName: String, sc: SparkContext, config: Config, transac
     result
   }
 
+  def getsMultiSubTable[T <: HBaseStorable] (table: String,
+                                             rowkeys: Array[_ <: Object],
+                                             hbaseStorableClass: Class[T]
+                                            ): util.ArrayList[T] = {
+    waitInit()
+
+    val res: util.ArrayList[T] = new util.ArrayList[T]()
+
+    val reg = table + ".*"
+    val subTs = directHBaseAdmin.listTableNames(reg)
+
+//    subTs.par.foreach{x=>
+//      res.addAll(gets0(x.getNameAsString, rowkeys, hbaseStorableClass))
+//    }
+
+    val tsArray = subTs.par
+    tsArray.tasksupport = new ForkJoinTaskSupport(new ForkJoinPool(10000))
+    tsArray.foreach{ x =>
+      res.addAll(gets0(x.getNameAsString, rowkeys, hbaseStorableClass))
+    }
+
+    res
+  }
+
+  def getsMultiSubTableAsDF[T <: HBaseStorable] (table: String,
+                                             rowkeys: Array[_ <: Object],
+                                             hbaseStorableClass: Class[T]
+                                            ): DataFrame = {
+    waitInit()
+    LOG.warn("hbase table getsMultiSubTableAsDF start", "result count:", rowkeys.length,  "table", table, "clazz", hbaseStorableClass.getName)
+
+    val r: util.Set[T] = new CopyOnWriteArraySet[T]()
+
+    val reg = table + ".*"
+    val subTs = directHBaseAdmin.listTableNames(reg)
+
+//    subTs.par.foreach{x=>
+//      r.addAll(gets0(x.getNameAsString, rowkeys, hbaseStorableClass))
+//    }
+    subTs.par.foreach{ x =>
+      r.addAll(gets0(x.getNameAsString, rowkeys, hbaseStorableClass))
+    }
+
+    if (r.isEmpty) {
+      val e = hiveContext.sparkContext.emptyRDD[org.apache.spark.sql.Row]
+      return hiveContext.createDataFrame(e, hbaseStorableClass.newInstance().structType)
+    }
+
+    LOG.warn("hbase table getsMultiSubTableAsDF", "rowkey count: " , rowkeys.length, "result count:", r.size(), "take(1)", r.take(1))
+
+    val res = hiveContext.createDataFrame(
+      r.map { x =>
+        x.toSparkRow()
+      }.toList,
+      hbaseStorableClass.newInstance().structType
+    )
+
+    moduleTracer.trace("    hbase getsMultiSubTableAsDF done")
+    LOG.warn("hbase table getsMultiSubTableAsDF done")
+
+    res
+  }
+
   private def gets0[T <: HBaseStorable] (table: String,
                                          rowkeys: Array[_ <: Object],
                                          hbaseStorableClass: Class[T]
                                         ): util.ArrayList[T] = {
 
-    moduleTracer.trace("    hbase gets0 start")
+    waitInit()
+    //moduleTracer.trace("    hbase gets0 start")
     LOG.warn("hbase gets0 start", s"table: $table\nrowkeys count: ${rowkeys.length}")
 
     val t = directHBaseConnection.getTable(TableName.valueOf(table))
@@ -147,16 +222,53 @@ class HBaseClient (moduleName: String, sc: SparkContext, config: Config, transac
     t.close()
 
 
-    moduleTracer.trace("    hbase gets0 done")
+    //moduleTracer.trace("    hbase gets0 done")
     LOG.warn("hbase gets0 done, result count", r.size)
 
     r
+  }
+
+  private def scan0[T <: HBaseStorable] (tableName: String,
+                                         rowkeys: Array[_ <: Object],
+                                         hbaseStorableClass: Class[T]): util.ArrayList[T] = {
+    waitInit()
+    LOG.warn("hbase scan0 start", s"table: $tableName\nrowkeys count: ${rowkeys.length}")
+
+    val table = directHBaseConnection.getTable(TableName.valueOf(tableName))
+    val filterList = new FilterList()
+
+    rowkeys.foreach{ key =>
+      if (key.isInstanceOf[Array[Byte]]) {
+        filterList.addFilter(new RowFilter(CompareOp.EQUAL, new BinaryComparator(Bytes.toBytes(new String(key.asInstanceOf[Array[Byte]])))))
+      } else if (key.isInstanceOf[String]) {
+        filterList.addFilter(new RowFilter(CompareOp.EQUAL, new BinaryComparator(Bytes.toBytes(key.asInstanceOf[String]))))
+      } else if (key.isInstanceOf[Int]) {
+        filterList.addFilter(new RowFilter(CompareOp.EQUAL, new BinaryComparator(Bytes.toBytes(key.asInstanceOf[Int]))))
+      } else if (key.isInstanceOf[Long]) {
+        filterList.addFilter(new RowFilter(CompareOp.EQUAL, new BinaryComparator(Bytes.toBytes(key.asInstanceOf[Long]))))
+      } else {
+        throw new HBaseClientException(s"Rowkey type '${key.getClass.getName}' is not supported when batch get operating")
+      }
+    }
+    val scan = new Scan()
+    scan.setFilter(filterList)
+    val resultList = new util.ArrayList[T]()
+
+    table.getScanner(scan).foreach{ result =>
+      if (!result.isEmpty) {
+        resultList.add(HBaseClient.assemble(result, hbaseStorableClass))
+      }
+    }
+
+    resultList
   }
 
   def getsAsDF[T <: HBaseStorable] (table: String,
                                     ids: Array[_ <: Object],
                                     hbaseStorableClass: Class[T]
                                    ): DataFrame = {
+
+    waitInit()
 
     LOG.warn("hbase table getsAsDF start", "table: "+ table + "\nclazz: " +hbaseStorableClass.getName)
 
@@ -184,7 +296,7 @@ class HBaseClient (moduleName: String, sc: SparkContext, config: Config, transac
                                      rowkeys: RDD[_ <: Object],
                                      hbaseStorableClass: Class[T]
                                     ): DataFrame = {
-
+    waitInit()
     getsAsDF(table, rowkeys.collect(), hbaseStorableClass)
   }
 //
@@ -223,6 +335,8 @@ class HBaseClient (moduleName: String, sc: SparkContext, config: Config, transac
 //  }
 
   private def createWriteConf (table: String): Configuration = {
+    waitInit()
+
     val conf = HBaseConfiguration.create
 
     config
@@ -248,6 +362,8 @@ class HBaseClient (moduleName: String, sc: SparkContext, config: Config, transac
 //              ,structType: org.apache.spark.sql.types.StructType
                ): DataFrame = {
 
+    waitInit()
+
     val rdd = scan0(table, startRow, stopRow, clazz)
 
     if (rdd.isEmpty) {
@@ -265,6 +381,7 @@ class HBaseClient (moduleName: String, sc: SparkContext, config: Config, transac
                          clazz: Class[_ <: HBaseStorable]
                         ): RDD[_ <: HBaseStorable] = {
 
+    waitInit()
 
     val transactionalLegacyDataBackupCompletedTableSign = "_backup_completed_"
     val transactionalLegacyDataBackupProgressingTableSign = "_backup_progressing_"
@@ -298,30 +415,145 @@ class HBaseClient (moduleName: String, sc: SparkContext, config: Config, transac
       .filter { x => x != null }
   }
 
+  private var SUB_TABLE_DAY_FORMAT = CSTTime.formatter("yyyyMMdd")
+  private val maxSubTableNum = 7;
+
+  def createSubTableIfNotExists (table: String, date: Date): String ={
+    waitInit()
+
+    val subTable = subTableName(table, date)
+    val created = createTableIfNotExists(subTable, table)
+
+    // 如果超过最大保留子表数，则删除早期的子表
+    if(true/*created*/) {
+      // If table name: SSP_SEND_DWI_PHOENIX, Then the sub table name eg: SSP_SEND_DWI_PHOENIX_20180126
+      val ss = directHBaseAdmin.listTableNames(table + "_.{"+(SUB_TABLE_DAY_FORMAT.toPattern + "").length+"}$")
+      if(ss.length > maxSubTableNum) {
+        val c = ss.length - maxSubTableNum
+        val dels = ss.sortBy(_.getNameAsString).zipWithIndex.filter{case (t, i) => i < c }
+        LOG.warn("Deleting expired tables", dels.map{case(t, i) => t.getNameAsString})
+
+        dels.foreach{case(t, i)=>
+          directHBaseAdmin.disableTable(t)
+          directHBaseAdmin.deleteTable(t)
+          LOG.warn("HBase expired table delete done", t)
+        }
+      }
+    }
+
+    subTable
+  }
+  private def subTableName (table: String, date: Date): String ={
+    var day = SUB_TABLE_DAY_FORMAT.format(date) // "20180105";
+    s"${table}_${day}"
+  }
+
+  def createCurrSubTableIfNotExists (table: String): String ={
+    waitInit()
+
+    createSubTableIfNotExists(table, new Date())
+  }
+
+  def putsNonTransactionMultiSubTable (table: String, hbaseStorables: RDD[_ <: HBaseStorable]): Unit = {
+
+    waitInit()
+
+    val subTable = createCurrSubTableIfNotExists(table)
+    LOG.warn("hbase putsNonTransaction start", "table", table, "sub_table", subTable/*, "count", hbaseStorables.count()*//*, "toColumns take(2)", hbaseStorables.take(2).map{x=>x.toColumns}*/)
+
+    RunAgainIfError.run({
+      val conf = createWriteConf(subTable)
+      hbaseStorables
+        .map{ x =>
+          val put = new Put(/*Bytes.toBytes(Bytes.toString(x.getHBaseRowkey))*/x.toHBaseRowkey).setDurability(Durability.SKIP_WAL)
+          // filter用于区别空字符串与null的表示，空字符串时对应的列名依然存储，null值直接忽略掉所有
+          x.toColumns.filter(_._2 != null).map { x =>
+            put.addColumn(Bytes.toBytes(x._1._1), Bytes.toBytes(x._1._2), x._2)
+          }
+          (new ImmutableBytesWritable, put)
+        }
+  //      .repartition(3)
+        .saveAsNewAPIHadoopDataset(conf)
+    })
+
+    sinceLastTimeFlushBatchPutsCount += 1
+
+    new Thread(new Runnable {
+      override def run(): Unit = {
+//        flush(subTable)
+      }
+    }).start()
+
+    LOG.warn("hbase putsNonTransaction done" )
+  }
+
+  @volatile private var sinceLastTimeFlushBatchPutsCount = 0
+  @volatile private var isFlushing = false
+
+//  private var executorService = ExecutorServiceUtil.createdExecutorService(1)
+
+  @volatile var flushLocks = new util.HashMap[String, Object]()
+  def flush(table: String): Unit ={
+    var lock: Object = null
+      this.synchronized{
+      lock = flushLocks.get(table)
+      if(lock == null) {
+        lock = new Object
+        flushLocks.put(table, lock)
+      }
+    }
+    var needFlush = false
+    lock.synchronized{
+      if(!isFlushing) {
+        var interval = 0
+        val inte = MC.pullUpdatable("hbase_flush_cer", Array("hbase_flush_interval"))
+        if(StringUtil.notEmpty(inte)) {
+          interval = inte.toInt
+        }
+        if(sinceLastTimeFlushBatchPutsCount >= interval) {
+          needFlush = true
+        }
+      }
+    }
+    if(needFlush) {
+      LOG.warn("HBase flush start", "table", table, "putsTimesCount", sinceLastTimeFlushBatchPutsCount)
+      sinceLastTimeFlushBatchPutsCount = 0
+      isFlushing = true
+      directHBaseAdmin.flush(TableName.valueOf(table))
+      LOG.warn("HBase flush done", "subTable", table)
+    }
+  }
 
   def putsNonTransaction (table: String, hbaseStorables: RDD[_ <: HBaseStorable]): Unit = {
+    waitInit()
 
+    LOG.warn("hbase putsNonTransaction start" /*,"count", hbaseStorables.count(),*/ /*"toColumns take(2)", hbaseStorables.take(2).map{x=>x.toColumns}*/)
     val conf = createWriteConf(table)
     hbaseStorables
       .map{ x =>
         val put = new Put(/*Bytes.toBytes(Bytes.toString(x.getHBaseRowkey))*/x.toHBaseRowkey).setDurability(Durability.SKIP_WAL)
-        x.toColumns.map { x =>
+        // filter用于区别空字符串与null的表示，空字符串时对应的列名依然存储，null值直接忽略掉所有
+        x.toColumns.filter(_._2 != null).map { x =>
           put.addColumn(Bytes.toBytes(x._1._1), Bytes.toBytes(x._1._2), x._2)
         }
         (new ImmutableBytesWritable, put)
       }
 //      .repartition(3)
       .saveAsNewAPIHadoopDataset(conf)
+
+    LOG.warn("hbase putsNonTransaction done")
   }
 
   def putsNonTransaction (table: String, hbaseStorables: Array[_ <: HBaseStorable]): Unit = {
+    waitInit()
 
-    LOG.warn("hbase putsNonTransaction start, count", hbaseStorables.length)
+    LOG.warn("hbase putsNonTransaction start", "count", hbaseStorables.length/*, "toColumns take(2)", hbaseStorables.take(2).map{x=>x.toColumns}*/)
     val conf = createWriteConf(table)
     sc.parallelize(hbaseStorables.map { x =>
 
       val put = new Put(/*Bytes.toBytes(Bytes.toString(x.getHBaseRowkey))*/x.toHBaseRowkey).setDurability(Durability.SKIP_WAL)//.setWriteToWAL(false)
-      x.toColumns.map { x =>
+      // filter用于区别空字符串与null的表示，空字符串时对应的列名依然存储，null值直接忽略掉所有
+      x.toColumns.filter(_._2 != null).map { x =>
         put.addColumn(Bytes.toBytes(x._1._1), Bytes.toBytes(x._1._2), x._2)
       }
       (new ImmutableBytesWritable, put)
@@ -332,37 +564,106 @@ class HBaseClient (moduleName: String, sc: SparkContext, config: Config, transac
   }
 
   def deleteTables (tablePattern: String): Unit = {
+    waitInit()
+
     directHBaseAdmin.disableTables(Pattern.compile(tablePattern))
     directHBaseAdmin.deleteTables(Pattern.compile(tablePattern))
   }
 
+  def deleteTable (tableName: String): Unit = {
+    deleteTable(TableName.valueOf(tableName))
+  }
+
   def deleteTable (tableName: TableName): Unit = {
+    waitInit()
+
     if (directHBaseAdmin.isTableAvailable(tableName)) {
       directHBaseAdmin.disableTable(tableName)
       directHBaseAdmin.deleteTable(tableName)
     }
   }
 
+  import org.apache.hadoop.hbase.util.Bytes
+
+  private def getSplitKeys = {
+
+//    val keys = Array[String](
+//      "08", "18", "28", "38", "48", "58", "68", "78",
+//      "88", "98", "a8", "b8", "c8", "d8", "e8", "f8")
+
+
+    //    val keys = Array[String](
+//      "08", "11", "18", "21", "28", "31", "38", "41", "48", "51", "58" ,"61", "68" ,"71", "78",
+//      "81", "88", "91", "98", "a1", "a8", "b1", "b8", "c1", "c8", "d1", "d8", "e1", "e8" ,"f1", "f8")
+
+    //0 1 2 3    4 (5) 6 7    8 9 (a) b   c d e f
+//    val keys = Array[String](
+//      "05", "0a",
+//      "10", "15", "1a",   "20", "25", "2a",   "30", "35" ,"3a",
+//      "40", "45", "4a",   "50", "55", "5a",   "60", "65" ,"6a",
+//      "70", "75", "7a",   "80", "85", "8a",   "90", "95" ,"9a",
+//      "a0", "a5", "aa",   "b0", "b5", "ba",   "c0", "c5" ,"ca",
+//      "d0", "d5", "da",   "e0", "e5", "ea",   "f0", "f5" ,"fa"
+//     )
+
+    val keys = Array[String](
+      "05",
+      "10", "1a", "25", "30", "3a",
+      "45", "50", "5a", "65" ,
+      "70", "7a", "85", "90", "9a",
+      "a5", "b0", "ba", "c5" ,
+      "d0", "da", "e5", "f0","fa"
+    )
+
+    val splitKeys = new Array[Array[Byte]](keys.length)
+    val rows = new util.TreeSet(Bytes.BYTES_COMPARATOR)
+    //升序排序
+    var i = 0
+    while ( {
+      i < keys.length
+    }) {
+      rows.add(Bytes.toBytes(keys(i)))
+
+      {
+        i += 1; i - 1
+      }
+    }
+    val rowKeyIter = rows.iterator
+    var j = 0
+    while ( {
+      rowKeyIter.hasNext
+    }) {
+      val tempRow = rowKeyIter.next
+      rowKeyIter.remove
+      splitKeys(j) = tempRow
+      j += 1
+    }
+    splitKeys
+  }
+
   def createTableIfNotExists (table: String, like: String): Boolean = {
+    waitInit()
 
     if (directHBaseAdmin.isTableAvailable(TableName.valueOf(table))) return false
 
     val likeT = directHBaseAdmin.getTableDescriptor(TableName.valueOf(like))
 
-    val desc: HTableDescriptor = new HTableDescriptor(TableName.valueOf(table))
-
+    val desc = new HTableDescriptor(TableName.valueOf(table))
+//    desc.setRegionReplication(5)
     likeT.getFamilies.foreach { x =>
+      x.setBloomFilterType(BloomType.ROW)
+      x.setBlockCacheEnabled(true)
+      x.setCompressionType(Compression.Algorithm.SNAPPY)
       desc.addFamily(x)
     }
-    directHBaseAdmin.createTable(desc)
+    directHBaseAdmin.createTable(desc, getSplitKeys)
+
     return true
   }
 
-  def deleteTable(table: String ) :Unit = {
-    deleteTable(TableName.valueOf(table))
-  }
-
   def renameTable (table: String, newTableName: String): Unit = {
+    waitInit()
+
     val s = table + "_snapshot"
     val t = TableName.valueOf(table)
     directHBaseAdmin.disableTable(t)
@@ -377,7 +678,7 @@ class HBaseClient (moduleName: String, sc: SparkContext, config: Config, transac
   }
 
   def puts (transactionParentId: String, table: String, hbaseStorables: Array[_ <: HBaseStorable], hbaseStorablesComponentType:Class[_ <: HBaseStorable]): HBaseTransactionCookie = {
-
+    waitInit()
     val tid = transactionManager.generateTransactionId(transactionParentId)
 
     try {
@@ -427,6 +728,7 @@ class HBaseClient (moduleName: String, sc: SparkContext, config: Config, transac
   }
 
   override def commit (cookie: TransactionCookie): Unit = {
+    waitInit()
 
     if(cookie == null) return
 
@@ -482,6 +784,7 @@ class HBaseClient (moduleName: String, sc: SparkContext, config: Config, transac
   }
 
   def createReadConf (table: String, scan: Scan): Configuration = {
+    waitInit()
     val p = ProtobufUtil.toScan(scan);
     val scanStr = Base64.encodeBytes(p.toByteArray());
 
@@ -501,6 +804,7 @@ class HBaseClient (moduleName: String, sc: SparkContext, config: Config, transac
   }
 
   private def delete0 (table: String, deletes: Array[_ <: HBaseStorable]): Unit = {
+    waitInit()
 
     LOG.warn(s"HBaseClient delete0 start, count", deletes.length)
     val t = directHBaseConnection.getTable(TableName.valueOf(table))
@@ -516,9 +820,11 @@ class HBaseClient (moduleName: String, sc: SparkContext, config: Config, transac
     LOG.warn(s"HBaseClient delete0 done")
   }
 
-  override def rollback (cookies: TransactionCookie*): Cleanable = {
+  override def rollback (cookies: TransactionCookie*): TransactionRoolbackedCleanable = {
+    waitInit()
+
     try {
-      val cleanable = new Cleanable()
+      val cleanable = new TransactionRoolbackedCleanable()
       if (cookies.isEmpty) {
 
         LOG.warn(s"HBaseClient rollback started(cookies is empty)")
@@ -542,7 +848,7 @@ class HBaseClient (moduleName: String, sc: SparkContext, config: Config, transac
               .split(transactionalLegacyDataBackupCompletedTableSign)(1)
               .split(TransactionManager.parentTransactionIdSeparator)(0)
 
-            if (!transactionManager.isCommited(parentTid)) {
+            if (transactionManager.isActiveButNotAllCommitted(parentTid)/*!transactionManager.isCommited(parentTid)*/) {
               val cn = backupCompletedTableNameWithinClassNamePattern
                 .findAllIn(t)
                 .matchData
@@ -596,7 +902,7 @@ class HBaseClient (moduleName: String, sc: SparkContext, config: Config, transac
 
         val parentTid = x.id.split(TransactionManager.parentTransactionIdSeparator)(0)
 
-        if (!transactionManager.isCommited(parentTid)) {
+        if (transactionManager.isActiveButNotAllCommitted(parentTid)/*!transactionManager.isCommited(parentTid)*/) {
           //Revert to the legacy data!!
           val b = scan0(
             x.transactionalCompletedBackupTable,
@@ -643,7 +949,7 @@ class HBaseClient (moduleName: String, sc: SparkContext, config: Config, transac
   }
 
   override def clean (cookies: TransactionCookie*): Unit = {
-
+    waitInit()
     try {
       cookies.foreach{x=>
         if(x.isInstanceOf[HBaseTransactionCookie]) {
@@ -665,6 +971,8 @@ class HBaseClient (moduleName: String, sc: SparkContext, config: Config, transac
   }
 
 }
+
+
 
 object HBaseClient {
   private def assemble[T <: HBaseStorable] (result: Result, clazz: Class[T]): T = {

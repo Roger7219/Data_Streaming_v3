@@ -1,7 +1,7 @@
 --*******************************************************************************************************
 -- Overall for hour DM - START
 --*******************************************************************************************************
---hive view for bigquerry
+--hive view for bigquery
 drop view ssp_report_overall_dm;
 create view ssp_report_overall_dm as
 select
