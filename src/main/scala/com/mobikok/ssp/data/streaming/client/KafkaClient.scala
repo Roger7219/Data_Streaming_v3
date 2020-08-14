@@ -321,6 +321,7 @@ class KafkaClient (moduleName: String, config: Config, messageClient: MessageCli
   override def rollback (cookies: TransactionCookie*): TransactionRoolbackedCleanable = {
 
     try {
+      moduleTracer.trace("kafka try rollback start")
       val cleanable = new TransactionRoolbackedCleanable()
       //      val bt = table + transactionalLegacyDataBackupTableSign
 
@@ -464,82 +465,84 @@ class KafkaClient (moduleName: String, config: Config, messageClient: MessageCli
 //
 //        try { x.close() }catch {case e:Exception=>}
 
-        return cleanable
-      }
+      }else {
 
-      LOG.warn(s"KafkaClient rollback started(cookies not empty)")
-      val cs = cookies.asInstanceOf[Array[KafkaRollbackableTransactionCookie]]
+        LOG.warn(s"KafkaClient rollback started(cookies not empty)")
+        val cs = cookies.asInstanceOf[Array[KafkaRollbackableTransactionCookie]]
 
-      cs.foreach { x =>
+        cs.foreach { x =>
 
-        x.offsets.foreach { y =>
+          x.offsets.foreach { y =>
 
-          val parentTid = x.id.split(TransactionManager.parentTransactionIdSeparator)(0)
+            val parentTid = x.id.split(TransactionManager.parentTransactionIdSeparator)(0)
 
-          //Key code !!
-          val needRollback = transactionManager.isActiveButNotAllCommitted(parentTid)
+            //Key code !!
+            val needRollback = transactionManager.isActiveButNotAllCommitted(parentTid)
 
-          if (needRollback/*!transactionManager.isCommited(parentTid)*/) {
+            if (needRollback/*!transactionManager.isCommited(parentTid)*/) {
 
-            val empty = !mySqlJDBCClient.executeQuery(s"select * from $x limit 1", new Callback[Boolean](){
-              override def onCallback(rs: ResultSet): Boolean = {
-                rs.next()
-              }
-            })//.next()
-            //Revert to the legacy data!!
-            if (empty) {
-              //Delete
-              LOG.warn(s"KafkaClient rollback", s"Revert to the legacy data, Delete by transactionalTmpTable: ${x.transactionalTmpTable}")
-              val r = mySqlJDBCClient.executeQuery(s"select * from ${x.transactionalTmpTable}", new Callback[Unit] {
-                override def onCallback(rs: ResultSet): Unit = {
-                  while (rs.next()) {
-                    mySqlJDBCClient.execute(
-                      s"""
-                         | delete from $table
-                         | where topic = "${rs.getString("topic")}"
-                         | and `partition` = "${rs.getString("partition")}"
-                         | and module_name = "$moduleName"
-                 """.stripMargin)
-                  }
+              val empty = !mySqlJDBCClient.executeQuery(s"select * from $x limit 1", new Callback[Boolean](){
+                override def onCallback(rs: ResultSet): Boolean = {
+                  rs.next()
                 }
-              })
-//              while (r.next()) {
-//                mySqlJDBCClient.execute(
-//                  s"""
-//                     | delete from $table
-//                     | where topic = "${r.getString("topic")}"
-//                     | and `partition` = "${r.getString("partition")}"
-//                     | and module_name = "$moduleName"
-//                 """.stripMargin)
-//              }
+              })//.next()
+              //Revert to the legacy data!!
+              if (empty) {
+                //Delete
+                LOG.warn(s"KafkaClient rollback", s"Revert to the legacy data, Delete by transactionalTmpTable: ${x.transactionalTmpTable}")
+                val r = mySqlJDBCClient.executeQuery(s"select * from ${x.transactionalTmpTable}", new Callback[Unit] {
+                  override def onCallback(rs: ResultSet): Unit = {
+                    while (rs.next()) {
+                      mySqlJDBCClient.execute(
+                        s"""
+                           | delete from $table
+                           | where topic = "${rs.getString("topic")}"
+                           | and `partition` = "${rs.getString("partition")}"
+                           | and module_name = "$moduleName"
+                   """.stripMargin)
+                    }
+                  }
+                })
+  //              while (r.next()) {
+  //                mySqlJDBCClient.execute(
+  //                  s"""
+  //                     | delete from $table
+  //                     | where topic = "${r.getString("topic")}"
+  //                     | and `partition` = "${r.getString("partition")}"
+  //                     | and module_name = "$moduleName"
+  //                 """.stripMargin)
+  //              }
 
-            } else {
-              //Overwrite
-              LOG.warn(s"KafkaClient rollback", s"Revert to the legacy data, Overwrite by backup table: ${x.transactionalCompletedBackupTable}")
-              mySqlJDBCClient.execute(
-                s"""
-                   | insert into $table
-                   | select *
-                   | from ${x.transactionalCompletedBackupTable}
-                   | on duplicate key update offset = values(offset)
-           """.stripMargin
-              )
+              } else {
+                //Overwrite
+                LOG.warn(s"KafkaClient rollback", s"Revert to the legacy data, Overwrite by backup table: ${x.transactionalCompletedBackupTable}")
+                mySqlJDBCClient.execute(
+                  s"""
+                     | insert into $table
+                     | select *
+                     | from ${x.transactionalCompletedBackupTable}
+                     | on duplicate key update offset = values(offset)
+             """.stripMargin
+                )
+              }
+
             }
+          }
 
+          x.offsets.foreach { y =>
+            cleanable.addAction{mySqlJDBCClient.execute(s"drop table if exists ${x.transactionalCompletedBackupTable}")}
+            cleanable.addAction{mySqlJDBCClient.execute(s"drop table if exists ${x.transactionalProgressingBackupTable}")}
+            cleanable.addAction{mySqlJDBCClient.execute(s"drop table if exists ${x.transactionalTmpTable}")}
+  //          mySqlJDBCClient.execute(s"drop table if exists ${x.transactionalCompletedBackupTable}")
+  //          //Delete it if exists
+  //          mySqlJDBCClient.execute(s"drop table if exists ${x.transactionalProgressingBackupTable}")
+  //          mySqlJDBCClient.execute(s"drop table if exists ${x.transactionalTmpTable}")
           }
         }
 
-        x.offsets.foreach { y =>
-          cleanable.addAction{mySqlJDBCClient.execute(s"drop table if exists ${x.transactionalCompletedBackupTable}")}
-          cleanable.addAction{mySqlJDBCClient.execute(s"drop table if exists ${x.transactionalProgressingBackupTable}")}
-          cleanable.addAction{mySqlJDBCClient.execute(s"drop table if exists ${x.transactionalTmpTable}")}
-//          mySqlJDBCClient.execute(s"drop table if exists ${x.transactionalCompletedBackupTable}")
-//          //Delete it if exists
-//          mySqlJDBCClient.execute(s"drop table if exists ${x.transactionalProgressingBackupTable}")
-//          mySqlJDBCClient.execute(s"drop table if exists ${x.transactionalTmpTable}")
-        }
       }
 
+      moduleTracer.trace("kafka try rollback done")
       LOG.warn(s"KafkaClient($moduleName) rollback completed")
       cleanable
     } catch {

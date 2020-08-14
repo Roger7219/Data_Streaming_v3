@@ -825,10 +825,11 @@ class HBaseClient(moduleName: String, sc: SparkContext, config: Config, messageC
     waitInit()
 
     try {
+      moduleTracer.trace("hbase try rollback start")
       val cleanable = new TransactionRoolbackedCleanable()
       if (cookies.isEmpty) {
 
-        LOG.warn(s"HBaseClient rollback started(cookies is empty)")
+        LOG.warn(s"HBaseClient rollback started(non specified cookie)")
         //Revert to the legacy data!!
         directHBaseAdmin
           .listTables(Pattern.compile(s".*$transactionalLegacyDataBackupCompletedTableSign.*"))
@@ -894,50 +895,53 @@ class HBaseClient(moduleName: String, sc: SparkContext, config: Config, messageC
         //Delete it if exists
         deleteTables(s".*$transactionalLegacyDataBackupProgressingTableSign.*")
         deleteTables(s".*$transactionalTmpTableSign.*")
-        return cleanable
-      }
 
-      LOG.warn(s"HBaseClient rollback started(cookies not empty)")
-      val cs = cookies.asInstanceOf[Array[HBaseTransactionCookie]]
-      cs.foreach { x =>
+      }else {
 
-        val parentTid = x.id.split(TransactionManager.parentTransactionIdSeparator)(0)
+        LOG.warn(s"HBaseClient rollback started(specified cookie)")
+        val cs = cookies.asInstanceOf[Array[HBaseTransactionCookie]]
+        cs.foreach { x =>
 
-        if (transactionManager.isActiveButNotAllCommitted(parentTid)/*!transactionManager.isCommited(parentTid)*/) {
-          //Revert to the legacy data!!
-          val b = scan0(
-            x.transactionalCompletedBackupTable,
-            null,
-            null,
-            x.hbaseStorableImplClass
-          ).collect()
+          val parentTid = x.id.split(TransactionManager.parentTransactionIdSeparator)(0)
 
-          if (b.isEmpty) {
-            //Delete
-            val tt = x.transactionalTmpTable //t.replaceFirst(backupCompletedTableNameForTransactionalTmpTableNameReplacePattern, transactionalTmpTableSign)
-            LOG.warn(s"HBaseClient rollback", s"Revert to the legacy data, Delete by transactionalTmpTable: ${tt}")
-            val r = scan0(
-              tt,
+          if (transactionManager.isActiveButNotAllCommitted(parentTid)/*!transactionManager.isCommited(parentTid)*/) {
+            //Revert to the legacy data!!
+            val b = scan0(
+              x.transactionalCompletedBackupTable,
               null,
               null,
               x.hbaseStorableImplClass
-            )
-            delete0(x.targetTable, r.collect())
-          } else {
-            //Overwrite
-            LOG.warn(s"HBaseClient rollback", s"Revert to the legacy data, Overwrite by backup table: ${b}")
-            putsNonTransaction(x.targetTable, b)
+            ).collect()
+
+            if (b.isEmpty) {
+              //Delete
+              val tt = x.transactionalTmpTable //t.replaceFirst(backupCompletedTableNameForTransactionalTmpTableNameReplacePattern, transactionalTmpTableSign)
+              LOG.warn(s"HBaseClient rollback", s"Revert to the legacy data, Delete by transactionalTmpTable: ${tt}")
+              val r = scan0(
+                tt,
+                null,
+                null,
+                x.hbaseStorableImplClass
+              )
+              delete0(x.targetTable, r.collect())
+            } else {
+              //Overwrite
+              LOG.warn(s"HBaseClient rollback", s"Revert to the legacy data, Overwrite by backup table: ${b}")
+              putsNonTransaction(x.targetTable, b)
+            }
+
           }
-
         }
-      }
-      cs.foreach { x =>
-        deleteTable(TableName.valueOf(x.transactionalCompletedBackupTable))
-        //Delete it if exists
-        deleteTable(TableName.valueOf(x.transactionalProgressingBackupTable))
-        deleteTable(TableName.valueOf(x.transactionalTmpTable))
+        cs.foreach { x =>
+          deleteTable(TableName.valueOf(x.transactionalCompletedBackupTable))
+          //Delete it if exists
+          deleteTable(TableName.valueOf(x.transactionalProgressingBackupTable))
+          deleteTable(TableName.valueOf(x.transactionalTmpTable))
+        }
+
       }
 
+      moduleTracer.trace("hbase try rollback done")
       LOG.warn(s"HBaseClient rollback completed")
       cleanable
     } catch {

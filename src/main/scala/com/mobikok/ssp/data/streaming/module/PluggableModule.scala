@@ -408,11 +408,11 @@ class PluggableModule(globalConfig: Config,
           //-----------------------------------------------------------------------------------------------------------------
           //  Begin Transaction !!
           //-----------------------------------------------------------------------------------------------------------------
-          val parentTid = transactionManager.beginTransaction(moduleName, groupName, order)
+          val parentTransactionId = transactionManager.beginTransaction(moduleName, groupName, order)
           val parentThreadId= Thread.currentThread().getId
 
           val dwrLTimeExpr = s"'${transactionManager.dwrLTime(moduleConfig)}'"
-          val asyncWorker = new AsyncHandlerWorker(moduleName, asyncHandlersCount, moduleTracer, order, parentTid,  parentThreadId)
+          val asyncWorker = new AsyncHandlerWorker(moduleName, asyncHandlersCount, moduleTracer, order, parentTransactionId,  parentThreadId)
 
           //-----------------------------------------------------------------------------------------------------------------
           //  DWI Handler
@@ -495,7 +495,7 @@ class PluggableModule(globalConfig: Config,
           //-----------------------------------------------------------------------------------------------------------------
           // Set kafka new offset
           //-----------------------------------------------------------------------------------------------------------------
-          val kafkaCookie = kafkaClient.setOffset(parentTid, offsetRanges)
+          val kafkaCookie = kafkaClient.setOffset(parentTransactionId, offsetRanges)
           kafkaClient.commit(kafkaCookie)
           transactionManager.collectTransactionCookie(kafkaClient, kafkaCookie)
 
@@ -515,7 +515,7 @@ class PluggableModule(globalConfig: Config,
           // Clean transaction tmp data
           //------------------------------------------------------------------------------------
           // 清理上一次用于事务的临时数据
-          cleanLastTransactionCookies(dwi, handledDwi, parentTid)
+          cleanLastTransactionCookies(dwi, handledDwi, parentTransactionId)
           // 清理上一次“启动流统计”遗留的用于事务的临时数据
           cleanLastTransactionRollbackedCookies()
 
@@ -691,7 +691,7 @@ class PluggableModule(globalConfig: Config,
     dwrHandlers = new util.ArrayList[com.mobikok.ssp.data.streaming.handler.dwr.Handler]()
     if (!dwrIncludeRepeated) {
       val h = new NonRepeatedPrepareDwrHandler(repeatsFilter)
-      h.init(moduleName, transactionManager, hbaseClient, hiveClient, clickHouseClient, null, globalConfig, messageClient, moduleTracer)
+      h.init(moduleName, "", transactionManager, hbaseClient, hiveClient, clickHouseClient, null, globalConfig, messageClient, moduleTracer)
       dwrHandlers.add(h)
     }
 
@@ -700,7 +700,7 @@ class PluggableModule(globalConfig: Config,
       globalConfig.getConfigList(s"modules.$moduleName.dwr.handlers").foreach { x =>
         val hc = x
         val h = Class.forName(hc.getString("class")).newInstance().asInstanceOf[com.mobikok.ssp.data.streaming.handler.dwr.Handler]
-        h.init(moduleName, transactionManager, hbaseClient, hiveClient, clickHouseClient, hc, globalConfig, messageClient, moduleTracer)
+        h.init(moduleName, null, transactionManager, hbaseClient, hiveClient, clickHouseClient, hc, globalConfig, messageClient, moduleTracer)
         dwrHandlers.add(h)
       }
     }
@@ -713,17 +713,19 @@ class PluggableModule(globalConfig: Config,
           val (subDwrTable, groupByFields, where, timeGranularity) = parseSubDwrTablesConfig(moduleName, subTableSuffix)
 
           val dwrPersistHandler = new HiveDWRPersistHandler(dwrTable, subDwrTable, groupByFields, where, timeGranularity)
-          dwrPersistHandler.init(moduleName, transactionManager, hbaseClient, hiveClient, clickHouseClient, null, globalConfig, messageClient, moduleTracer)
+          dwrPersistHandler.init(moduleName, subTableSuffix , transactionManager, hbaseClient, hiveClient, clickHouseClient, null, globalConfig, messageClient, moduleTracer)
           dwrHandlers.add(dwrPersistHandler)
         }
       }else {
         val dwrPersistHandler = new HiveDWRPersistHandler(dwrTable, Array("*"), null, TimeGranularity.Default)
-        dwrPersistHandler.init(moduleName, transactionManager, hbaseClient, hiveClient, clickHouseClient, null, globalConfig, messageClient, moduleTracer)
+        dwrPersistHandler.init(moduleName, null, transactionManager, hbaseClient, hiveClient, clickHouseClient, null, globalConfig, messageClient, moduleTracer)
         dwrHandlers.add(dwrPersistHandler)
       }
     }
 
-    asyncHandlersCount += dwrHandlers.map{ x=>if(x.isAsynchronous) 1 else 0}.sum
+    if(isMaster){
+      asyncHandlersCount += dwrHandlers.map{ x=>if(x.isAsynchronous) 1 else 0}.sum
+    }
   }
 
   private def parseSubDwrTablesConfig(moduleName: String, subTableSuffix: String): (String, Array[String], String, TimeGranularity) ={

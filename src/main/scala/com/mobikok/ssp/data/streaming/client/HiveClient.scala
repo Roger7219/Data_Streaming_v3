@@ -809,9 +809,10 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
   override def rollback (cookies: TransactionCookie*): TransactionRoolbackedCleanable = {
 
     try {
+      moduleTracer.trace("hive try rollback start")
       val cleanable = new TransactionRoolbackedCleanable()
       if (cookies.isEmpty) {
-        LOG.warn(s"HiveClient rollback started(cookies is empty)")
+        LOG.warn(s"HiveClient rollback started(non specified cookie)")
         //Revert to the legacy data!!
         val ct = sql(s"show tables like '*${transactionalLegacyDataBackupCompletedTableSign}*'")
 //        hiveContext.sql(s"show tables like '*${transactionalLegacyDataBackupCompletedTableSign}*'")
@@ -959,63 +960,59 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 //            sql(s"drop table ${x.getAs[String]("database")}.${x.getAs[String]("tableName")}")
 ////            hiveContext.sql(s"drop table ${x.getAs[String]("database")}.${x.getAs[String]("tableName")}")
           }
-        return cleanable
-      }
 
-      LOG.warn(s"HiveClient rollback started(cookies not empty)")
-      val cs = cookies.asInstanceOf[Array[HiveRollbackableTransactionCookie]]
-      cs.foreach { x =>
-        val parentTid = x.id.split(TransactionManager.parentTransactionIdSeparator)(0)
+      }else{
 
-        //Key code !!
-        val needRollback = transactionManager.isActiveButNotAllCommitted(parentTid)
+        LOG.warn(s"HiveClient rollback started(specified cookie)")
+        val cs = cookies.asInstanceOf[Array[HiveRollbackableTransactionCookie]]
+        cs.foreach { x =>
+          val parentTid = x.id.split(TransactionManager.parentTransactionIdSeparator)(0)
 
-        if (needRollback) {
-          //Revert to the legacy data!!
-          //SaveMode.Overwrite is Overwrite partition
+          //Key code !!
+          val needRollback = transactionManager.isActiveButNotAllCommitted(parentTid)
 
-          val bc = hiveContext
-            .read
-            .table(x.transactionalCompletedBackupTable)
-            .count()
+          if (needRollback) {
+            //Revert to the legacy data!!
+            //SaveMode.Overwrite is Overwrite partition
 
-          // +
-          lTimePartitionsAlterSQL(x.partitions).distinct.foreach{y=>
-            sql(s"alter table ${x.targetTable} drop if exists partition($y)")
-          }
-
-          if(bc == 0) {
-            LOG.warn(s"HiveClient rollback", s"Reverting to the legacy data, Backup table is empty, Drop partitions of targetTable!! \ntable: ${x.transactionalCompletedBackupTable} \npartitions: ${partitionsWhereSQL(x.partitions)}")
-            //hiveContext.sql(s"truncate table ${x.targetTable}")
-            //            partitionsAlterSQL(x.partitions).foreach{y=>
-            //              sql(s"alter table ${x.targetTable} drop if exists partition($y)")
-            //            }
-          }else {
-            LOG.warn(s"HiveClient rollback", s"Reverting to the legacy data, Overwrite by backup table: ${x.transactionalCompletedBackupTable}")
-            hiveContext
+            val bc = hiveContext
               .read
               .table(x.transactionalCompletedBackupTable)
-              .write
-              .format("orc")
-              .mode(SaveMode.Overwrite)
-              .insertInto(x.targetTable)
+              .count()
+
+            // +
+            lTimePartitionsAlterSQL(x.partitions).distinct.foreach{y=>
+              sql(s"alter table ${x.targetTable} drop if exists partition($y)")
+            }
+
+            if(bc == 0) {
+              LOG.warn(s"HiveClient rollback", s"Reverting to the legacy data, Backup table is empty, Drop partitions of targetTable!! \ntable: ${x.transactionalCompletedBackupTable} \npartitions: ${partitionsWhereSQL(x.partitions)}")
+              //hiveContext.sql(s"truncate table ${x.targetTable}")
+              //            partitionsAlterSQL(x.partitions).foreach{y=>
+              //              sql(s"alter table ${x.targetTable} drop if exists partition($y)")
+              //            }
+            }else {
+              LOG.warn(s"HiveClient rollback", s"Reverting to the legacy data, Overwrite by backup table: ${x.transactionalCompletedBackupTable}")
+              hiveContext
+                .read
+                .table(x.transactionalCompletedBackupTable)
+                .write
+                .format("orc")
+                .mode(SaveMode.Overwrite)
+                .insertInto(x.targetTable)
+            }
+
           }
-
         }
-      }
-      cs.foreach { x =>
-        cleanable.addAction{sql(s"drop table if exists ${x.transactionalCompletedBackupTable}")}
-        cleanable.addAction{sql(s"drop table if exists ${x.transactionalProgressingBackupTable}")}
-        cleanable.addAction{sql(s"drop table if exists ${x.transactionalTmpTable}")}
-//        sql(s"drop table if exists ${x.transactionalCompletedBackupTable}")
-////        hiveContext.sql(s"drop table if exists ${x.transactionalCompletedBackupTable}")
-//        //Delete it if exists
-//        sql(s"drop table if exists ${x.transactionalProgressingBackupTable}")
-////        hiveContext.sql(s"drop table if exists ${x.transactionalProgressingBackupTable}")
-//        sql(s"drop table if exists ${x.transactionalTmpTable}")
-////        hiveContext.sql(s"drop table if exists ${x.transactionalTmpTable}")
+        cs.foreach { x =>
+          cleanable.addAction{sql(s"drop table if exists ${x.transactionalCompletedBackupTable}")}
+          cleanable.addAction{sql(s"drop table if exists ${x.transactionalProgressingBackupTable}")}
+          cleanable.addAction{sql(s"drop table if exists ${x.transactionalTmpTable}")}
+        }
+
       }
 
+      moduleTracer.trace("hive try rollback done")
       LOG.warn(s"HiveClient rollback completed")
       cleanable
     } catch {

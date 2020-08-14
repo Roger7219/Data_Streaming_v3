@@ -87,7 +87,7 @@ class ModuleTracer(moduleName: String, globalConfig: Config, mixModulesBatchCont
     start0(transactionOrder, parentTid, parentThreadId, "    ")
   }
 
-  private def start0(transactionOrder: Long, parentTid: String, parentThreadId: java.lang.Long, prefix: String): Unit = {
+  private def start0(transactionOrder: Long, parentTransactionId: String, parentThreadId: java.lang.Long, prefix: String): Unit = {
     batchBeginTime.set(new Date().getTime)
     batchContinueTime.set(batchBeginTime.get())
     batchActualTime.set(0)
@@ -100,9 +100,9 @@ class ModuleTracer(moduleName: String, globalConfig: Config, mixModulesBatchCont
     threadPrefix.set(prefix)
 
     if(parentThreadId != null) {
-      trace(s"thread: ${Thread.currentThread().getId}, pThread: ${parentThreadId}, order: ${transactionOrder}, pTid: ${parentTid}")
+      trace(s"thread: ${Thread.currentThread().getId}, pThread: ${parentThreadId}, order: ${transactionOrder}, pTid: ${parentTransactionId}")
     }else {
-      trace(s"thread: ${Thread.currentThread().getId}, order: ${transactionOrder}, pTid: ${parentTid}")
+      trace(s"thread: ${Thread.currentThread().getId}, order: ${transactionOrder}, pTid: ${parentTransactionId}")
     }
   }
 

@@ -2,6 +2,7 @@ package com.mobikok.ssp.data.streaming.util
 
 import java.util
 import java.util.Date
+import java.util.concurrent.atomic.{AtomicInteger, AtomicLong}
 import java.util.concurrent.{CountDownLatch, ExecutorService}
 
 import com.mobikok.ssp.data.streaming.exception.AsyncHandlerWorkerException
@@ -11,20 +12,22 @@ object AsyncHandlerWorker{
   var THREAD_POOL: ExecutorService = ExecutorServiceUtil.createdExecutorService(defaultPoolSize)
 }
 
-class AsyncHandlerWorker(moduleName: String, taskSize:Int, moduleTracer: ModuleTracer, transactionOrder: Long, parentTid: String, parentThreadId: Long){
+class AsyncHandlerWorker(moduleName: String, totalTaskSize:Int, moduleTracer: ModuleTracer, transactionOrder: Long, parentTransactionId: String, parentThreadId: Long){
   var LOG:Logger = new Logger(moduleName, getClass, new Date().getTime())
-  var countDownLatch: CountDownLatch = new CountDownLatch(taskSize)
+  var countDownLatch: CountDownLatch = new CountDownLatch(totalTaskSize)
+  var runningTasks: AtomicInteger = new AtomicInteger()
   var syncTaskErrors: util.List[Throwable] = new util.ArrayList[Throwable]()
 
   startAsyncHandlersCountDownHeartbeats()
 
   def run(func: => Unit){
 
-    moduleTracer.startAsyncHandle(transactionOrder, parentTid,  parentThreadId)
-
     AsyncHandlerWorker.THREAD_POOL.execute(new Runnable() {
       def run() {
         try {
+          moduleTracer.startAsyncHandle(transactionOrder, parentTransactionId,  parentThreadId)
+
+          runningTasks.incrementAndGet()
           func
           countDownLatch.countDown()
         }catch {
@@ -66,7 +69,7 @@ class AsyncHandlerWorker(moduleName: String, taskSize:Int, moduleTracer: ModuleT
         while (b) {
           try {
             if (countDownLatch.getCount() > 0) {
-                LOG.warn("AsyncHandlerWorker tasks heartbeats","module name", moduleName, "running tasks", countDownLatch.getCount(), "completed tasks", taskSize - countDownLatch.getCount())
+                LOG.warn("AsyncHandlerWorker tasks heartbeats","module name", moduleName, "not started tasks", totalTaskSize - runningTasks.get(),"running tasks", runningTasks.get(), "completed tasks", totalTaskSize - countDownLatch.getCount())
             } else {
                 b = false
             }
