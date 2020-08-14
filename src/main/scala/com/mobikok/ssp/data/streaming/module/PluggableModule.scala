@@ -354,17 +354,18 @@ class PluggableModule(globalConfig: Config,
         val dwiCount = offsetDetail.map(_._2).sum
         moduleTracer.trace(s"offset detail cnt: ${dwiCount} lag: ${offsetDetail.map(_._3).sum}\n" + offsetDetail.map { x => s"        ${x._1.topic}, ${x._1.partition} -> cnt: ${x._2} lag: ${x._3}" }.mkString("\n"))
 
-        // 判断是否需要空跑当前批次，需满足下面2个条件:
-        // 1) 如果上一个批次还未结束(如果结束了isBeginedTransaction()不会返回true了);
-        // 2) 并且当前批次内容为空
-        if (transactionManager.isUncompletedTransaction(moduleName) && dwiCount == 0) {
+        // 判断是否可以空跑当前批次，需满足下面条件:
+        // 1) 必须是独立module, 即不需要汇合每个module自身的dwr数据到master module中
+        // 2) 并且上一个批次还未结束(如果结束了isLastUncompletedTransaction()不会返回true了);
+        // 3) 并且当前批次数据为空
+        if (false/*!mixModulesBatchController.isMultipleModulesOperateSameShareDwrTable() && transactionManager.isLastUncompletedTransaction(moduleName) && dwiCount == 0*/) {
 
           LOG.warn("Fast polling", "concurrentGroup", concurrentGroup, "moduleName", moduleName)
           moduleTracer.trace("fast polling")
 
         } else {
 
-          moduleTracer.trace("wait last batch", {
+          moduleTracer.trace("wait last kafka batch", {
             while (isModuleReadingKafka.getOrElse(moduleName, false)) {
               Thread.sleep(1000)
             }
@@ -403,7 +404,7 @@ class PluggableModule(globalConfig: Config,
           moduleTracer.trace("read kafka done")
           isModuleReadingKafka.put(moduleName, false)
 
-          val groupName = mixModulesBatchController.getDwrShareTable()
+          val groupName = mixModulesBatchController.getShareDwrTable()
 
           //-----------------------------------------------------------------------------------------------------------------
           //  Begin Transaction !!
@@ -563,9 +564,9 @@ class PluggableModule(globalConfig: Config,
         }
       } catch {
         case e: Exception => {
-          LOG.warn(s"Kill self yarn app, because module '$moduleName' execution failed !!!", "important_notice", "Kill self yarn app at once !!!", "app_name", appName, "error", e)
+          LOG.warn(s"Kill self yarn app, because module '$moduleName' execution error !!!", "important_notice", "Kill self yarn app at once !!!", "app_name", appName, "error", e)
           YarnAppManagerUtil.killApps(appName, messageClient)
-          throw new ModuleException(s"${getClass.getSimpleName} '$moduleName' execution failed !! ", e)
+          throw new ModuleException(s"${getClass.getSimpleName} '$moduleName' execution error !! ", e)
         }
       }
     }
@@ -778,7 +779,7 @@ class PluggableModule(globalConfig: Config,
       var b = true
       while (b) {
         if (countDownLatch.getCount > 0) {
-           LOG.warn(s"$moduleName async handler executing count: ${countDownLatch.getCount}")
+           LOG.warn(s"[$moduleName] async handler executing count: ${countDownLatch.getCount}")
         } else {
           b = false
         }

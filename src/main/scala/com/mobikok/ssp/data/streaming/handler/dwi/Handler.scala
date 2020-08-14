@@ -82,7 +82,7 @@ trait Handler extends TransactionalHandler with com.mobikok.ssp.data.streaming.h
     returnDwi = doHandle(newDwi)
 
     LOG.warn(s"dwi ${getClass.getSimpleName} handle done")
-    moduleTracer.trace(s"dwi ${getClass.getSimpleName} handle done")
+    moduleTracer.trace(s"dwi ${getClass.getSimpleName} handle DONE")
     returnDwi
   }
 
@@ -93,7 +93,7 @@ trait Handler extends TransactionalHandler with com.mobikok.ssp.data.streaming.h
     doCommit()
 
     LOG.warn(s"dwi ${getClass.getSimpleName} commit done")
-    moduleTracer.trace(s"dwi ${getClass.getSimpleName} commit done")
+    moduleTracer.trace(s"dwi ${getClass.getSimpleName} commit DONE")
   }
   final def clean(): Unit={
     LOG.warn(s"dwi ${getClass.getSimpleName} clean start")
@@ -102,7 +102,7 @@ trait Handler extends TransactionalHandler with com.mobikok.ssp.data.streaming.h
     doClean()
 
     LOG.warn(s"dwi ${getClass.getSimpleName} clean done")
-    moduleTracer.trace(s"dwi ${getClass.getSimpleName} clean done")
+    moduleTracer.trace(s"dwi ${getClass.getSimpleName} clean DONE")
   }
 
   def sql(sqlText: String): DataFrame ={

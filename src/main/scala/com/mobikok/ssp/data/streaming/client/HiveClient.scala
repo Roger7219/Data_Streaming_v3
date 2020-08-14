@@ -69,6 +69,11 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
     sql(s"create table if not exists $table like $like")
   }
 
+  private def forTraceLog(title: String, rddNumPartitions: Int, ps : Array[String], fileNumber: Int): String ={
+    val overview = s"        $title rs: ${rddNumPartitions}, ps: ${ps.length}, fs: $fileNumber"
+    s"${ps.mkString(s"$overview\n                                                ", "\n                                                ", "")}"
+  }
+
   def into(transactionParentId: String, table: String, df: DataFrame, ps: Array[Array[HivePartitionPart]]): HiveTransactionCookie = {
 
     val fs = hiveContext.read.table(table).schema.fieldNames
@@ -78,9 +83,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
       tid = transactionManager.generateTransactionId(transactionParentId)
 
       val fileNumber = aHivePartitionRecommendedFileNumber("HiveClient into repartition", shufflePartitions, df.rdd.getNumPartitions, ps.length)
-//      val parts = sparkPartitionNum("HiveClient into repartition", shufflePartitions, df.rdd.getNumPartitions, ps.length)
-      moduleTracer.trace(s"        into repartition rs: ${df.rdd.getNumPartitions}, ps: ${ps.length}, fs: $fileNumber")
-      moduleTracer.trace(s"${makeShowPartition(ps).mkString("\n        ", "\n        ", "")}")
+      moduleTracer.trace(forTraceLog("into repartition", df.rdd.getNumPartitions, makeShowPartition(ps), fileNumber))
       LOG.warn("Into partitions", makeShowPartition(ps).mkString("\n"))
 
       if(!transactionManager.needRealTransactionalAction()) {
@@ -251,9 +254,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
           .select(fs.head, fs.tail:_* /*groupByFields ++ aggExprsAlias ++ ts:_**/)
 
         val fileNumber = aHivePartitionRecommendedFileNumber("HiveClient unionSum repartition", shufflePartitions, updated.rdd.getNumPartitions, ps.length)
-  //      val parts = sparkPartitionNum("HiveClient unionSum repartition", shufflePartitions, updated.rdd.getNumPartitions, ps.length)
-        moduleTracer.trace(s"        union sum repartition rs: ${updated.rdd.getNumPartitions}, ps: ${ps.length}, fs: ${fileNumber}")
-        moduleTracer.trace(s"${makeShowPartition(ps).mkString("\n        ", "\n        ", "")}")
+        moduleTracer.trace(forTraceLog("union sum repartition", updated.rdd.getNumPartitions, makeShowPartition(ps), fileNumber))
         LOG.warn("Union sum partitions", makeShowPartition(ps).mkString("\n"))
 
         if(transactionManager.needRealTransactionalAction()) {
@@ -346,8 +347,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
       tid = transactionManager.generateTransactionId(transactionParentId)
 
       val fileNumber = aHivePartitionRecommendedFileNumber("HiveClient overwrite repartition", shufflePartitions, df.rdd.getNumPartitions, ps.length)
-      moduleTracer.trace(s"        overwrite repartition fs: $fileNumber, ps: ${ps.length}, rs: ${df.rdd.getNumPartitions}")
-      moduleTracer.trace(s"            ${makeShowPartition(ps).mkString("\n        ", "\n        ", "")}")
+      moduleTracer.trace(forTraceLog("overwrite repartition", df.rdd.getNumPartitions, makeShowPartition(ps), fileNumber))
       LOG.warn("Overwrite partitions", makeShowPartition(ps).mkString("\n"))
 
       if(!transactionManager.needRealTransactionalAction()) {
@@ -507,9 +507,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 
         //hivePartitions不一定是df.rdd.getNumPartitions, 待优化
         val fileNumber = aHivePartitionRecommendedFileNumber("HiveClient read for backup repartition", shufflePartitions, df.rdd.getNumPartitions, backPss)
-//        val parts = sparkPartitionNum("HiveClient read for backup repartition", shufflePartitions, df.rdd.getNumPartitions, df.rdd.getNumPartitions)
-        moduleTracer.trace(s"        read for backup rs: ${df.rdd.getNumPartitions}, ps: ${backPss}, fs: $fileNumber")
-        moduleTracer.trace(s"            ${backPs.mkString("\n        ", "\n        ", "")}")
+        moduleTracer.trace(forTraceLog("read for backup", df.rdd.getNumPartitions, backPs, fileNumber))
         LOG.warn("Read for backup partitions", backPs.mkString("\n"))
 
         // 待优化，文件直接复制
@@ -530,9 +528,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
           .table(c.transactionalTmpTable)
 
         val fileNumber2 = aHivePartitionRecommendedFileNumber("HiveClient read table repartition", shufflePartitions, df2.rdd.getNumPartitions, c.partitions.length)
-//        val parts2 = sparkPartitionNum("HiveClient read pluggable table repartition", shufflePartitions, df2.rdd.getNumPartitions, c.partitions.length)
-        moduleTracer.trace(s"        read transactional tmp table rs: ${df2.rdd.getNumPartitions}, fs: $fileNumber2, ps: ${c.partitions.length}")
-        moduleTracer.trace(s"            ${makeShowPartition(c.partitions).mkString("\n        ", "\n        ", "")}")
+        moduleTracer.trace(forTraceLog("read transactional tmp table", df2.rdd.getNumPartitions, makeShowPartition(c.partitions), fileNumber2))
         LOG.warn(s"Read transactional tmp table partitions", makeShowPartition(c.partitions).mkString("\n"))
 
         df2.coalesce(fileNumber2)

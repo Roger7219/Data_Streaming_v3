@@ -5,7 +5,7 @@ import java.util.Date
 
 import com.mobikok.ssp.data.streaming.exception.{AppException, ModuleException}
 import com.mobikok.ssp.data.streaming.transaction.TransactionManager
-import com.mobikok.ssp.data.streaming.util.{Logger, OM}
+import com.mobikok.ssp.data.streaming.util.{HeartbeatsReporter, Logger, OM}
 import org.apache.spark.sql.{Column, DataFrame}
 import org.apache.spark.sql.hive.HiveContext
 import org.apache.spark.storage.StorageLevel
@@ -17,9 +17,9 @@ import org.apache.spark.sql.functions._
 /**
   * Created by Administrator on 2017/10/16.
   */
-class MixModulesBatchController(config:Config, runnableModuleNames: Array[String], dwrShareTable: String, transactionManager: TransactionManager, hiveContext: HiveContext, shufflePartitions: Int) {
+class MixModulesBatchController(config:Config, runnableModuleNames: Array[String], shareDwrTable: String, transactionManager: TransactionManager, hiveContext: HiveContext, shufflePartitions: Int) {
 
-  val LOG: Logger = new Logger(s"${getClass.getSimpleName}($dwrShareTable)", getClass, new Date().getTime)
+  val LOG: Logger = new Logger(s"${getClass.getSimpleName}($shareDwrTable)", getClass, new Date().getTime)
 
   def isRunnable(moduleName: String): Boolean = runnableModuleNames.contains(moduleName)
   def isInitable(moduleName: String): Boolean = {
@@ -54,16 +54,18 @@ class MixModulesBatchController(config:Config, runnableModuleNames: Array[String
   var dwrGroupByUnionAggExprsAndAlias:List[Column] = null
   var dwrGroupByDimensionFieldsAlias:List[Column] = null
 
-  def getDwrShareTable(): String={
-    dwrShareTable
+  val heartbeatsReporter = new HeartbeatsReporter(10)
+
+  def getShareDwrTable(): String={
+    shareDwrTable
   }
 
-  def isMultipleModulesOperateSameDwrTable (): Boolean = {
+  def isMultipleModulesOperateSameShareDwrTable(): Boolean = {
     moduleNamesMappingCurrBatchModuleUnionReadied.size() > 1
   }
 
   def isMaster(moduleName: String): Boolean = {
-    if(isMultipleModulesOperateSameDwrTable) {
+    if(isMultipleModulesOperateSameShareDwrTable) {
       moduleIsMasterOfSettingFilePlainVlaueMap.get(moduleName)
     }else {
       //如果只有一个模块，那它属于master
@@ -75,7 +77,7 @@ class MixModulesBatchController(config:Config, runnableModuleNames: Array[String
     var i = 0
     if(moduleIsMasterOfSettingFilePlainVlaueMap.size() > 0) {
       moduleIsMasterOfSettingFilePlainVlaueMap.foreach { x =>
-        if (isMultipleModulesOperateSameDwrTable) {
+        if (isMultipleModulesOperateSameShareDwrTable) {
           if (x._2) {
             i = i + 1
           }
@@ -86,10 +88,10 @@ class MixModulesBatchController(config:Config, runnableModuleNames: Array[String
       }
 
       if (i > 1) {
-        throw new AppException(s"Too many modules settings for dwr table '${dwrShareTable}', Make sure that only one module is master, plain settings(is master):\n${OM.toJOSN(moduleIsMasterOfSettingFilePlainVlaueMap)}")
+        throw new AppException(s"Too many modules settings for dwr table '${shareDwrTable}', Make sure that only one module is master, plain settings(is master):\n${OM.toJOSN(moduleIsMasterOfSettingFilePlainVlaueMap)}")
       }
       else if (i == 0) {
-        throw new AppException(s"No master module specified for dwr table '${dwrShareTable}', plain settings(is master):\n${OM.toJOSN(moduleIsMasterOfSettingFilePlainVlaueMap)}")
+        throw new AppException(s"No master module specified for dwr table '${shareDwrTable}', plain settings(is master):\n${OM.toJOSN(moduleIsMasterOfSettingFilePlainVlaueMap)}")
       }
     }
   }
@@ -110,13 +112,13 @@ class MixModulesBatchController(config:Config, runnableModuleNames: Array[String
     synchronizedCall(new Callback {
       override def onCallback (): Unit = {
 
-        LOG.warn(s"$moduleName - MixModulesBatchController union start")
+        LOG.warn(s"[$moduleName] - MixModulesBatchController union start")
         //效验状态
         if(moduleNamesMappingCurrBatchModuleUnionReadied.get(moduleName)) {
           throw new RuntimeException(s"The current batch module '$moduleName' is ready. You cannot store DWR repeatedly")
         }
 
-        var old = cacheGroupByDwr
+//        var old = cacheGroupByDwr
 
         if (cacheGroupByDwr == null) {
           cacheGroupByDwr = appendDwr
@@ -126,7 +128,7 @@ class MixModulesBatchController(config:Config, runnableModuleNames: Array[String
 
         moduleNamesMappingCurrBatchModuleUnionReadied.put(moduleName, true)
 
-        LOG.warn(s"$moduleName - curr batch union done",
+        LOG.warn(s"[$moduleName] - curr batch union done",
           s"""tid: ${transactionManager.getCurrentTransactionParentId()}
              |all union done: ${OM.toJOSN(moduleNamesMappingCurrBatchModuleUnionReadied)}
           """.stripMargin)
@@ -140,7 +142,7 @@ class MixModulesBatchController(config:Config, runnableModuleNames: Array[String
 //             |new count: ${if(cacheGroupByDwr == null) "null" else cacheGroupByDwr.count()}
 //          """.stripMargin)
 
-        LOG.warn(s"$moduleName - MixModulesBatchController union done")
+        LOG.warn(s"[$moduleName] - MixModulesBatchController union done")
       }
     }, lock)
 
@@ -161,6 +163,9 @@ class MixModulesBatchController(config:Config, runnableModuleNames: Array[String
       if(allReadied) {
         b = false
       }else {
+        if(heartbeatsReporter.isTimeToReport){
+          LOG.warn(s"[$moduleName] wait all modules union done [waiting]", "moduleNamesMappingCurrBatchModuleUnionReadied", moduleNamesMappingCurrBatchModuleUnionReadied)
+        }
         Thread.sleep(100)
       }
     }

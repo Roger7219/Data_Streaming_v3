@@ -73,7 +73,7 @@ trait Handler extends TransactionalHandler with com.mobikok.ssp.data.streaming.h
     returnDwrDwi = doPrepare(dwi)
 
     LOG.warn(s"dwr ${title} prepare done")
-    moduleTracer.trace(s"dwr ${title} prepare done")
+    moduleTracer.trace(s"dwr ${title} prepare DONE")
     returnDwrDwi
   }
 
@@ -85,7 +85,7 @@ trait Handler extends TransactionalHandler with com.mobikok.ssp.data.streaming.h
     returnDwr = doHandle(dwr)
 
     LOG.warn(s"dwr ${title} handle done")
-    moduleTracer.trace(s"dwr ${title} handle done")
+    moduleTracer.trace(s"dwr ${title} handle DONE")
     returnDwr
   }
 
@@ -96,7 +96,7 @@ trait Handler extends TransactionalHandler with com.mobikok.ssp.data.streaming.h
     doCommit()
 
     LOG.warn(s"dwr ${title} commit done")
-    moduleTracer.trace(s"dwr ${title} commit done")
+    moduleTracer.trace(s"dwr ${title} commit DONE")
   }
   final def clean(): Unit={
     LOG.warn(s"dwr ${title} clean start")
@@ -105,11 +105,11 @@ trait Handler extends TransactionalHandler with com.mobikok.ssp.data.streaming.h
     doClean()
 
     LOG.warn(s"dwr ${title} clean done")
-    moduleTracer.trace(s"dwr ${title} clean done")
+    moduleTracer.trace(s"dwr ${title} clean DONE")
   }
 
   private def title: String = {
-    if(StringUtil.isEmpty(handlerName)) getClass.getSimpleName else s"$handlerName ${getClass.getSimpleName}"
+    if(StringUtil.isEmpty(handlerName)) getClass.getSimpleName else s"${getClass.getSimpleName} $handlerName"
   }
 
 

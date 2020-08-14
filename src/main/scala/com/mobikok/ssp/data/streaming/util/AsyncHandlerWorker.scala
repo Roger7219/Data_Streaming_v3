@@ -13,7 +13,7 @@ object AsyncHandlerWorker{
 }
 
 class AsyncHandlerWorker(moduleName: String, totalTaskSize:Int, moduleTracer: ModuleTracer, transactionOrder: Long, parentTransactionId: String, parentThreadId: Long){
-  var LOG:Logger = new Logger(moduleName, getClass, new Date().getTime())
+  var LOG = new Logger(moduleName, getClass, new Date().getTime())
   var countDownLatch: CountDownLatch = new CountDownLatch(totalTaskSize)
   var runningTasks: AtomicInteger = new AtomicInteger()
   var syncTaskErrors: util.List[Throwable] = new util.ArrayList[Throwable]()
@@ -25,9 +25,9 @@ class AsyncHandlerWorker(moduleName: String, totalTaskSize:Int, moduleTracer: Mo
     AsyncHandlerWorker.THREAD_POOL.execute(new Runnable() {
       def run() {
         try {
+          runningTasks.incrementAndGet()
           moduleTracer.startAsyncHandle(transactionOrder, parentTransactionId,  parentThreadId)
 
-          runningTasks.incrementAndGet()
           func
           countDownLatch.countDown()
         }catch {

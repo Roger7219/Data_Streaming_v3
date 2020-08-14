@@ -2,7 +2,7 @@ package com.mobikok.ssp.data.streaming.util
 
 object ExceptionUtil {
 
-  def getStackTraceMessage(e: Exception): String = {
+  def getStackTraceMessage(e: Throwable): String = {
     val elements = e.getStackTrace
     val exceptionMessage = new StringBuilder
     exceptionMessage.append(e.getClass.getName).append(": ").append(e.getMessage).append("\n")

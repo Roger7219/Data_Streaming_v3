@@ -135,7 +135,7 @@ class HiveDWRPersistHandler(dwrTable: String, subDwrTable: String, val subDwrTab
 
   override def doCommit(): Unit = {
 
-    currentBatchCookies.par.foreach{cookie=>
+    currentBatchCookies.foreach{cookie=>
 
       hiveClient.commit(cookie)
 

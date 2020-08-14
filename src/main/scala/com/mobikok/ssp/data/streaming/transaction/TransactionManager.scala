@@ -7,8 +7,9 @@ import java.util.concurrent.{ConcurrentHashMap, CopyOnWriteArrayList, CountDownL
 import java.util.{Collections, Date}
 
 import com.mobikok.ssp.data.streaming.client.HiveClient
-import com.mobikok.ssp.data.streaming.util.{CSTTime, Logger, ModuleTracer, MySqlJDBCClient}
+import com.mobikok.ssp.data.streaming.util._
 import com.typesafe.config.Config
+import org.eclipse.jetty.util.ConcurrentHashSet
 
 import scala.collection.JavaConversions._
 
@@ -32,17 +33,19 @@ class TransactionManager(config: Config, transactionalStrategy: TransactionalStr
   //  @volatile private var moduleNames :java.util.HashSet[String] = new util.HashSet[String]()
   @volatile private var countDownLatch: CountDownLatch = null
 
-  @volatile private var isAllModuleTransactionCommited:Boolean = true
+//  @volatile private var isAllModuleTransactionCommitted:Boolean = true
 
   @volatile private var moudleTransactionOrders = new ConcurrentHashMap[String,util.List[Long]]()
   @volatile private var moduleCurrentTransactionOrder  = new ConcurrentHashMap[String, java.lang.Long]()
   @volatile private var mixModuleNames = new util.ArrayList[String]()
   @volatile private var currBatchTransactionIdIncrCache = new util.HashMap[String, Integer]()
-  @volatile private var readyCommitModules = new java.util.HashSet[String]()
-  @volatile private var uninitializedCurrentBatch = true
+  @volatile private var alreadyCommittedModules = Collections.newSetFromMap[String](new ConcurrentHashMap(16))
+
+//  @volatile private var uninitializedCurrentBatch = true
 
   private val tidTimeFormat = CSTTime.formatter("yyyyMMdd_HHmmss_SSS") //DateFormatUtil.CST("yyyyMMdd_HHmmss_SSS");// new SimpleDateFormat("yyyyMMdd_HHmmss_SSS")
   private val transactionOrderTimeFormat = CSTTime.formatter("yyyyMMddHHmmssSSS")
+  val heartbeatsReporter = new HeartbeatsReporter(10)
 
   protected val mySqlJDBCClient = new MySqlJDBCClient(
     getClass.getSimpleName,
@@ -135,8 +138,8 @@ class TransactionManager(config: Config, transactionalStrategy: TransactionalStr
 //    beginTransaction(moduleName, moduleName)
 //  }
 
-  // 事务是否 还未结束，即曾调用了beginTransaction()，但还未调用commitTransaction()方法
-  def isUncompletedTransaction(moduleName: String): Boolean ={
+  // 是否 上一个批次的事务还未结束，即曾调用了beginTransaction()，但还未调用commitTransaction()方法
+  def isLastUncompletedTransaction(moduleName: String): Boolean ={
     moduleCurrentTransactionOrder.containsKey(moduleName)
   }
 
@@ -214,13 +217,16 @@ class TransactionManager(config: Config, transactionalStrategy: TransactionalStr
 
         //        isAllModuleTransactionCommited = false
         //        moduleTransactionRunningMap.put(moduleName, true)
-        LOG.warn(" Obtain begin transaction", "module", moduleName, "order", order, "uninitializedCurrentBatch", uninitializedCurrentBatch)
+        LOG.warn(s"Obtain begin transaction [$moduleName]", "module", moduleName, "order", order/*, "uninitializedCurrentBatch", uninitializedCurrentBatch*/)
 
-        if(uninitializedCurrentBatch/*transactionActionStatus == TRANSACTION_ACTION_STATUS_READY || transactionActionStatus == TRANSACTION_ACTION_STATUS_COMMITED*/ /*transactionParentIdCache == null*/) {
+        if(countDownLatch == null || countDownLatch.getCount == 0 /*alreadyCommittedModules.isEmpty || alreadyCommittedModules.size().equals(mixModuleNames.size())*/ /*uninitializedCurrentBatch*/ /*transactionActionStatus == TRANSACTION_ACTION_STATUS_READY || transactionActionStatus == TRANSACTION_ACTION_STATUS_COMMITED*/ /*transactionParentIdCache == null*/) {
           // Key code !!
           transactionalStrategy.initBatch()
-          uninitializedCurrentBatch = false
-          isAllModuleTransactionCommited = false
+
+          alreadyCommittedModules.clear()
+
+//          uninitializedCurrentBatch = false
+////          isAllModuleTransactionCommitted = false
           countDownLatch = new CountDownLatch(mixModuleNames.size())
 
           //          //效验状态
@@ -291,40 +297,44 @@ class TransactionManager(config: Config, transactionalStrategy: TransactionalStr
     transactionParentIdCache
   }
 
-  def commitTransaction(isMasterModule: Boolean, moduleName:String, moduleTracer: ModuleTracer, commitCallback: =>Unit): Unit ={
-    LOG.warn(s"Wait mix module transaction commit [start]", "moduleName", moduleName, "isMaster", isMasterModule, "transactionParentId", getCurrentTransactionParentId())
+  def commitTransaction(isMasterModule: Boolean, moduleName:String, moduleTracer: ModuleTracer, allMixModuleCommittedCallback: =>Unit): Unit ={
+    LOG.warn(s"[$moduleName] wait all mix modules transaction commit [start]", "moduleName", moduleName, "isMaster", isMasterModule, "transactionParentId", getCurrentTransactionParentId())
     moduleTracer.trace("wait mix tx commit start")
 
-    readyCommitModules.add(moduleName)
+    moduleCommitTransaction(isMasterModule, getCurrentTransactionParentId(), moduleName)
 
-    countDownLatch.countDown()
+    alreadyCommittedModules.add(moduleName)
 
-    countDownLatch.await()
-
-    commitTransaction0(isMasterModule, getCurrentTransactionParentId(), moduleName)
-    commitCallback
-
-    if(isMasterModule) {
-      isAllModuleTransactionCommited = true
-      // reset
-      readyCommitModules.clear()
-      countDownLatch = null
-      uninitializedCurrentBatch = true
-    } else {
-      // Wait master module reset
-      while(!isAllModuleTransactionCommited) {
-        Thread.sleep(100)
+    while(!alreadyCommittedModules.size().equals(mixModuleNames.size())) {
+      if(heartbeatsReporter.isTimeToReport){
+        LOG.warn(s"[$moduleName] wait all mix modules transaction commit [waiting]", "alreadyCommittedModules", alreadyCommittedModules, "moduleTotalCount", mixModuleNames.size())
       }
+      Thread.sleep(100)
     }
 
+    allMixModuleCommittedCallback
+
+    val _countDownLatch = countDownLatch
+
+//    if(isMasterModule) {
+//      // reset
+//      alreadyCommittedModules.clear()
+//      countDownLatch = null
+//      uninitializedCurrentBatch = true
+//    }
+
+    _countDownLatch.countDown()
+    _countDownLatch.await()
+
+    // 使beginTransaction()中的等待队列放行下一个order，order先进先出
     moudleTransactionOrders.get(moduleName).remove(moduleCurrentTransactionOrder.get(moduleName))
     moduleCurrentTransactionOrder.remove(moduleName)
 
-    LOG.warn(s"Wait mix module transaction commit [done]", "moduleName", moduleName, "isMaster", isMasterModule, "transactionParentId", getCurrentTransactionParentId())
+    LOG.warn(s"[$moduleName] wait all mix modules transaction commit [done]", "moduleName", moduleName, "isMaster", isMasterModule, "transactionParentId", getCurrentTransactionParentId())
     moduleTracer.trace("wait mix tx commit done")
   }
 
-  private def commitTransaction0(isMasterModule: Boolean, parentTransactionId: String, moduleName: String) = {
+  private def moduleCommitTransaction(isMasterModule: Boolean, parentTransactionId: String, moduleName: String) = {
     synchronizedCall(new Callback {
       override def onCallback (): Unit = {
 
