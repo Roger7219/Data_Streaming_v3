@@ -3,11 +3,11 @@ package com.mobikok.ssp.data.streaming.handler.dm
 import java.util.HashMap
 import java.util.regex.Pattern
 
-import com.mobikok.message.client.MessageClient
+import com.mobikok.message.client.MessageClientApi
 import com.mobikok.monitor.client.{MonitorClient, MonitorMessage}
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
-import com.mobikok.ssp.data.streaming.util.{CSTTime, HttpUtils, ModuleTracer}
+import com.mobikok.ssp.data.streaming.util.{CSTTime, HttpUtils, MessageClient, ModuleTracer}
 import com.typesafe.config.Config
 import org.apache.spark.sql.hive.HiveContext
 
@@ -20,10 +20,10 @@ class KafkaBrokerCheckHandler extends Handler{
 
   var monitorClient: MonitorClient = null
 
-  override def init (moduleName: String, bigQueryClient:BigQueryClient, rDBConfig:RDBConfig,kafkaClient: KafkaClient, messageClient: MessageClient, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config, clickHouseClient: ClickHouseClient, moduleTracer: ModuleTracer): Unit = {
+  override def init (moduleName: String, bigQueryClient:BigQueryClient, rDBConfig:RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config, clickHouseClient: ClickHouseClient, moduleTracer: ModuleTracer): Unit = {
     super.init(moduleName,bigQueryClient, rDBConfig,kafkaClient, messageClient, hbaseClient, hiveContext, argsConfig, handlerConfig, clickHouseClient, moduleTracer)
 
-    monitorClient = new MonitorClient(messageClient)
+    monitorClient = new MonitorClient(messageClient.messageClientApi)
 
   }
 

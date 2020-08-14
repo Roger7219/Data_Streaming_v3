@@ -1,6 +1,6 @@
 package com.mobikok.ssp.data.streaming.handler.dm
 
-import com.mobikok.message.client.MessageClient
+import com.mobikok.message.client.MessageClientApi
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.util._
@@ -30,7 +30,7 @@ class OfferAutoSoldoutHandler extends Handler{
   val AUTO_SLOTOUT_OFFER_CHECK_CER = "OfferAutoSoldCheck_cer"
   val AUTO_SLOTOUT_OFFER_CHECK_TOPIC = "OfferAutoSoldCheck_topic"
 
-  override def init (moduleName: String, bigQueryClient:BigQueryClient, rDBConfig:RDBConfig,kafkaClient: KafkaClient, messageClient:MessageClient, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config, clickHouseClient: ClickHouseClient, moduleTracer: ModuleTracer): Unit = {
+  override def init (moduleName: String, bigQueryClient:BigQueryClient, rDBConfig:RDBConfig, kafkaClient: KafkaClient, messageClient:MessageClient, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config, clickHouseClient: ClickHouseClient, moduleTracer: ModuleTracer): Unit = {
     super.init(moduleName, bigQueryClient, rDBConfig, kafkaClient: KafkaClient,messageClient, hbaseClient, hiveContext, argsConfig, handlerConfig, clickHouseClient, moduleTracer)
 
 //    dwrDayTable = handlerConfig.getString("dwr.table")
@@ -48,7 +48,7 @@ class OfferAutoSoldoutHandler extends Handler{
     }
 
     mySqlJDBCClient = new MySqlJDBCClient(
-      rdbUrl, rdbUser, rdbPassword
+      moduleName, rdbUrl, rdbUser, rdbPassword
     )
 
     SQLMixUpdater.init(mySqlJDBCClient)
@@ -62,7 +62,7 @@ class OfferAutoSoldoutHandler extends Handler{
     val now = CSTTime.now.addHourToDate(-9)
     val checkTime = CSTTime.now.addHourToDate(-10)
 
-    MC.pull(AUTO_SLOTOUT_CER, Array(AUTO_SLOTOUT_TOPIC), {x=>
+    messageClient.pull(AUTO_SLOTOUT_CER, Array(AUTO_SLOTOUT_TOPIC), { x=>
       val toadyNeedInit =  x.isEmpty || ( !x.map(_.getKeyBody).contains(now) )
 
       if(toadyNeedInit){
@@ -149,12 +149,12 @@ class OfferAutoSoldoutHandler extends Handler{
         sd.unpersist()
 
       }
-      MC.push(new PushReq(AUTO_SLOTOUT_TOPIC, now))
+      messageClient.push(new PushReq(AUTO_SLOTOUT_TOPIC, now))
       true
     })
 
     //十点钟检查当天下架的offer是否有转化，若有，则重新开启offer
-    MC.pull(AUTO_SLOTOUT_OFFER_CHECK_CER, Array(AUTO_SLOTOUT_OFFER_CHECK_TOPIC), {x=>
+    messageClient.pull(AUTO_SLOTOUT_OFFER_CHECK_CER, Array(AUTO_SLOTOUT_OFFER_CHECK_TOPIC), { x=>
       val toadyNeedCheck =  x.isEmpty || ( !x.map(_.getKeyBody).contains(checkTime) )
 
       if(toadyNeedCheck){
@@ -270,7 +270,7 @@ class OfferAutoSoldoutHandler extends Handler{
 
       }
 
-      MC.push(new PushReq(AUTO_SLOTOUT_OFFER_CHECK_TOPIC, checkTime))
+      messageClient.push(new PushReq(AUTO_SLOTOUT_OFFER_CHECK_TOPIC, checkTime))
       true
     })
 

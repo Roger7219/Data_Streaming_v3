@@ -4,7 +4,7 @@ import java.text.SimpleDateFormat
 import java.util
 
 import com.fasterxml.jackson.core.`type`.TypeReference
-import com.mobikok.message.client.MessageClient
+import com.mobikok.message.client.MessageClientApi
 import com.mobikok.message.{Message, MessageConsumerCommitReq, MessagePullReq, Resp}
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
@@ -41,7 +41,7 @@ class OfferHandlerV2 extends Handler{
   val TOADY_NEED_INIT_CER = "OfferHandlerV2_toady_need_init_cer"
   val TOADY_NEED_INIT_TOPIC = "OfferHandlerV2_toady_need_init_topic"
 
-  override def init (moduleName: String, bigQueryClient:BigQueryClient, rDBConfig:RDBConfig,kafkaClient: KafkaClient, messageClient:MessageClient, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config, clickHouseClient: ClickHouseClient, moduleTracer: ModuleTracer): Unit = {
+  override def init (moduleName: String, bigQueryClient:BigQueryClient, rDBConfig:RDBConfig, kafkaClient: KafkaClient, messageClient:MessageClient, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config, clickHouseClient: ClickHouseClient, moduleTracer: ModuleTracer): Unit = {
     super.init(moduleName, bigQueryClient, rDBConfig, kafkaClient: KafkaClient,messageClient, hbaseClient, hiveContext, argsConfig, handlerConfig, clickHouseClient, moduleTracer)
 
 //    dmDayTable = handlerConfig.getString("dm.table")
@@ -59,7 +59,7 @@ class OfferHandlerV2 extends Handler{
     }
 
     mySqlJDBCClient = new MySqlJDBCClient(
-      rdbUrl, rdbUser, rdbPassword
+      moduleName, rdbUrl, rdbUser, rdbPassword
     )
     SQLMixUpdater.init(mySqlJDBCClient)
   }
@@ -69,7 +69,7 @@ class OfferHandlerV2 extends Handler{
 
     LOG.warn("OfferHandler read mysql table OFFER started")
 
-    val ms:Resp[util.List[Message]] = messageClient.pullMessage(new MessagePullReq(
+    val ms:Resp[util.List[Message]] = messageClient.messageClientApi.pullMessage(new MessagePullReq(
       "offerHandler",
       Array(topic)))
     val pd = ms.getPageData
@@ -126,7 +126,7 @@ class OfferHandlerV2 extends Handler{
 //    }
 
     // 更新offer當天点击，展示，计费金额，计费条数数据，凌晨数据清零
-    MC.pull(TOADY_NEED_INIT_CER, Array(TOADY_NEED_INIT_TOPIC), {x=>
+    messageClient.pull(TOADY_NEED_INIT_CER, Array(TOADY_NEED_INIT_TOPIC), { x=>
       val toadyNeedInit =  x.isEmpty || ( !x.map(_.getKeyBody).contains(now) )
 
       if(toadyNeedInit){
@@ -145,9 +145,9 @@ class OfferHandlerV2 extends Handler{
           """.stripMargin
         mySqlJDBCClient.execute(sql)
 
-        MC.push(new PushReq(TOADY_NEED_INIT_TOPIC +"__" + "reset", now)) //for debug,能删掉
+        messageClient.push(new PushReq(TOADY_NEED_INIT_TOPIC +"__" + "reset", now)) //for debug,能删掉
       }
-      MC.push(new PushReq(TOADY_NEED_INIT_TOPIC, now))
+      messageClient.push(new PushReq(TOADY_NEED_INIT_TOPIC, now))
       true
     })
 
@@ -277,7 +277,7 @@ class OfferHandlerV2 extends Handler{
 //          }
 //        }
         x.getAs[String]("CountryIds").split(",").filter(y=> !"".equals(y.trim())).map{z=>
-          x.getAs[String]("CarrierIds").split(",").filter(y=> !"".equals(y.trim())).map{k=>k
+          x.getAs[String]("CarrierIds").split(",").filter(y=> !"".equals(y.trim())).map{k=>
             (s"ssp_offerbidprice:${x.getAs[Int]("ID")}:${z}:${k}", x.getAs[Double]("BidPrice").toString)
           }
         }.flatMap{m=>m}
@@ -353,7 +353,7 @@ class OfferHandlerV2 extends Handler{
 //      greenplumClient.overwrite("top_offer", "top_offer_dm", Array(x), "statdate")
     }
 
-    messageClient.commitMessageConsumer(
+    messageClient.messageClientApi.commitMessageConsumer(
       pd.map {d=>
         new MessageConsumerCommitReq(offerHandlerConsumer, d.getTopic, d.getOffset)
       }:_*

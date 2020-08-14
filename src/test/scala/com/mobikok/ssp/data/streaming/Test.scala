@@ -1,15 +1,11 @@
 package com.mobikok.ssp.data.streaming
 
-import java.io.ByteArrayOutputStream
 import java.net.URLDecoder
 import java.sql.ResultSet
-import java.text.SimpleDateFormat
-import java.util
 import java.util.Date
 
-import com.mobikok.ssp.data.streaming.entity.UuidStat
-import com.mobikok.ssp.data.streaming.util.{MySqlJDBCClient, OM, ZipUtil}
 import com.mobikok.ssp.data.streaming.util.MySqlJDBCClient.Callback
+import com.mobikok.ssp.data.streaming.util.{MySqlJDBCClient, OM, ZipUtil}
 
 import scala.collection.mutable.ListBuffer
 
@@ -25,6 +21,7 @@ object Test {
 //
   def adx_third_party_report(): Unit ={
     var mySqlJDBCClientV2 = new MySqlJDBCClient(
+      "test",
       "jdbc:mysql://node17:3306/sight",
       "root",
       "root_root")
@@ -51,10 +48,6 @@ object Test {
     })
 
   }
-
-  import java.io.ByteArrayInputStream
-  import java.io.IOException
-  import java.util.zip.GZIPInputStream
 
   def traceBatchUsingTime (title: String, lastTraceTime: Array[Long], traceBatchUsingTimeLog: ListBuffer[String]) = {
     traceBatchUsingTimeLog.append(s"$title: ${(100.0* (new Date().getTime-lastTraceTime(0)) /1000/60).asInstanceOf[Int]/100.0}")

@@ -2,7 +2,7 @@ package com.mobikok.ssp.data.streaming.handler.dm
 
 import java.text.SimpleDateFormat
 
-import com.mobikok.message.client.MessageClient
+import com.mobikok.message.client.MessageClientApi
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.util._
@@ -46,7 +46,7 @@ class SmartLinkOfferSoldoutHandler extends Handler {
     }
 
     mySqlJDBCClient = new MySqlJDBCClient(
-      rdbUrl, rdbUser, rdbPassword
+      moduleName, rdbUrl, rdbUser, rdbPassword
     )
 
     SQLMixUpdater.init(mySqlJDBCClient)
@@ -65,7 +65,7 @@ class SmartLinkOfferSoldoutHandler extends Handler {
 //    val today = CSTTime.now.date()
 
     //每天上午八点执行一次smartlink offer下架
-    MC.pull(SMARTLINK_OFFER_SOLDOUT_CER, Array(SMARTLINK_OFFER_SOLDOUT_TOPIC), {x=>
+    messageClient.pull(SMARTLINK_OFFER_SOLDOUT_CER, Array(SMARTLINK_OFFER_SOLDOUT_TOPIC), { x=>
       val toadyNeedUpdate =  x.isEmpty || ( !x.map(_.getKeyBody).contains(updateTime) )
 
       if(toadyNeedUpdate){
@@ -289,12 +289,12 @@ class SmartLinkOfferSoldoutHandler extends Handler {
         sd1.unpersist()
       }
 
-      MC.push(new PushReq(SMARTLINK_OFFER_SOLDOUT_TOPIC, updateTime))
+      messageClient.push(new PushReq(SMARTLINK_OFFER_SOLDOUT_TOPIC, updateTime))
       true
     })
 
     //十点钟检查当天下架的offer是否有转化，若有，则重新开启offer
-    MC.pull(SMARTLINK_OFFER_CHECK_CER, Array(SMARTLINK_OFFER_CHECK_TOPIC), {x=>
+    messageClient.pull(SMARTLINK_OFFER_CHECK_CER, Array(SMARTLINK_OFFER_CHECK_TOPIC), { x=>
       val toadyNeedCheck =  x.isEmpty || ( !x.map(_.getKeyBody).contains(checkTime) )
 
       if(toadyNeedCheck){
@@ -419,7 +419,7 @@ class SmartLinkOfferSoldoutHandler extends Handler {
 
       }
 
-      MC.push(new PushReq(SMARTLINK_OFFER_CHECK_TOPIC, checkTime))
+      messageClient.push(new PushReq(SMARTLINK_OFFER_CHECK_TOPIC, checkTime))
       true
     })
 

@@ -19,6 +19,8 @@ import org.apache.spark.sql.functions._
   */
 class MixModulesBatchController(config:Config, runnableModuleNames: Array[String], dwrShareTable: String, transactionManager: TransactionManager, hiveContext: HiveContext, shufflePartitions: Int) {
 
+  val LOG: Logger = new Logger(s"${getClass.getSimpleName}($dwrShareTable)", getClass, new Date().getTime)
+
   def isRunnable(moduleName: String): Boolean = runnableModuleNames.contains(moduleName)
   def isInitable(moduleName: String): Boolean = {
       var result = false
@@ -31,8 +33,6 @@ class MixModulesBatchController(config:Config, runnableModuleNames: Array[String
       }
       result
   }
-
-  val LOG: Logger = new Logger(getClass.getName, new Date().getTime)
 
   //moduleName, unionReadied, isMaster
   @volatile private var moduleNamesMappingCurrBatchModuleUnionReadied = new util.HashMap[String, Boolean]()
@@ -126,9 +126,9 @@ class MixModulesBatchController(config:Config, runnableModuleNames: Array[String
 
         moduleNamesMappingCurrBatchModuleUnionReadied.put(moduleName, true)
 
-        LOG.warn(s"$moduleName - curr batch module union readied",
+        LOG.warn(s"$moduleName - curr batch union done",
           s"""tid: ${transactionManager.getCurrentTransactionParentId()}
-             |union readied: ${OM.toJOSN(moduleNamesMappingCurrBatchModuleUnionReadied)}
+             |all union done: ${OM.toJOSN(moduleNamesMappingCurrBatchModuleUnionReadied)}
           """.stripMargin)
 
 //        LOG.warn(s"$moduleName - curr batch module union readied",
@@ -171,7 +171,7 @@ class MixModulesBatchController(config:Config, runnableModuleNames: Array[String
       LOG.warn("MixModulesBatchController persist final df start")
 
       cacheGroupByDwr = cacheGroupByDwr
-        .groupBy(col("l_time") :: col("b_date") :: col("b_time"):: col("b_version") :: dwrGroupByDimensionFieldsAlias: _*)
+        .groupBy(col("l_time") :: col("b_date") :: col("b_time")/*:: col("b_version")*/ :: dwrGroupByDimensionFieldsAlias: _*)
         .agg(dwrGroupByUnionAggExprsAndAlias.head, dwrGroupByUnionAggExprsAndAlias.tail: _*)
 
       cacheGroupByDwr.persist(StorageLevel.MEMORY_ONLY_SER)
@@ -227,7 +227,7 @@ class MixModulesBatchController(config:Config, runnableModuleNames: Array[String
   def addMoudle(moduleName: String, isMasterOfConfigSpecify:Boolean): Unit = {
     synchronizedCall(new Callback {
       override def onCallback (): Unit = {
-        LOG.warn("Add Moudle", "moudleName", moduleName, "isMasterOfConfigSpecify", isMasterOfConfigSpecify, "runnableModuleNames", runnableModuleNames)
+        LOG.warn("Adding Module", "moduleName", moduleName, "isMasterOfConfigSpecify", isMasterOfConfigSpecify, "runnableModuleNames", runnableModuleNames)
         if(runnableModuleNames.contains(moduleName)) {
           moduleNamesMappingCurrBatchModuleUnionReadied.put(moduleName, false)
           moduleIsMasterOfSettingFilePlainVlaueMap.put(moduleName, isMasterOfConfigSpecify)

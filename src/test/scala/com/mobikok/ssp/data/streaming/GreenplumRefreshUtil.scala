@@ -3,8 +3,8 @@ package com.mobikok.ssp.data.streaming
 import java.text.SimpleDateFormat
 import java.util.Date
 
+import com.mobikok.message.client.MessageClientApi
 import com.mobikok.message.{MessageConsumerCommitReq, MessagePullReq, MessagePushReq}
-import com.mobikok.message.client.MessageClient
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
 import com.mobikok.ssp.data.streaming.util.OM
 
@@ -14,7 +14,7 @@ import com.mobikok.ssp.data.streaming.util.OM
 object GreenplumRefreshUtil {
 
   val DF = new SimpleDateFormat("yyyy-MM-dd")
-  val messageClient = new MessageClient("", "http://node14:5555")
+  val messageClient = new MessageClientApi("", "http://node14:5555")
 
   def main (args: Array[String]): Unit = {
     campaign

@@ -37,9 +37,10 @@ object Kalfka_Test {
   private val producer = new KafkaProducer[String, String](props)
 
   val config = ConfigFactory.parseFile(new File("E:\\yuanma\\datastreaming\\src\\main\\resources\\agg\\test2\\dw.test.conf"))
-  val kafkaClient = new KafkaClient("", config, new TransactionManager(
+  val kafkaClient = new KafkaClient("", config, null, new TransactionManager(
     config,
-    new AlwaysTransactionalStrategy(CSTTime.formatter("yyyy-MM-dd HH:00:00"), CSTTime.formatter("yyyy-MM-dd 00:00:00"))
+    new AlwaysTransactionalStrategy(CSTTime.formatter("yyyy-MM-dd HH:00:00"), CSTTime.formatter("yyyy-MM-dd 00:00:00"), "table0"),
+    "table0"
   ), null)
 
   //produce mesg and send mesg

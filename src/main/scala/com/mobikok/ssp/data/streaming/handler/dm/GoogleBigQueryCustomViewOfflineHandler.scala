@@ -1,9 +1,9 @@
 package com.mobikok.ssp.data.streaming.handler.dm
 
-import com.mobikok.message.client.MessageClient
+import com.mobikok.message.client.MessageClientApi
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
-import com.mobikok.ssp.data.streaming.util.{MC, ModuleTracer, RunAgainIfError}
+import com.mobikok.ssp.data.streaming.util.{MessageClient, ModuleTracer, RunAgainIfError}
 import com.typesafe.config.Config
 import org.apache.spark.sql.hive.HiveContext
 
@@ -37,7 +37,7 @@ class GoogleBigQueryCustomViewOfflineHandler extends Handler {
 
     viewConsumerTopics.foreach{x=>
 
-      MC.pullBDateDescTail(x._2, x._3, {resp=>
+      messageClient.pullBDateDescTail(x._2, x._3, { resp=>
         resp.foreach{y=>
 
           RunAgainIfError.run({

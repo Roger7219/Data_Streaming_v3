@@ -3,7 +3,7 @@ package com.mobikok.ssp.data.streaming.handler.dm
 import java.util
 
 import com.fasterxml.jackson.core.`type`.TypeReference
-import com.mobikok.message.client.MessageClient
+import com.mobikok.message.client.MessageClientApi
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
@@ -182,7 +182,7 @@ class AccelerateTableHandlerV3 extends Handler {
   }
 
   def initAccelerTable(currTable: String,lastLTimeTopic:String, lastLTime: String, consumer: String, topics: Array[String], prevSqls: Array[String], baseTable: String, createBaseTableSql: String, incrViewSql: String, view: String): Unit = {
-    MC.pullLTimeDesc(
+    messageClient.pullLTimeDesc(
       consumer,
       topics,
       {l_times=>
@@ -239,7 +239,7 @@ class AccelerateTableHandlerV3 extends Handler {
           """.stripMargin)
 
           // 用于记录l_time，要确保后续l_time要大于此前的l_time，否则触发重新初始化
-          MC.push(UpdateReq(lastLTimeTopic, pervLt))
+          messageClient.push(UpdateReq(lastLTimeTopic, pervLt))
 
           true
         }
@@ -274,7 +274,7 @@ class AccelerateTableHandlerV3 extends Handler {
           var partitionsUpadteConsumer = consumer + "_for_b_date"
 
           // Init
-          MC.pull(needInitConsumer, Array(needInitTopic), {resp=>
+          messageClient.pull(needInitConsumer, Array(needInitTopic), { resp=>
 
             //有消息有说明需要重新初始化baseTable, 无视消息具体内容
             if(resp.size() > 0) {
@@ -287,7 +287,7 @@ class AccelerateTableHandlerV3 extends Handler {
 //          if(!needInit(0)) {//is need init base table
 //          }
 
-          MC.pullLTimeDesc(
+          messageClient.pullLTimeDesc(
             consumer,
             topics,
             {l_times=>
@@ -356,7 +356,7 @@ class AccelerateTableHandlerV3 extends Handler {
       // 检查l_time是否合法：要确保后续l_time要大于此前的l_time，否则触发重新初始化
       var isIncr = true
       var lastLTime:String = null
-      MC.pull(lastLTimeConsumer, Array(lastLTimeTopic), {ms=>
+      messageClient.pull(lastLTimeConsumer, Array(lastLTimeTopic), { ms=>
         if(ms.nonEmpty) {
           lastLTime = ms.head.getData
           l_times.foreach { x =>
@@ -448,7 +448,7 @@ class AccelerateTableHandlerV3 extends Handler {
           //                    // ${incrViewSql.replaceAll("""\$\{l_time\}""", s""" l_time > "${prevLt}" """)}
 
           // 用于记录l_time，要确保后续l_time要大于此前的l_time，否则触发重新初始化
-          MC.push(UpdateReq(lastLTimeTopic, prevLt))
+          messageClient.push(UpdateReq(lastLTimeTopic, prevLt))
 
           LOG.warn("Incr table write completedBaseTable done")
 
@@ -473,7 +473,7 @@ class AccelerateTableHandlerV3 extends Handler {
 
   def overwriteBaseTableByLastCompleted(lastLTimeConsumer: String, lastLTimeTopic:String, completedBaseTablePrefix: String, baseTable: String, view: String, currTable: String): Unit ={
 
-    val lastLTime = MC.pullUpdatable(lastLTimeConsumer, Array(lastLTimeTopic))
+    val lastLTime = messageClient.pullUpdatable(lastLTimeConsumer, Array(lastLTimeTopic))
 
     sql(s"show tables like '${completedBaseTablePrefix}*'")
       .collect
@@ -504,7 +504,7 @@ class AccelerateTableHandlerV3 extends Handler {
   }
 
   def pushMessage(consumer: String, view: String, topics: Array[String]): Unit ={
-    MC.pull(consumer, topics, {ms=>
+    messageClient.pull(consumer, topics, { ms=>
       ms.foreach{m=>
         val pss = OM.toBean(m.getKeyBody, new TypeReference[Array[Array[HivePartitionPart]]]() {})
         //              val accPss = new util.ArrayList[util.ArrayList[HivePartitionPart]]()
@@ -534,7 +534,7 @@ class AccelerateTableHandlerV3 extends Handler {
 
         }
 
-        MC.push(new PushReq(view, OM.toJOSN(accPss)))
+        messageClient.push(new PushReq(view, OM.toJOSN(accPss)))
 
       }
 

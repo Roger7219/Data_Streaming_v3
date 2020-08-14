@@ -13,6 +13,7 @@ object AdxThirdPartyReportTest {
 
   def adx_third_party_report(): Unit ={
     var mySqlJDBCClientV2 = new MySqlJDBCClient(
+      "AdxThirdPartyReportTest",
       "jdbc:mysql://node17:3306/sight",
       "root",
       "root_root")

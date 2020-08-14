@@ -23,7 +23,7 @@ public class MessageClinetTest {
     }
 
     public static void push(){
-        MessageClient messageClinet = new MessageClient("","http://node14:5555/");
+        MessageClientApi messageClinet = new MessageClientApi("","http://node14:5555/");
 
 
         messageClinet.pushMessage(new MessagePushReq(
@@ -36,7 +36,7 @@ public class MessageClinetTest {
 
     public static void commit(){
 
-        MessageClient messageClinet = new MessageClient("","http://localhost:5555/");
+        MessageClientApi messageClinet = new MessageClientApi("","http://localhost:5555/");
 
         //MessageConsumerCommitReq [topic=user_new, offset=20170918011211, consumer=GreenplumConsumer]
         //MessageConsumerCommitReq [topic=user_new, offset=20170918235921, consumer=GreenplumConsumer]

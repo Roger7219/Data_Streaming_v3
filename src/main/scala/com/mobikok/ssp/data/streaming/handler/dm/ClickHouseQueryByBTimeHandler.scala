@@ -3,8 +3,8 @@ package com.mobikok.ssp.data.streaming.handler.dm
 import java.util
 
 import com.fasterxml.jackson.core.`type`.TypeReference
+import com.mobikok.message.client.MessageClientApi
 import com.mobikok.message.{MessageConsumerCommitReq, MessagePullReq, MessagePushReq}
-import com.mobikok.message.client.MessageClient
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
@@ -40,7 +40,7 @@ class ClickHouseQueryByBTimeHandler extends Handler {
 
     viewConsumerTopics.foreach{case(_, _, _, consumer, topics,_)=>
       if(ArgsConfig.Value.OFFSET_LATEST.equals(argsConfig.get(ArgsConfig.OFFSET))){
-        MC.setLastestOffset(consumer, topics)
+        messageClient.setLastestOffset(consumer, topics)
       }
     }
   }
@@ -53,7 +53,7 @@ class ClickHouseQueryByBTimeHandler extends Handler {
       LOG.warn("ClickHouseBTimeHandler handler starting")
       RunAgainIfError.run {
         viewConsumerTopics.par.foreach { case(hiveView, ckTable, minBtExpr, consumer, topics, isDay) =>
-          val pageData = messageClient
+          val pageData = messageClient.messageClientApi
             .pullMessage(new MessagePullReq(consumer, topics))
             .getPageData
 
@@ -80,7 +80,7 @@ class ClickHouseQueryByBTimeHandler extends Handler {
           LOG.warn(s"ClickHouseBTimeHandler update b_time(s), count: ${ms.length}", "ckTable", ckTable, "hiveView", hiveView, "all_b_time(s)", ms, "filtered_b_time(s)", filtereMS, "finalMS", finalMS)
 
           clickHouseClient.overwriteByBTime(ckTable, hiveView, finalMS.map{_.value})
-          messageClient.commitMessageConsumer(
+          messageClient.messageClientApi.commitMessageConsumer(
             pageData.map{data =>
               new MessageConsumerCommitReq(consumer, data.getTopic, data.getOffset)
             }:_*
@@ -104,7 +104,7 @@ class ClickHouseQueryByBTimeHandler extends Handler {
     // 距离当前一个小时的任务不会被过滤
     val neighborBTime = CSTTime.neighborBTimes(CSTTime.now.time(), 1)
 
-    val finishedBTime = messageClient
+    val finishedBTime = messageClient.messageClientApi
       .pullMessage(new MessagePullReq(consumerAndTopic._1, consumerAndTopic._2))
       .getPageData
       .map{ data => OM.toBean(data.getKeyBody, new TypeReference[Array[Array[HivePartitionPart]]] {})}

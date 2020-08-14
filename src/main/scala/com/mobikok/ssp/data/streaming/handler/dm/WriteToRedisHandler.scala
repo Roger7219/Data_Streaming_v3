@@ -2,7 +2,7 @@ package com.mobikok.ssp.data.streaming.handler.dm
 
 import java.util
 
-import com.mobikok.message.client.MessageClient
+import com.mobikok.message.client.MessageClientApi
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.{BidPriceList, CountryCarrierConfig, HivePartitionPart}
@@ -35,7 +35,7 @@ class WriteToRedisHandler extends Handler{
   var topics: Array[String] = null
 
 
-  override def init (moduleName: String, bigQueryClient:BigQueryClient, rDBConfig:RDBConfig,kafkaClient: KafkaClient, messageClient:MessageClient, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig,handlerConfig: Config, clickHouseClient: ClickHouseClient, moduleTracer: ModuleTracer): Unit = {
+  override def init (moduleName: String, bigQueryClient:BigQueryClient, rDBConfig:RDBConfig, kafkaClient: KafkaClient, messageClient:MessageClient, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config, clickHouseClient: ClickHouseClient, moduleTracer: ModuleTracer): Unit = {
     super.init(moduleName, bigQueryClient, rDBConfig, kafkaClient: KafkaClient,messageClient, hbaseClient, hiveContext, argsConfig, handlerConfig, clickHouseClient, moduleTracer)
 
     dmTable = handlerConfig.getString("table")
@@ -55,7 +55,7 @@ class WriteToRedisHandler extends Handler{
     }
 
     mySqlJDBCClient = new MySqlJDBCClient(
-      rdbUrl, rdbUser, rdbPassword
+      moduleName, rdbUrl, rdbUser, rdbPassword
     )
 
     jedisPool = WriteToRedisHandler.initRedis()
@@ -88,7 +88,7 @@ class WriteToRedisHandler extends Handler{
       writeToRedis[CountryCarrierConfig](bidList, info=>String.format(Constants.KEY_COUNTRY_CONFIG, info.getCountryId, info.getCarrierId) )
 
   //write offer BidPrice info
-      JavaMC.pullAndSortByBDateDescHivePartitionParts(messageClient, consumer, new JavaMC.Callback[util.List[HivePartitionPart]]{
+      JavaMessageClient.pullAndSortByBDateDescHivePartitionParts(messageClient.messageClientApi, consumer, new JavaMessageClient.Callback[util.List[HivePartitionPart]]{
 
         def doCallback (ps: util.List[HivePartitionPart]):java.lang.Boolean={
 

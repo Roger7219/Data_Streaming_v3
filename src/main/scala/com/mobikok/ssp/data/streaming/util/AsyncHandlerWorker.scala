@@ -4,13 +4,15 @@ import java.util
 import java.util.Date
 import java.util.concurrent.{CountDownLatch, ExecutorService}
 
+import com.mobikok.ssp.data.streaming.exception.AsyncHandlerWorkerException
+
 object AsyncHandlerWorker{
   var defaultPoolSize = 100
   var THREAD_POOL: ExecutorService = ExecutorServiceUtil.createdExecutorService(defaultPoolSize)
 }
 
 class AsyncHandlerWorker(moduleName: String, taskSize:Int, moduleTracer: ModuleTracer, transactionOrder: Long, parentTid: String, parentThreadId: Long){
-  var LOG:Logger = new Logger(moduleName, getClass().getName(), new Date().getTime())
+  var LOG:Logger = new Logger(moduleName, getClass, new Date().getTime())
   var countDownLatch: CountDownLatch = new CountDownLatch(taskSize)
   var syncTaskErrors: util.List[Throwable] = new util.ArrayList[Throwable]()
 
@@ -34,7 +36,7 @@ class AsyncHandlerWorker(moduleName: String, taskSize:Int, moduleTracer: ModuleT
 
 
   def await(){
-    LOG.warn("Wait AsyncWorker async action [start]")
+    LOG.warn("Wait AsyncHandlerWorker async action [start]")
     var wait = true
       while (wait) {
         try {
@@ -47,14 +49,14 @@ class AsyncHandlerWorker(moduleName: String, taskSize:Int, moduleTracer: ModuleT
           syncTaskErrors.clear()
 
         } catch {
-          case e:Throwable=> throw new RuntimeException("Async execute error: ", e)
+          case e:Throwable=> throw new AsyncHandlerWorkerException("AsyncHandlerWorker execute error: ", e)
         }
 
         try{
           Thread.sleep(100)
         }catch {case _:Exception=>}
       }
-    LOG.warn("Wait AsyncWorker all async action [done]")
+    LOG.warn("Wait AsyncHandlerWorker all async action [done]")
   }
 
   def startAsyncHandlersCountDownHeartbeats() {
@@ -64,14 +66,14 @@ class AsyncHandlerWorker(moduleName: String, taskSize:Int, moduleTracer: ModuleT
         while (b) {
           try {
             if (countDownLatch.getCount() > 0) {
-                LOG.warn("Async tasks heartbeats","module name", moduleName, "running tasks", countDownLatch.getCount(), "completed tasks", taskSize - countDownLatch.getCount())
+                LOG.warn("AsyncHandlerWorker tasks heartbeats","module name", moduleName, "running tasks", countDownLatch.getCount(), "completed tasks", taskSize - countDownLatch.getCount())
             } else {
                 b = false
             }
 
             Thread.sleep(1000 * 60);
           } catch {
-            case e:Exception=> LOG.error("Async task heartbeats error", e);
+            case e:Exception=> LOG.error("AsyncHandlerWorker task heartbeats error", e);
           }
         }
         }
@@ -79,6 +81,20 @@ class AsyncHandlerWorker(moduleName: String, taskSize:Int, moduleTracer: ModuleT
   }
 
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

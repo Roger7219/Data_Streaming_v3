@@ -3,7 +3,7 @@ package com.mobikok.ssp.data.streaming.handler.dm
 import java.sql.ResultSet
 
 import com.fasterxml.jackson.core.`type`.TypeReference
-import com.mobikok.message.client.MessageClient
+import com.mobikok.message.client.MessageClientApi
 import com.mobikok.message.{MessageConsumerCommitReq, MessagePullReq, MessagePushReq}
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
@@ -67,7 +67,7 @@ class SyncMysql2HiveHandler extends Handler {
     }
 
     mySqlJDBCClient = new MySqlJDBCClient(
-      rdbUrl, rdbUser, rdbPassword
+      moduleName, rdbUrl, rdbUser, rdbPassword
     )
   }
 
@@ -75,7 +75,7 @@ class SyncMysql2HiveHandler extends Handler {
   override def doHandle(): Unit = {
 
     //解決lastId之前的數據更新后，不能同步至hive的問題
-    val pd = messageClient
+    val pd = messageClient.messageClientApi
       .pullMessage(new MessagePullReq(configUpdateConsumer, Array(s"config_update")))
       .getPageData
 
@@ -158,7 +158,7 @@ class SyncMysql2HiveHandler extends Handler {
       }
     }
 
-    messageClient.commitMessageConsumer(
+    messageClient.messageClientApi.commitMessageConsumer(
       pd.map {d=>
         new MessageConsumerCommitReq(configUpdateConsumer, d.getTopic, d.getOffset)
       }:_*
@@ -174,7 +174,7 @@ class SyncMysql2HiveHandler extends Handler {
       //增量导入
       if (isIncr) {
 
-        MC.pull(needIncrConsumer, Array(s"${needIncrSyncTopicPrefix}${hiveTable}"), {x=>
+        messageClient.pull(needIncrConsumer, Array(s"${needIncrSyncTopicPrefix}${hiveTable}"), { x=>
            // 至少20分钟更新一次
           if(x.length > 0 ||CSTTime.now.ms() - lastIncrSyncMS >= 1000*60*20) {
 
@@ -209,7 +209,7 @@ class SyncMysql2HiveHandler extends Handler {
   }
 
   def incrSyncTable(hiveTable: String, mysqlTable: String): Unit ={
-    val datas = messageClient
+    val datas = messageClient.messageClientApi
       .pullMessage(new MessagePullReq(
         lastIdIncrConsumer,
         Array(s"${topicPrefix}${hiveTable}")
@@ -320,7 +320,7 @@ class SyncMysql2HiveHandler extends Handler {
       lastId = if (lastId == null) -1 else lastId
 
       //提交新的lastId
-      messageClient.pushMessage(new MessagePushReq(
+      messageClient.messageClientApi.pushMessage(new MessagePushReq(
         s"${topicPrefix}${hiveTable}",
         "-",
         true,
@@ -331,7 +331,7 @@ class SyncMysql2HiveHandler extends Handler {
     val ofs = datas.map { x =>
       new MessageConsumerCommitReq(lastIdIncrConsumer, x.getTopic, x.getOffset)
     }
-    messageClient.commitMessageConsumer(ofs.toArray: _*)
+    messageClient.messageClientApi.commitMessageConsumer(ofs.toArray: _*)
   }
 }
 

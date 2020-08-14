@@ -2,30 +2,29 @@ package com.mobikok.ssp.data.streaming.util
 
 import java.util
 
-import com.mobikok.ssp.data.streaming.App
-import com.mobikok.ssp.data.streaming.config.RDBConfig
 import org.apache.commons.lang3.exception.ExceptionUtils
-import org.apache.log4j.{Level, Logger}
+import org.apache.log4j.Logger
 
 /**
   * Created by kairenlo on 2017/6/25.
   */
-class Logger (moduleName: String, className: String, startTime: Long) extends Serializable {
-  val LOGGER = Logger.getLogger(className)
+class Logger (loggerName: String, clazz: Class[_], startTime: Long) extends Serializable {
+  val LOGGER = Logger.getLogger(clazz)
+
   private val logLastTime = new ThreadLocal[Long](){
     override def initialValue(): Long = startTime
   }
 
-  def this(clazz: Class[_]) {
-    this("", clazz.getName, System.currentTimeMillis())
+  def this(loggerName: String, clazz: Class[_]) {
+    this(loggerName, clazz, System.currentTimeMillis())
   }
-  def this(className: String) {
-    this("", className, System.currentTimeMillis())
-  }
-
-  def this(className: String, startTime: Long){
-      this("", className, startTime)
-  }
+//  def this(className: String) {
+//    this("", className, System.currentTimeMillis())
+//  }
+//
+//  def this(className: String, startTime: Long){
+//      this("", className, startTime)
+//  }
 
   def trace (title: String): Unit = {
     LOGGER.trace(logString(title, ""))
@@ -85,47 +84,6 @@ class Logger (moduleName: String, className: String, startTime: Long) extends Se
     LOGGER.warn(logString(title, value))
   }
 
-  private var lastLogSwicthStatus = true
-  private var lastLogSwicthStatusTime:Long = 0
-  private var LOGGING_SIGN = classOf[Logger].getName +".needLog"
-  private var LAST_LOG_SWICTH_STATUS_CACHE_TIME_MS = 1000*60*1 //缓存上一次读取的日志开关值,缓存时间,1分钟
-
-  def needLog(): Boolean ={
-
-    var needReadLogSwicthStatus = true
-    val trace = ExceptionUtils.getStackTrace(new Exception())
-//    println(new Date() + " 0000 trace" +trace)
-
-//    if(new Date().getTime - lastReadLogSwicthStatusTime > 1000*15) {
-//      needReadLogSwicthStatus = true
-//    }
-//    needReadLogSwicthStatus = lastReadLogSwicthStatus
-
-    if(System.currentTimeMillis() - lastLogSwicthStatusTime > LAST_LOG_SWICTH_STATUS_CACHE_TIME_MS) {
-      needReadLogSwicthStatus = true
-    }else {
-      needReadLogSwicthStatus = false
-    }
-
-    if(trace.indexOf(LOGGING_SIGN, trace.indexOf(LOGGING_SIGN) + LOGGING_SIGN.length) > 0){
-      needReadLogSwicthStatus = false
-    }
-
-    if(needReadLogSwicthStatus) {
-      if("false".equals(RDBConfig.readConfig(RDBConfig.LOG_SWICTH_STATUS)) ) {
-        lastLogSwicthStatus =  false
-        lastLogSwicthStatusTime = System.currentTimeMillis()
-        LOGGER.setLevel(Level.ERROR)
-      }else {
-        lastLogSwicthStatus = true
-        lastLogSwicthStatusTime = System.currentTimeMillis()
-      }
-    }
-//    println(new Date() + " 0000 lastReadLogSwicthStatus" +lastReadLogSwicthStatus)
-    return true//lastLogSwicthStatus
-
-  }
-
   def objectToString(body: =>Any): String = {
     val v = body
     var str = ""
@@ -180,16 +138,13 @@ class Logger (moduleName: String, className: String, startTime: Long) extends Se
 
     val str = objectToString(value)
 
-    var module: String = moduleName
+    var logger: String = loggerName
 
-    if(StringUtil.notEmpty(module)) {
-      module = App.moduleNameThreadLocal.get()
-    }
-    if(StringUtil.notEmpty(module)) {
-      module= ""
+    if(StringUtil.isEmpty(logger)) {
+      logger = ""
     }
 
-    val tit = s"Module: [${module}] [${Thread.currentThread().getId}] - $title"
+    val tit = s"Logger: [${logger}] [${Thread.currentThread().getId}] - $title"
 
     val c = 100
     val len = (c - tit.length) / 2

@@ -23,6 +23,7 @@ public class SmartlinkConfig {
 
 	//[{"id":1,"url":"","weight":50,"countryIds":"","type":0},{"id":1030001,"url":"http://104.250.136.138:3333/api/smartlink?s=2708&at=4&rt=api&s1={s1}&s2={s2}&s3={s3}&s4={s4}&s5={s5}","weight":50,"countryIds":"","type":0}]
 	private static MySqlJDBCClient mySqlJDBCClient = new MySqlJDBCClient(
+			"SmartlinkConfig",
 			"jdbc:mysql://104.250.149.202:4000/kok_ssp?rewriteBatchedStatements=true&autoReconnect=true&useUnicode=true&characterEncoding=utf8",
 			"root",
 			"@dfei$@DCcsYG"

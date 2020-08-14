@@ -3,13 +3,13 @@ package com.mobikok.ssp.data.streaming.handler.dm
 import java.util
 
 import com.fasterxml.jackson.core.`type`.TypeReference
+import com.mobikok.message.client.MessageClientApi
 import com.mobikok.message.{MessageConsumerCommitReq, MessagePullReq}
-import com.mobikok.message.client.MessageClient
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
 import com.mobikok.ssp.data.streaming.handler.dm.Handler
-import com.mobikok.ssp.data.streaming.util.{ModuleTracer, OM, RunAgainIfError, StringUtil}
+import com.mobikok.ssp.data.streaming.util._
 import com.typesafe.config.Config
 import org.apache.spark.sql.hive.HiveContext
 
@@ -40,7 +40,7 @@ class ClickHouseQueryByBDateHandler extends Handler {
     LOG.warn("ClickHouseBDateHandler handler starting")
     RunAgainIfError.run {
       viewConsumerTopics.foreach { topic =>
-        val pageData = messageClient
+        val pageData = messageClient.messageClientApi
           .pullMessage(new MessagePullReq(topic._2, topic._3))
           .getPageData
 
@@ -58,7 +58,7 @@ class ClickHouseQueryByBDateHandler extends Handler {
 
 //        clickHouseClient.overwriteByBDate(topic._1.replace("_v2", ""), topic._1, ms.map{_.value})
         clickHouseClient.overwriteByBTime(topic._1.replace("_v2", ""), topic._1, ms.map{b_date => s"${b_date.value} 00:00:00"})
-        messageClient.commitMessageConsumer(
+        messageClient.messageClientApi.commitMessageConsumer(
           pageData.map{data =>
             new MessageConsumerCommitReq(topic._2, data.getTopic, data.getOffset)
           }:_*

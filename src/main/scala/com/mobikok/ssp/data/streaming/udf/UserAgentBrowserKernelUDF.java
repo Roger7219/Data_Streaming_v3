@@ -1,5 +1,6 @@
 package com.mobikok.ssp.data.streaming.udf;
 
+import com.mobikok.ssp.data.streaming.util.StringUtil;
 import eu.bitwalker.useragentutils.Browser;
 import eu.bitwalker.useragentutils.UserAgent;
 import org.apache.hadoop.hive.ql.exec.UDF;
@@ -27,16 +28,16 @@ public class UserAgentBrowserKernelUDF extends UDF implements Serializable {
         }
     }
 
-    public static class StringUtil {
-        public static boolean isEmpty(String value) {
-            if(value == null || "".equals(value.trim())) return true;
-            return false;
-        }
-
-        public static boolean notEmpty(String value) {
-            return !isEmpty(value);
-        }
-    }
+//    private static class StringUtil {
+//        public static boolean isEmpty(String value) {
+//            if(value == null || "".equals(value.trim())) return true;
+//            return false;
+//        }
+//
+//        public static boolean notEmpty(String value) {
+//            return !isEmpty(value);
+//        }
+//    }
 //
 //    public static void main(String[] args) {
 ////        String s= "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.3325.181 Safari/537.36";

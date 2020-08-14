@@ -1,13 +1,13 @@
 package com.mobikok.ssp.data.streaming.handler.dm
 
 import com.fasterxml.jackson.core.`type`.TypeReference
-import com.mobikok.message.client.MessageClient
+import com.mobikok.message.client.MessageClientApi
 import com.mobikok.message.{MessageConsumerCommitReq, MessagePullReq}
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
 import com.mobikok.ssp.data.streaming.exception.HandlerException
-import com.mobikok.ssp.data.streaming.util.{ModuleTracer, OM, RunAgainIfError, StringUtil}
+import com.mobikok.ssp.data.streaming.util._
 import com.typesafe.config.Config
 import org.apache.hadoop.fs.{FileSystem, Path, PathFilter}
 import org.apache.hadoop.hdfs.HdfsConfiguration
@@ -45,7 +45,7 @@ class HdfsToHiveHandler extends Handler {
 
     RunAgainIfError.run {
 
-      val pageData = messageClient
+      val pageData = messageClient.messageClientApi
         .pullMessage(new MessagePullReq(consumerTopics._1, consumerTopics._2))
         .getPageData
 
@@ -94,7 +94,7 @@ class HdfsToHiveHandler extends Handler {
         LOG.warn(s"restore b_time: $b_time data finished")
       }
 
-      messageClient.commitMessageConsumer(
+      messageClient.messageClientApi.commitMessageConsumer(
         pageData.map{data =>
           new MessageConsumerCommitReq(consumerTopics._1, data.getTopic, data.getOffset)
         }:_*

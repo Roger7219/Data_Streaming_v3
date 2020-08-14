@@ -2,7 +2,7 @@ package com.mobikok.ssp.data.streaming.handler.dm
 
 import java.sql.ResultSet
 
-import com.mobikok.message.client.MessageClient
+import com.mobikok.message.client.MessageClientApi
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.util.MySqlJDBCClient.Callback
@@ -61,7 +61,7 @@ class SyncMysql2HiveHandlerV2_2 extends Handler {
     }
 
     mySqlJDBCClient = new MySqlJDBCClient(
-      rdbUrl, rdbUser, rdbPassword
+      moduleName, rdbUrl, rdbUser, rdbPassword
     )
 
     // 如果上次启动时，写入临时表成功，并将hiveT rename to hiveBackupT表了，但未执行rename syncProcessedT to hiveT，则继续尝试rename
@@ -178,7 +178,7 @@ class SyncMysql2HiveHandlerV2_2 extends Handler {
 
           var lastId = 0L
 
-          MC.pull(lastIdCer, Array(lastIdTopic), {x=>
+          messageClient.pull(lastIdCer, Array(lastIdTopic), { x=>
             // hive空表，全量同步
             lastId = if(hiveLastId == 0 ) {
               0L
@@ -260,7 +260,7 @@ class SyncMysql2HiveHandlerV2_2 extends Handler {
               sql(s"alter table $syncProcessedT rename to ${hiveT}") // 更新表转正
 
               // 记录新的last id
-              MC.push(new UpdateReq(lastIdTopic, incrDF
+              messageClient.push(new UpdateReq(lastIdTopic, incrDF
                 .selectExpr(s"cast( nvl( max(id), 0) as bigint) as lastId")
                 .first()
                 .getAs[Long]("lastId").toString

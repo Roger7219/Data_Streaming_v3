@@ -1,12 +1,12 @@
 package com.mobikok.ssp.data.streaming.handler.dm
 
 import com.fasterxml.jackson.core.`type`.TypeReference
-import com.mobikok.message.client.MessageClient
+import com.mobikok.message.client.MessageClientApi
 import com.mobikok.message.{MessageConsumerCommitReq, MessagePullReq}
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
-import com.mobikok.ssp.data.streaming.util.{ModuleTracer, OM, RunAgainIfError, StringUtil}
+import com.mobikok.ssp.data.streaming.util._
 import com.typesafe.config.Config
 import org.apache.spark.sql.SaveMode
 import org.apache.spark.sql.functions._
@@ -58,7 +58,7 @@ class HistoryDataHandler extends Handler {
     LOG.warn("HistoryDataHandler handler starting")
     RunAgainIfError.run{
       viewConsumerTopics.foreach{ topics =>
-        val pageData = messageClient
+        val pageData = messageClient.messageClientApi
           .pullMessage(new MessagePullReq(topics._2, topics._3))
           .getPageData
 
@@ -218,7 +218,7 @@ class HistoryDataHandler extends Handler {
           LOG.warn(s"Finish insert into test__ssp_report_overall_dwr_accmonth")
         }
 
-        messageClient.commitMessageConsumer(
+        messageClient.messageClientApi.commitMessageConsumer(
           pageData.map { d=>
             new MessageConsumerCommitReq(topics._2, d.getTopic, d.getOffset)
           }:_*

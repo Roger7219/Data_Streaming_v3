@@ -1,6 +1,7 @@
 CREATE TABLE ssp_overall_user_new_dwi(
     repeats int,
     rowkey string,
+
     imei string,
     imsi string,
     createTime string,

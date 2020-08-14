@@ -8,7 +8,7 @@ case class KV (fieldName: String, fieldValue: Any)
   */
 object SQLMixUpdater {
 
-  private[this] val LOG = new Logger(getClass)
+  private[this] val LOG = new Logger(SQLMixUpdater.getClass.getSimpleName, getClass)
 
   private val LOCK = new Object
   private var mySqlJDBCClient:MySqlJDBCClient = _

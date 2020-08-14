@@ -2,7 +2,7 @@ package com.mobikok.ssp.data.streaming.handler.dm
 
 import java.text.SimpleDateFormat
 
-import com.mobikok.message.client.MessageClient
+import com.mobikok.message.client.MessageClientApi
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.exception.HandlerException
@@ -30,7 +30,7 @@ class ImageHandler extends Handler {
   val TOPIC = "ssp_report_overall_dwr"
   val CONSUMER = "ImageHandler_cer"
 
-  override def init (moduleName: String, bigQueryClient:BigQueryClient, rDBConfig:RDBConfig, kafkaClient: KafkaClient,messageClient: MessageClient, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config, clickHouseClient: ClickHouseClient, moduleTracer: ModuleTracer): Unit = {
+  override def init (moduleName: String, bigQueryClient:BigQueryClient, rDBConfig:RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config, clickHouseClient: ClickHouseClient, moduleTracer: ModuleTracer): Unit = {
 
     super.init(moduleName, bigQueryClient, rDBConfig, kafkaClient: KafkaClient,messageClient, hbaseClient, hiveContext, argsConfig, handlerConfig, clickHouseClient, moduleTracer)
 
@@ -49,7 +49,7 @@ class ImageHandler extends Handler {
     }
 
     mySqlJDBCClient = new MySqlJDBCClient(
-      rdbUrl, rdbUser, rdbPassword
+      moduleName, rdbUrl, rdbUser, rdbPassword
     )
   }
 
@@ -62,7 +62,7 @@ class ImageHandler extends Handler {
 
       if (0 <= h && h <= 2) return
 
-      MC.pullBDateDesc(CONSUMER, Array(TOPIC), {x=>
+      messageClient.pullBDateDesc(CONSUMER, Array(TOPIC), { x=>
 
         //是否包含当天的b_date
         if(x.filter(y=>d.equals(y.value)).nonEmpty) {

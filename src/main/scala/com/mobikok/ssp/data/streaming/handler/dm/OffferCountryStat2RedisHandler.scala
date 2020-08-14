@@ -2,7 +2,7 @@ package com.mobikok.ssp.data.streaming.handler.dm
 
 import java.sql.ResultSet
 
-import com.mobikok.message.client.MessageClient
+import com.mobikok.message.client.MessageClientApi
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.util._
@@ -60,7 +60,7 @@ class OffferCountryStat2RedisHandler extends Handler {
     }
 
     mySqlJDBCClient = new MySqlJDBCClient(
-      rdbUrl, rdbUser, rdbPassword
+      moduleName, rdbUrl, rdbUser, rdbPassword
     )
   }
 
@@ -69,7 +69,7 @@ class OffferCountryStat2RedisHandler extends Handler {
 
     RunAgainIfError.run({
 
-      MC.pullBDateDesc(consumer, Array(topic), {ms=>
+      messageClient.pullBDateDesc(consumer, Array(topic), { ms=>
 
         if(ms.length>0) {
 

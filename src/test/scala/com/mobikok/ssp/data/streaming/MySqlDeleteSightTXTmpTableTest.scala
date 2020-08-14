@@ -27,7 +27,7 @@ object MySqlDeleteSightTXTmpTableTest {
       }
     }
 
-    val mySqlJDBCClient = new MySqlJDBCClient( rdbUrl, rdbUser, rdbPassword
+    val mySqlJDBCClient = new MySqlJDBCClient("MySqlDeleteSightTXTmpTableTest", rdbUrl, rdbUser, rdbPassword
     )
 
 //    mySqlJDBCClient.executeQuery("select * from offset_m_advertiser_am_ts_20200201_023006_188__0", new Callback[String](){

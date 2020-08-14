@@ -4,12 +4,12 @@ import java.text.SimpleDateFormat
 import java.util
 import java.util.Date
 
-import com.mobikok.message.client.MessageClient
+import com.mobikok.message.client.MessageClientApi
 import com.mobikok.message.{MessageConsumerCommitReq, MessagePullReq, MessagePushReq}
 import com.mobikok.ssp.data.streaming.BigQueryRefreshUtil.{DF, daysBetween}
 import com.mobikok.ssp.data.streaming.config.DynamicConfig
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
-import com.mobikok.ssp.data.streaming.util.{CSTTime, MC, OM}
+import com.mobikok.ssp.data.streaming.util.{CSTTime, MessageClient, OM}
 
 /**
   * Created by Administrator on 2017/9/26.
@@ -17,7 +17,9 @@ import com.mobikok.ssp.data.streaming.util.{CSTTime, MC, OM}
 object BigQueryRefreshUtil {
 
   val DF = new SimpleDateFormat("yyyy-MM-dd")
-  val messageClient = new MessageClient("", "http://node14:5555")
+  val messageClientApi = new MessageClientApi("", "http://node14:5555")
+  MessageClient.init("http://node14:5555")
+  val messageClient = new MessageClient("module_test")
 
   def main (args: Array[String]): Unit = {
 
@@ -292,16 +294,15 @@ object BigQueryRefreshUtil {
 
 
   def messageResetToLastest(consumer: String, topics: Array[String]): Unit = {
-    MC.init(messageClient)
-    MC.pull(consumer,topics, {x=> true})
+    messageClient.pull(consumer,topics, { x=> true})
   }
 
   def sendMaxWaitingTimeMS(moduleName:String, ms: String): Unit ={
-    messageClient.pushMessage(new MessagePushReq(moduleName, ms))
+    messageClientApi.pushMessage(new MessagePushReq(moduleName, ms))
   }
 
   def killApp(appName:String): Unit = {
-    messageClient.pushMessage(new MessagePushReq("kill_self_"+appName,  "kill_self"))
+    messageClientApi.pushMessage(new MessagePushReq("kill_self_"+appName,  "kill_self"))
   }
 
 
@@ -313,7 +314,7 @@ object BigQueryRefreshUtil {
       )
     }
     println(s)
-    messageClient.pushMessage(s: _*);
+    messageClientApi.pushMessage(s: _*);
   }
 
   def sendMsg_btime(topic: String, days: Int): Unit = {
@@ -358,7 +359,7 @@ object BigQueryRefreshUtil {
       }
     }.flatMap{x=>x}
     println(s)
-    messageClient.pushMessage(s: _*);
+    messageClientApi.pushMessage(s: _*);
   }
 
   def sendMsg_btime (topic: String, b_time: String): Unit = {
@@ -372,14 +373,14 @@ object BigQueryRefreshUtil {
       }
     }.flatMap{x=>x}
     println(s)
-    messageClient.pushMessage(s: _*);
+    messageClientApi.pushMessage(s: _*);
   }
   //ssp_report_campaign_month_dm_needInitBaseTable
   def sendMsgDmTableGeneratorHandlerNeedInit (topic: String, table:String, appName:String): Unit ={
 
     var yesterdayDateTime = CSTTime.now.offset(-1000*60*60*24, "yyyy-MM-dd 00:00:00")
       //CSTTime.formatter("yyyy-MM-dd 00:00:00").format(CSTTime.timeObject(CSTTime.now.ms() - 1000*60*60*24))
-    messageClient.pushMessage(Array(new MessagePushReq(table + "_needInitBaseTable", "needInit")):_*)
+    messageClientApi.pushMessage(Array(new MessagePushReq(table + "_needInitBaseTable", "needInit")):_*)
     sendMsg_l_time(topic, yesterdayDateTime)
     // +1 天
     val f= CSTTime.formatter("yyyy-MM-dd HH:mm:ss")
@@ -400,7 +401,7 @@ object BigQueryRefreshUtil {
       )
     }
     println(s)
-    messageClient.pushMessage(s: _*);
+    messageClientApi.pushMessage(s: _*);
   }
 
 
@@ -412,7 +413,7 @@ object BigQueryRefreshUtil {
       )
     }
     println(s)
-    messageClient.pushMessage(s: _*);
+    messageClientApi.pushMessage(s: _*);
   }
 
   def sendMsg_b_date (topic: String, day: String): Unit = {
@@ -423,7 +424,7 @@ object BigQueryRefreshUtil {
       )
     }
     println(s)
-    messageClient.pushMessage(s: _*);
+    messageClientApi.pushMessage(s: _*);
   }
 
   def sendMsg_l_time(topic: String, day: String): Unit = {
@@ -434,7 +435,7 @@ object BigQueryRefreshUtil {
       )
     }
     println(s)
-    messageClient.pushMessage(s: _*);
+    messageClientApi.pushMessage(s: _*);
   }
 
   def bd_offer(): Unit = {

@@ -4,12 +4,12 @@ import java.text.SimpleDateFormat
 import java.util
 import java.util.Date
 
-import com.mobikok.message.client.MessageClient
+import com.mobikok.message.client.MessageClientApi
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
-import com.mobikok.ssp.data.streaming.util.JavaMC.Callback
-import com.mobikok.ssp.data.streaming.util.{BigQueryJDBCClient, JavaMC, ModuleTracer, RunAgainIfError}
+import com.mobikok.ssp.data.streaming.util.JavaMessageClient.Callback
+import com.mobikok.ssp.data.streaming.util._
 import com.typesafe.config.Config
 import io.codis.jodis.RoundRobinJedisPool
 import org.apache.spark.sql.hive.HiveContext
@@ -52,7 +52,7 @@ class RedisDayMonthLimitHandler extends Handler {
   override def doHandle (): Unit = {
     LOG.warn("RedisDayMonthLimitHandler handler starting")
 
-    JavaMC.pullAndSortByBDateDescHivePartitionParts(messageClient, consumer, new Callback[util.List[HivePartitionPart]] {
+    JavaMessageClient.pullAndSortByBDateDescHivePartitionParts(messageClient.messageClientApi, consumer, new Callback[util.List[HivePartitionPart]] {
       def doCallback(ps: util.List[HivePartitionPart]): java.lang.Boolean ={
 
 

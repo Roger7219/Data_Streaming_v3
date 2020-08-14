@@ -4,9 +4,8 @@ import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
 import com.mobikok.ssp.data.streaming.handler.dwi.Handler
-import com.mobikok.ssp.data.streaming.transaction.{TransactionCookie, TransactionManager, TransactionRoolbackedCleanable}
-import com.mobikok.ssp.data.streaming.udf.UserAgentBrowserKernelUDF.StringUtil
-import com.mobikok.ssp.data.streaming.util.{MC, ModuleTracer, RunAgainIfError}
+import com.mobikok.ssp.data.streaming.transaction.TransactionManager
+import com.mobikok.ssp.data.streaming.util._
 import com.typesafe.config.Config
 import org.apache.spark.sql.DataFrame
 
@@ -18,8 +17,8 @@ class SQLHandler extends Handler {
   var messageTopics: Array[String] = null
   var messageConsumer: String = null
 
-  override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, argsConfig: ArgsConfig, handlerConfig: Config, globalConfig: Config, moduleTracer: ModuleTracer): Unit = {
-    super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, handlerConfig, globalConfig, moduleTracer)
+  override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, argsConfig: ArgsConfig, handlerConfig: Config, globalConfig: Config, messageClient: MessageClient, moduleTracer: ModuleTracer): Unit = {
+    super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, handlerConfig, globalConfig, messageClient, moduleTracer)
 
     messageTopics = handlerConfig.getStringList("message.topics").toArray(new Array[String](0))
     messageConsumer = versionFeaturesKafkaCer(version, handlerConfig.getString("message.consumer"))
@@ -31,7 +30,7 @@ class SQLHandler extends Handler {
       .filter{x=>StringUtil.notEmpty(x)}
 
     if(ArgsConfig.Value.OFFSET_LATEST.equals(argsConfig.get(ArgsConfig.OFFSET))){
-      MC.setLastestOffset(messageConsumer, messageTopics)
+      messageClient.setLastestOffset(messageConsumer, messageTopics)
     }
   }
 
@@ -42,11 +41,11 @@ class SQLHandler extends Handler {
     // newDwi 是空的
     var resultDF: DataFrame = newDwi
     RunAgainIfError.run{
-      MC.pullBTimeDesc(messageConsumer, messageTopics, bTimes =>{
+      messageClient.pullBTimeDesc(messageConsumer, messageTopics, bTimes =>{
 
         if(bTimes.size > 0) {
-          val ps= bTimes.toSet[HivePartitionPart].map{x=>Array(x)}.toArray
-          hiveClient.partitionsAsDataFrame(ps).createOrReplaceTempView("mc")
+          val partitions= bTimes.toSet[HivePartitionPart].map{x=>Array(x)}.toArray
+          hiveClient.partitionsAsDataFrame(partitions).createOrReplaceTempView("ps") // ps: partitions简称
 
           sqlSegments.foreach{s=>
             resultDF = sql(s)

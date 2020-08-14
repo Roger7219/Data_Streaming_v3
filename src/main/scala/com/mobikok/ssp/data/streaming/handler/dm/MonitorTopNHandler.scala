@@ -6,11 +6,11 @@ import java.util.Calendar
 
 import com.fasterxml.jackson.core.`type`.TypeReference
 import com.mobikok.message._
-import com.mobikok.message.client.MessageClient
+import com.mobikok.message.client.MessageClientApi
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
-import com.mobikok.ssp.data.streaming.util.{ModuleTracer, OM, RunAgainIfError}
+import com.mobikok.ssp.data.streaming.util.{MessageClient, ModuleTracer, OM, RunAgainIfError}
 import com.typesafe.config.Config
 import org.apache.spark.sql.SaveMode
 import org.apache.spark.sql.functions._
@@ -153,14 +153,14 @@ class MonitorTopNHandler extends Handler {
     .insertInto(topNTable)
 
     //消息队列发送 更新通知，bq将获取该通知
-    messageClient.pushMessage(new MessagePushReq(topNTable, OM.toJOSN(Array(Array(HivePartitionPart("b_date",b_date))) ) ) )
+    messageClient.messageClientApi.pushMessage(new MessagePushReq(topNTable, OM.toJOSN(Array(Array(HivePartitionPart("b_date",b_date))) ) ) )
 
   }
 
   override def doHandle (): Unit = {
     LOG.warn("TopStatHandler starting!")
 
-    val ms:Resp[util.List[Message]] = messageClient.pullMessage(new MessagePullReq(topStatHandlerConsumer, topics))
+    val ms:Resp[util.List[Message]] = messageClient.messageClientApi.pullMessage(new MessagePullReq(topStatHandlerConsumer, topics))
 
     val pd = ms.getPageData
 
@@ -191,7 +191,7 @@ class MonitorTopNHandler extends Handler {
 
     }
 
-    messageClient.commitMessageConsumer(
+    messageClient.messageClientApi.commitMessageConsumer(
       pd.map {d=>
         new MessageConsumerCommitReq(topStatHandlerConsumer, d.getTopic, d.getOffset)
       }:_*

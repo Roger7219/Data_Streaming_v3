@@ -40,6 +40,7 @@ object OMTest{
   }
   def main3 (args: Array[String]): Unit = {
     var mySqlJDBCClientV2 = new MySqlJDBCClient(
+      "omtest",
       "jdbc:mysql://192.168.1.26:3306/kok_adv_bd?autoReconnect=true&useUnicode=true&characterEncoding=utf8",
       "root",
       "1234")
@@ -55,6 +56,7 @@ object OMTest{
   }
   def main2 (args: Array[String]): Unit = {
     var mySqlJDBCClientV2 = new MySqlJDBCClient(
+      "omtest",
       "jdbc:mysql://node17:3306/sight",
       "root",
       "root_root")

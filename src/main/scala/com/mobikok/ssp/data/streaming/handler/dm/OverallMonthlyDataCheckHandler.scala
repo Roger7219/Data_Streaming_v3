@@ -1,10 +1,10 @@
 package com.mobikok.ssp.data.streaming.handler.dm
 
-import com.mobikok.message.client.MessageClient
+import com.mobikok.message.client.MessageClientApi
 import com.mobikok.monitor.client.{MonitorClient, MonitorMessage}
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
-import com.mobikok.ssp.data.streaming.util.{CSTTime, MC, ModuleTracer, PushReq}
+import com.mobikok.ssp.data.streaming.util.{CSTTime, MessageClient, ModuleTracer, PushReq}
 import com.typesafe.config.Config
 import org.apache.spark.sql.hive.HiveContext
 
@@ -19,10 +19,10 @@ class OverallMonthlyDataCheckHandler extends Handler{
 
   var monitorClient: MonitorClient = null
 
-  override def init (moduleName: String, bigQueryClient:BigQueryClient, rDBConfig:RDBConfig,kafkaClient: KafkaClient, messageClient: MessageClient, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config, clickHouseClient: ClickHouseClient, moduleTracer: ModuleTracer): Unit = {
+  override def init (moduleName: String, bigQueryClient:BigQueryClient, rDBConfig:RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config, clickHouseClient: ClickHouseClient, moduleTracer: ModuleTracer): Unit = {
     super.init(moduleName,bigQueryClient, rDBConfig,kafkaClient, messageClient, hbaseClient, hiveContext, argsConfig, handlerConfig, clickHouseClient, moduleTracer)
 
-    monitorClient = new MonitorClient(messageClient)
+    monitorClient = new MonitorClient(messageClient.messageClientApi)
 
   }
 
@@ -33,7 +33,7 @@ class OverallMonthlyDataCheckHandler extends Handler{
 
     //每月月初凌晨4点执行一次
     val updateTime = CSTTime.now.modifyHourAsDate(-4)
-    MC.pull("overall_month_datacheck_cer", Array("overall_month_datacheck_topic"), { x =>
+    messageClient.pull("overall_month_datacheck_cer", Array("overall_month_datacheck_topic"), { x =>
       val run = CSTTime.now.date().split("-")(2).contains("01") && (x.isEmpty || (!x.map(_.getKeyBody).contains(updateTime)))
 
       if(run){
@@ -68,7 +68,7 @@ class OverallMonthlyDataCheckHandler extends Handler{
 
       }
 
-      MC.push(new PushReq("overall_month_datacheck_topic", updateTime))
+      messageClient.push(new PushReq("overall_month_datacheck_topic", updateTime))
       true
     })
 

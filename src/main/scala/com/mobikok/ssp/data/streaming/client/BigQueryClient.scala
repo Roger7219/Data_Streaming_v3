@@ -9,7 +9,6 @@ import com.google.cloud.bigquery.BigQuery.TableListOption
 import com.google.cloud.bigquery.JobInfo.WriteDisposition
 import com.google.cloud.bigquery.TimePartitioning.Type
 import com.google.cloud.bigquery.{Field, Schema, StandardTableDefinition, TableId, TableInfo, TimePartitioning, _}
-import com.mobikok.message.client.MessageClient
 import com.mobikok.ssp.data.streaming.exception.HandlerException
 import com.mobikok.ssp.data.streaming.util._
 import com.typesafe.config.Config
@@ -26,7 +25,7 @@ import org.apache.spark.streaming.StreamingContext
   */
 class BigQueryClient (moduleName: String, config: Config, ssc: StreamingContext, messageClient: MessageClient, hiveContext:HiveContext, moduleTracer: ModuleTracer) {
 
-  private val LOG: Logger = new Logger(moduleName, getClass.getName, new Date().getTime)
+  private val LOG: Logger = new Logger(moduleName, getClass, new Date().getTime)
   val reportDataset = "report_dataset"
   val conf = new HdfsConfiguration()
   val fileSystem = FileSystem.get(conf)
@@ -113,7 +112,7 @@ class BigQueryClient (moduleName: String, config: Config, ssc: StreamingContext,
       try {
         LOG.warn("Try build table if not exists like hive table", "table", bigQueryTable)
         createTableLikeHive(bigQueryTable, hiveTable)
-      }catch {case e=>
+      }catch {case e: Throwable =>
         if(!String.valueOf(e.getMessage).contains("Already Exists")) {
           LOG.warn(s"Create BigQuery table '$bigQueryTable' fail", e)
           throw e

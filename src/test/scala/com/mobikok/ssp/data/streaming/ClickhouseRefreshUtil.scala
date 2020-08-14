@@ -4,10 +4,10 @@ import java.text.SimpleDateFormat
 import java.util.Date
 
 import com.mobikok.message.MessagePushReq
-import com.mobikok.message.client.MessageClient
+import com.mobikok.message.client.MessageClientApi
 import com.mobikok.ssp.data.streaming.config.DynamicConfig
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
-import com.mobikok.ssp.data.streaming.util.{CSTTime, MC, OM}
+import com.mobikok.ssp.data.streaming.util.{CSTTime, MessageClient, OM}
 
 /**
   * Created by Administrator on 2017/9/26.
@@ -15,7 +15,9 @@ import com.mobikok.ssp.data.streaming.util.{CSTTime, MC, OM}
 object ClickhouseRefreshUtil {
 
   val DF = new SimpleDateFormat("yyyy-MM-dd")
-  val messageClient = new MessageClient("", "http://node14:5555")
+  val messageClientApi = new MessageClientApi("", "http://node14:5555")
+  MessageClient.init("http://node14:5555")
+  val messageClient = new MessageClient("moduel_test")
 
   def main (args: Array[String]): Unit = {
 
@@ -312,16 +314,15 @@ object ClickhouseRefreshUtil {
 
 
   def messageResetToLastest(consumer: String, topics: Array[String]): Unit = {
-    MC.init(messageClient)
-    MC.pull(consumer,topics, {x=> true})
+    messageClient.pull(consumer,topics, { x=> true})
   }
 
   def sendMaxWaitingTimeMS(appName:String, ms: String): Unit ={
-    messageClient.pushMessage(new MessagePushReq(appName, ms))
+    messageClientApi.pushMessage(new MessagePushReq(appName, ms))
   }
 
   def killApp(appName:String): Unit = {
-    messageClient.pushMessage(new MessagePushReq("kill_self_" + appName,  null))
+    messageClientApi.pushMessage(new MessagePushReq("kill_self_" + appName,  null))
   }
 
 
@@ -333,7 +334,7 @@ object ClickhouseRefreshUtil {
       )
     }
     println(s)
-    messageClient.pushMessage(s: _*);
+    messageClientApi.pushMessage(s: _*);
   }
 
   def sendMsg_btime(topic: String, days: Int): Unit = {
@@ -378,7 +379,7 @@ object ClickhouseRefreshUtil {
       }
     }.flatMap{x=>x}
     println(s)
-    messageClient.pushMessage(s: _*);
+    messageClientApi.pushMessage(s: _*);
   }
 
   def sendMsg_btime (topic: String, b_time: String): Unit = {
@@ -392,14 +393,14 @@ object ClickhouseRefreshUtil {
       }
     }.flatMap{x=>x}
     println(s)
-    messageClient.pushMessage(s: _*);
+    messageClientApi.pushMessage(s: _*);
   }
   //ssp_report_campaign_month_dm_needInitBaseTable
   def sendMsgDmTableGeneratorHandlerNeedInit (topic: String, table:String, appName:String): Unit ={
 
     var yesterdayDateTime = CSTTime.now.offset(-1000*60*60*24, "yyyy-MM-dd 00:00:00")
       //CSTTime.formatter("yyyy-MM-dd 00:00:00").format(CSTTime.timeObject(CSTTime.now.ms() - 1000*60*60*24))
-    messageClient.pushMessage(Array(new MessagePushReq(table + "_needInitBaseTable", "needInit")):_*)
+    messageClientApi.pushMessage(Array(new MessagePushReq(table + "_needInitBaseTable", "needInit")):_*)
     sendMsg_l_time(topic, yesterdayDateTime)
     // +1 天
     val f= CSTTime.formatter("yyyy-MM-dd HH:mm:ss")
@@ -420,7 +421,7 @@ object ClickhouseRefreshUtil {
       )
     }
     println(s)
-    messageClient.pushMessage(s: _*);
+    messageClientApi.pushMessage(s: _*);
   }
 
   def sendMsg_btime_00_00_00_for_day_bq_and_ck(topic: String, startDay: String, endDay: String, appNames: String*): Unit = {
@@ -433,7 +434,7 @@ object ClickhouseRefreshUtil {
       )
     }
     println(s)
-    messageClient.pushMessage(s: _*);
+    messageClientApi.pushMessage(s: _*);
 
     for(a <-appNames) {
       sendMaxWaitingTimeMS(DynamicConfig.of(a, DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(1000*60*60*100L)) // 4小时
@@ -459,7 +460,7 @@ object ClickhouseRefreshUtil {
       )
     }
 //    println(s)
-    messageClient.pushMessage(s: _*);
+    messageClientApi.pushMessage(s: _*);
 
     sendMaxWaitingTimeMS(DynamicConfig.of(appName, DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(1000*60*5*hours*2)) // 4小时
 
@@ -474,7 +475,7 @@ object ClickhouseRefreshUtil {
       )
     }
     println(s)
-    messageClient.pushMessage(s: _*);
+    messageClientApi.pushMessage(s: _*);
   }
 
   def sendMsg_b_date (topic: String, day: String): Unit = {
@@ -485,7 +486,7 @@ object ClickhouseRefreshUtil {
       )
     }
     println(s)
-    messageClient.pushMessage(s: _*);
+    messageClientApi.pushMessage(s: _*);
   }
 
   def sendMsg_l_time(topic: String, day: String): Unit = {
@@ -496,7 +497,7 @@ object ClickhouseRefreshUtil {
       )
     }
     println(s)
-    messageClient.pushMessage(s: _*);
+    messageClientApi.pushMessage(s: _*);
   }
 
   def bd_offer(): Unit = {

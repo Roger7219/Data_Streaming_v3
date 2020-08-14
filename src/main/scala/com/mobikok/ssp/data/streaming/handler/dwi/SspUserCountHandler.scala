@@ -18,8 +18,8 @@ class SspUserCountHandler extends Handler {
   val SSPUSERCOUNT_DROP_EXCEEDTABLE_CER = "sspUserCount_dropExceedTable_cer"
   val SSPUSERCOUNT_DROP_EXCEEDTABLE_TOPIC = "sspUserCount_dropExceedTable_topic"
 
-  override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, argsConfig: ArgsConfig, handlerConfig: Config, globalConfig: Config, moduleTracer: ModuleTracer): Unit = {
-    super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, handlerConfig, globalConfig, moduleTracer)
+  override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, argsConfig: ArgsConfig, handlerConfig: Config, globalConfig: Config, messageClient: MessageClient, moduleTracer: ModuleTracer): Unit = {
+    super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, handlerConfig, globalConfig, messageClient, moduleTracer)
 
     userIdHistoryTable = handlerConfig.getString("uid.history.table")
   }
@@ -231,7 +231,7 @@ class SspUserCountHandler extends Handler {
 
     //凌晨一点异步删除，之前的天表
     val dropTime = CSTTime.now.modifyHourAsDate(-1)
-    MC.pull(SSPUSERCOUNT_DROP_EXCEEDTABLE_CER, Array(SSPUSERCOUNT_DROP_EXCEEDTABLE_TOPIC), {x =>
+    messageClient.pull(SSPUSERCOUNT_DROP_EXCEEDTABLE_CER, Array(SSPUSERCOUNT_DROP_EXCEEDTABLE_TOPIC), { x =>
 
       val toadyNeedDropTable =  x.isEmpty || ( !x.map(_.getKeyBody).contains(dropTime))
 
@@ -249,7 +249,7 @@ class SspUserCountHandler extends Handler {
           }
         }).start()
 
-        MC.push(new PushReq(SSPUSERCOUNT_DROP_EXCEEDTABLE_TOPIC, dropTime))
+        messageClient.push(new PushReq(SSPUSERCOUNT_DROP_EXCEEDTABLE_TOPIC, dropTime))
       }
 
       true

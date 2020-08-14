@@ -3,7 +3,7 @@ package com.mobikok.ssp.data.streaming.handler.dm
 import java.sql.ResultSet
 
 import com.fasterxml.jackson.core.`type`.TypeReference
-import com.mobikok.message.client.MessageClient
+import com.mobikok.message.client.MessageClientApi
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.util.MySqlJDBCClient.Callback
@@ -59,7 +59,7 @@ class SyncMysql2HiveHandlerV2 extends Handler {
     }
 
     mySqlJDBCClient = new MySqlJDBCClient(
-      rdbUrl, rdbUser, rdbPassword
+      moduleName, rdbUrl, rdbUser, rdbPassword
     )
   }
 
@@ -68,7 +68,7 @@ class SyncMysql2HiveHandlerV2 extends Handler {
     lock.synchronized{
       LOG.warn(s"SyncMysql2HiveHandler start")
 
-      MC.pull(syncUpdateMysql2HiveCer, updateWhereTopic, { ms=>
+      messageClient.pull(syncUpdateMysql2HiveCer, updateWhereTopic, { ms=>
 
         // 获取修改的有哪些
         val tablesUpdateWhere = mutable.Map[String, ListBuffer[String]]()

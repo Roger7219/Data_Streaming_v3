@@ -38,10 +38,11 @@ PRIMARY KEY (`topic`,`partition`,`module_name`)
 /**
   * Created by Administrator on 2017/6/14.
   */
-class KafkaClient (moduleName: String, config: Config, transactionManager: TransactionManager, moduleTracer: ModuleTracer) extends TransactionalClient {
+class KafkaClient (moduleName: String, config: Config, messageClient: MessageClient, transactionManager: TransactionManager, moduleTracer: ModuleTracer) extends TransactionalClient {
+  val kafkaOffsetTool = new KafkaOffsetTool(moduleName)
 
   def getLastOffsetAsJava (topics: Array[String]): java.util.Map[kafka.common.TopicAndPartition, java.lang.Long] = {
-    return KafkaOffsetTool.getLatestOffset(consumerBootstrapServers, topics.toList , "last_offsert_reader");
+    return kafkaOffsetTool.getLatestOffset(consumerBootstrapServers, topics.toList , "last_offsert_reader");
   }
 
   def getLatestOffset(topics: Array[String]): mutable.Map[kafka.common.TopicAndPartition, Long]  = {
@@ -49,7 +50,7 @@ class KafkaClient (moduleName: String, config: Config, transactionManager: Trans
   }
 
   def getEarliestOffsetAsJava (topics: Array[String]): java.util.Map[kafka.common.TopicAndPartition, java.lang.Long] = {
-    return KafkaOffsetTool.getEarliestOffset(consumerBootstrapServers, topics.toList , "earliest_offsert_reader");
+    return kafkaOffsetTool.getEarliestOffset(consumerBootstrapServers, topics.toList , "earliest_offsert_reader");
   }
 
   def getEarliestOffset (topics: Array[String]): mutable.Map[kafka.common.TopicAndPartition, Long]  = {
@@ -69,8 +70,8 @@ class KafkaClient (moduleName: String, config: Config, transactionManager: Trans
 
   private val backupCompletedTableNameForTransactionalTmpTableNameReplacePattern = transactionalLegacyDataBackupCompletedTableSign
 
-  val LOG: Logger = new Logger(moduleName, getClass.getName, new Date().getTime)
-  var table: String = null
+  val LOG: Logger = new Logger(moduleName, getClass, new Date().getTime)
+  var table: String = null //通常表名定义为: offset
 
   private def ddl(): Unit ={
     mySqlJDBCClient.execute(
@@ -89,9 +90,10 @@ class KafkaClient (moduleName: String, config: Config, transactionManager: Trans
 
   override def init (): Unit = {
     LOG.warn(s"KafkaClient init started")
-    classOf[Driver]
+//    classOf[Driver]
 
     mySqlJDBCClient = new MySqlJDBCClient(
+      moduleName,
       config.getString(s"rdb.url"),
       config.getString(s"rdb.user"),
       config.getString(s"rdb.password")

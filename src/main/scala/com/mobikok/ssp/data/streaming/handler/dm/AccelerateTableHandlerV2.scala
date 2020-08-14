@@ -1,6 +1,6 @@
 package com.mobikok.ssp.data.streaming.handler.dm
 
-import com.mobikok.message.client.MessageClient
+import com.mobikok.message.client.MessageClientApi
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.exception.HandlerException
@@ -130,7 +130,7 @@ class AccelerateTableHandlerV2 extends Handler {
   }
 
   def initAccelerTable(lastLTimeTopic:String, lastLTime: String, consumer: String, topics: Array[String], prevSqls: Array[String], baseTable: String, createBaseTableSql: String, incrViewSql: String, view: String): Unit = {
-    MC.pullLTimeDesc(
+    messageClient.pullLTimeDesc(
       consumer,
       topics,
       {l_times=>
@@ -180,7 +180,7 @@ class AccelerateTableHandlerV2 extends Handler {
           """.stripMargin)
 
           // 用于记录l_time，要确保后续l_time要大于此前的l_time，否则触发重新初始化
-          MC.push(UpdateReq(lastLTimeTopic, currLt))
+          messageClient.push(UpdateReq(lastLTimeTopic, currLt))
 
           true
         }
@@ -209,7 +209,7 @@ class AccelerateTableHandlerV2 extends Handler {
           var lastLTimeConsumer = s"${view}_lastLTime_cer"
 
           // Init
-          MC.pull(needInitConsumer, Array(needInitTopic), {resp=>
+          messageClient.pull(needInitConsumer, Array(needInitTopic), { resp=>
 
             //有消息有说明需要重新初始化baseTable, 无视消息具体内容
             if(resp.size() > 0) {
@@ -224,7 +224,7 @@ class AccelerateTableHandlerV2 extends Handler {
 
           // Incr
           // 注意用的是含'Tail'的pullAndSortByLTimeDescTailHivePartitionParts,获取的是排除第一个的l_time(s)
-          MC.pullLTimeDescTail(
+          messageClient.pullLTimeDescTail(
             consumer,
             topics,
             {l_times =>
@@ -233,7 +233,7 @@ class AccelerateTableHandlerV2 extends Handler {
                 // 检查l_time是否合法：要确保后续l_time要大于此前的l_time，否则触发重新初始化
                 var isIncr = true
                 var lastLTime:String = null
-                MC.pull(lastLTimeConsumer, Array(lastLTimeTopic), {ms=>
+                messageClient.pull(lastLTimeConsumer, Array(lastLTimeTopic), { ms=>
                   if(ms.nonEmpty) {
                     lastLTime = ms.head.getData
                     l_times.foreach { x =>
@@ -307,7 +307,7 @@ class AccelerateTableHandlerV2 extends Handler {
                     """.stripMargin)
 
                     // 用于记录l_time，要确保后续l_time要大于此前的l_time，否则触发重新初始化
-                    MC.push(UpdateReq(lastLTimeTopic, prevLt))
+                    messageClient.push(UpdateReq(lastLTimeTopic, prevLt))
 
                     LOG.warn("Incr table  for final dm done")
 

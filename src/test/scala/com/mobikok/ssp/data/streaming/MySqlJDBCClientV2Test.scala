@@ -25,7 +25,7 @@ object MySqlJDBCClientV2Test {
     }
 
     val mySqlJDBCClient = new MySqlJDBCClient(
-      rdbUrl, rdbUser, rdbPassword
+      "MySqlJDBCClientV2Test", rdbUrl, rdbUser, rdbPassword
     )
     val sqls =
       s"""

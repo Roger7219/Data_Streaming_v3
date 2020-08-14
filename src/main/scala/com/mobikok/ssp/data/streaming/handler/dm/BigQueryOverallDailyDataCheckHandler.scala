@@ -4,17 +4,15 @@ import java.util.{HashMap, List, Map}
 
 import com.fasterxml.jackson.core.`type`.TypeReference
 import com.mobikok.message.Resp
-import com.mobikok.message.client.MessageClient
 import com.mobikok.monitor.client.{MonitorClient, MonitorMessage}
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
-import com.mobikok.ssp.data.streaming.handler.dm.Handler
 import com.mobikok.ssp.data.streaming.util._
 import com.typesafe.config.Config
 import org.apache.spark.sql.hive.HiveContext
 
-import scala.collection.mutable.ListBuffer
 import scala.collection.JavaConversions._
+import scala.collection.mutable.ListBuffer
 
 
 /**
@@ -29,7 +27,7 @@ class BigQueryOverallDailyDataCheckHandler extends  Handler{
   override def init(moduleName: String, bigQueryClient: BigQueryClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config, clickHouseClient: ClickHouseClient, moduleTracer: ModuleTracer): Unit = {
     super.init(moduleName, bigQueryClient, rDBConfig, kafkaClient, messageClient, hbaseClient, hiveContext, argsConfig, handlerConfig, clickHouseClient, moduleTracer)
 
-    monitorClient = new MonitorClient(messageClient)
+    monitorClient = new MonitorClient(messageClient.messageClientApi)
   }
 
 
@@ -48,7 +46,7 @@ class BigQueryOverallDailyDataCheckHandler extends  Handler{
 
     //每天凌晨5点执行一次
     val updateTime = CSTTime.now.modifyHourAsDate(-5)
-    MC.pull("bigquery_overall_dailydatacheck_cer", Array("bigquery_overall_dailydatacheck_topic"), { x =>
+    messageClient.pull("bigquery_overall_dailydatacheck_cer", Array("bigquery_overall_dailydatacheck_topic"), { x =>
       val run = x.isEmpty || (!x.map(_.getKeyBody).contains(updateTime))
 
       if(run){
@@ -89,7 +87,7 @@ class BigQueryOverallDailyDataCheckHandler extends  Handler{
 
       }
 
-      MC.push(new PushReq("bigquery_overall_dailydatacheck_topic", updateTime))
+      messageClient.push(new PushReq("bigquery_overall_dailydatacheck_topic", updateTime))
       true
     })
 

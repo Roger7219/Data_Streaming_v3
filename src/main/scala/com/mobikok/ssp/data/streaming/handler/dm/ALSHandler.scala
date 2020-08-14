@@ -2,11 +2,11 @@ package com.mobikok.ssp.data.streaming.handler.dm
 
 import java.util.Date
 
-import com.mobikok.message.client.MessageClient
+import com.mobikok.message.client.MessageClientApi
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.exception.HandlerException
-import com.mobikok.ssp.data.streaming.util.{CSTTime, ModuleTracer}
+import com.mobikok.ssp.data.streaming.util.{CSTTime, MessageClient, ModuleTracer}
 import com.typesafe.config.Config
 import org.apache.spark.mllib.recommendation.{ALS, MatrixFactorizationModel, Rating}
 import org.apache.spark.rdd.RDD

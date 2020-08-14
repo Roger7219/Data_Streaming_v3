@@ -38,10 +38,11 @@ object HBaseClientPutPhoenixDataTest  {
 
   val sc:SparkContext = null //new SparkContext(sparkConf)
 
-  val hbaseClient = new HBaseClient("test_moudle", sc, config, new TransactionManager(
+  val hbaseClient = new HBaseClient("test_moudle", sc, config, null, new TransactionManager(
     config,
-    new AlwaysTransactionalStrategy(CSTTime.formatter("yyyy-MM-dd HH:00:00"), CSTTime.formatter("yyyy-MM-dd 00:00:00"))
-  ), new ModuleTracer ())
+    new AlwaysTransactionalStrategy(CSTTime.formatter("yyyy-MM-dd HH:00:00"), CSTTime.formatter("yyyy-MM-dd 00:00:00"), "table0"),
+  "table0"
+  ), new ModuleTracer (null, null, null, null))
 
   val hc = new HiveContext(sc)
   import hc.implicits._

@@ -1,6 +1,6 @@
 package com.mobikok.ssp.data.streaming.handler.dm
 
-import com.mobikok.message.client.MessageClient
+import com.mobikok.message.client.MessageClientApi
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.util._
@@ -22,10 +22,11 @@ class IntegrationModeCapsHandler extends  Handler{
 
   var mySqlJDBCClient: MySqlJDBCClient = null
 
-  override def init (moduleName: String, bigQueryClient:BigQueryClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, hbaseClient: HBaseClient, hiveContext: HiveContext,argsConfig: ArgsConfig, handlerConfig: Config, clickHouseClient: ClickHouseClient, moduleTracer: ModuleTracer): Unit = {
+  override def init (moduleName: String, bigQueryClient:BigQueryClient, rDBConfig: RDBConfig, kafkaClient: KafkaClient, messageClient: MessageClient, hbaseClient: HBaseClient, hiveContext: HiveContext, argsConfig: ArgsConfig, handlerConfig: Config, clickHouseClient: ClickHouseClient, moduleTracer: ModuleTracer): Unit = {
     super.init(moduleName, bigQueryClient, rDBConfig, kafkaClient, messageClient, hbaseClient, hiveContext, argsConfig, handlerConfig, clickHouseClient, moduleTracer)
 
     mySqlJDBCClient = new MySqlJDBCClient(
+      moduleName,
       handlerConfig.getString(s"rdb.url"),
       handlerConfig.getString(s"rdb.user"),
       handlerConfig.getString(s"rdb.password")
@@ -39,7 +40,7 @@ class IntegrationModeCapsHandler extends  Handler{
     val now = CSTTime.now.date
 
     // 凌晨数据清零
-    MC.pull(TOADY_NEED_INIT_CER, Array(TOADY_NEED_INIT_TOPIC), {x=>
+    messageClient.pull(TOADY_NEED_INIT_CER, Array(TOADY_NEED_INIT_TOPIC), { x=>
       val toadyNeedInit =  x.isEmpty || ( !x.map(_.getKeyBody).contains(now) )
 
       if(toadyNeedInit){
@@ -48,12 +49,12 @@ class IntegrationModeCapsHandler extends  Handler{
 
         mySqlJDBCClient.execute(s""" update OFFER set TodayModeCaps = "" WHERE status=1 and amStatus=1 """)
       }
-      MC.push(new PushReq(TOADY_NEED_INIT_TOPIC, now))
+      messageClient.push(new PushReq(TOADY_NEED_INIT_TOPIC, now))
       true
     })
 
     //准实时刷新caps
-    MC.pullBDateDesc(
+    messageClient.pullBDateDesc(
       CONSUMER,
       TOPICS,
       {x=>

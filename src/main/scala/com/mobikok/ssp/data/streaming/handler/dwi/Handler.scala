@@ -5,7 +5,7 @@ import java.util.Date
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.transaction.{TransactionCookie, TransactionManager, TransactionalHandler}
-import com.mobikok.ssp.data.streaming.util.{Logger, ModuleTracer}
+import com.mobikok.ssp.data.streaming.util.{Logger, MessageClient, ModuleTracer}
 import com.typesafe.config.Config
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.hive.HiveContext
@@ -17,6 +17,7 @@ trait Handler extends TransactionalHandler with com.mobikok.ssp.data.streaming.h
 
   var LOG: Logger = _
   var moduleName: String = _
+  var transactionManager: TransactionManager = _
   var hbaseClient:HBaseClient = _
   var hiveClient: HiveClient = _
   var kafkaClient: KafkaClient = _
@@ -30,7 +31,7 @@ trait Handler extends TransactionalHandler with com.mobikok.ssp.data.streaming.h
   var isOverwriteFixedLTime: Boolean = _
   var moduleTracer: ModuleTracer = _
 
-  var transactionManager: TransactionManager = _
+  var messageClient: MessageClient = _
 
   def init (moduleName: String,
             transactionManager:TransactionManager,
@@ -41,9 +42,10 @@ trait Handler extends TransactionalHandler with com.mobikok.ssp.data.streaming.h
             argsConfig: ArgsConfig,
             handlerConfig: Config,
             globalConfig: Config,
+            messageClient: MessageClient,
             moduleTracer: ModuleTracer): Unit = {
 
-    LOG = new Logger(moduleName, getClass.getName, new Date().getTime)
+    LOG = new Logger(moduleName, getClass, new Date().getTime)
 
     this.moduleName = moduleName
     this.transactionManager = transactionManager
@@ -58,6 +60,7 @@ trait Handler extends TransactionalHandler with com.mobikok.ssp.data.streaming.h
     this.version = argsConfig.get(ArgsConfig.VERSION, ArgsConfig.Value.VERSION_DEFAULT)
     this.moduleConfig = globalConfig.getConfig(s"modules.$moduleName")
     this.isOverwriteFixedLTime = if(moduleConfig.hasPath("overwrite")) moduleConfig.getBoolean("overwrite") else false
+    this.messageClient = messageClient
     this.moduleTracer = moduleTracer
 
     try {

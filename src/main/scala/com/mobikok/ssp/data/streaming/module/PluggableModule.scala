@@ -5,7 +5,7 @@ import java.util.Date
 import java.util.concurrent.CountDownLatch
 
 import com.mobikok.message.Message
-import com.mobikok.message.client.MessageClient
+import com.mobikok.message.client.MessageClientApi
 import com.mobikok.ssp.data.streaming.App
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
@@ -14,7 +14,7 @@ import com.mobikok.ssp.data.streaming.exception.ModuleException
 import com.mobikok.ssp.data.streaming.handler.dm
 import com.mobikok.ssp.data.streaming.handler.dwi.core.{HBaseDWIPersistHandler, HiveDWIPersistHandler, InitializedDwiHandler}
 import com.mobikok.ssp.data.streaming.handler.dwr.core._
-import com.mobikok.ssp.data.streaming.module.support.MixModulesBatchController
+import com.mobikok.ssp.data.streaming.module.support.{MixModulesBatchController, TimeGranularity}
 import com.mobikok.ssp.data.streaming.module.support.repeats.{BTimeRangeRepeatsFilter, DefaultRepeatsFilter, RepeatsFilter}
 import com.mobikok.ssp.data.streaming.transaction.TransactionRoolbackedCleanable
 import com.mobikok.ssp.data.streaming.udf.HiveContextCreator
@@ -43,9 +43,7 @@ class PluggableModule(globalConfig: Config,
                       /* dwiStructType: StructType,*/
                       ssc: StreamingContext) extends Module {
 
-  App.moduleNameThreadLocal.set(moduleName)
-
-  val LOG: Logger = new Logger(moduleName, getClass.getName, new Date().getTime)
+  val LOG: Logger = new Logger(moduleName, getClass, new Date().getTime)
 
   //----------------------  Constants And Fields  -------------------------
   val appName = ssc.sparkContext.getConf.get("spark.app.name")
@@ -84,7 +82,7 @@ class PluggableModule(globalConfig: Config,
     businessTimeExtractBy = globalConfig.getString(s"modules.$moduleName.b_time.by")
   } catch {case _: Throwable =>}
 
-  var topics = globalConfig.getConfigList(s"modules.$moduleName.kafka.consumer.partitions").map { x => x.getString("topic") }.toArray[String]
+  var topics = globalConfig.getConfigList(s"modules.$moduleName.kafka.consumer.partitions").map { x => x.getString("topic") }.toSet[String].toArray[String]
 
   LOG.warn("kafka topics:","topics", topics , "partitions conf path", s"modules.$moduleName.kafka.consumer.partitions")
 
@@ -98,22 +96,21 @@ class PluggableModule(globalConfig: Config,
   val isMaster = mixModulesBatchController.isMaster(moduleName)
   //-------------------------  Constants And Fields End  -------------------------
 
-  var stream: InputDStream[ConsumerRecord[String, Object]] = _  //Value Type: String or Array[Byte]
-
   //-------------------------  Tools  -------------------------
-  var moduleTracer: ModuleTracer = new ModuleTracer(moduleName, globalConfig, mixModulesBatchController)
-  val transactionManager = mixModulesBatchController.getTransactionManager()
+  val messageClient = new MessageClient(moduleName)
+  var moduleTracer: ModuleTracer = new ModuleTracer(moduleName, globalConfig, mixModulesBatchController, messageClient)
   //-------------------------  Tools End  -------------------------
 
+  var stream: InputDStream[ConsumerRecord[String, Object]] = _  //Value Type: String or Array[Byte]
+  val transactionManager = mixModulesBatchController.getTransactionManager()
 
   //-------------------------  Clients  -------------------------
   val hiveContext = HiveContextCreator.create(ssc.sparkContext)
 
   var mySqlJDBCClient = new MySqlJDBCClient(
-    globalConfig.getString(s"rdb.url"), globalConfig.getString(s"rdb.user"), globalConfig.getString(s"rdb.password")
+    moduleName, globalConfig.getString(s"rdb.url"), globalConfig.getString(s"rdb.user"), globalConfig.getString(s"rdb.password")
   )
   val rDBConfig = new RDBConfig(mySqlJDBCClient)
-  val messageClient = new MessageClient(moduleName, globalConfig.getString("message.client.url"))
 
   var bigQueryClient:BigQueryClient = null
   try {
@@ -122,10 +119,9 @@ class PluggableModule(globalConfig: Config,
     case e: Throwable => LOG.warn("BigQueryClient init fail, Skiped it", s"${e.getClass.getName}: ${e.getMessage}")
   }
 
-  var hbaseClient = new HBaseClient(moduleName, ssc.sparkContext, globalConfig, transactionManager, moduleTracer)
+  var hbaseClient = new HBaseClient(moduleName, ssc.sparkContext, globalConfig, messageClient, transactionManager, moduleTracer)
   val hiveClient = new HiveClient(moduleName, globalConfig, ssc, messageClient, transactionManager, moduleTracer)
-  val kafkaClient = new KafkaClient(moduleName, globalConfig, transactionManager, moduleTracer)
-
+  val kafkaClient = new KafkaClient(moduleName, globalConfig, messageClient, transactionManager, moduleTracer)
   val clickHouseClient = new ClickHouseClient(moduleName, globalConfig, ssc, messageClient, transactionManager, hiveContext, moduleTracer)
   //-------------------------  Clients End  -------------------------
 
@@ -153,7 +149,7 @@ class PluggableModule(globalConfig: Config,
   var dwiHandlers: List[com.mobikok.ssp.data.streaming.handler.dwi.Handler] = _
   var dwiBTimeFormat = "yyyy-MM-dd HH:00:00"
   try {
-    dwiBTimeFormat = globalConfig.getString(s"modules.$moduleName.dwi.business.time.format.by")
+    dwiBTimeFormat = globalConfig.getString(s"modules.$moduleName.dwi.b_time.format")
   } catch {
     case _: Throwable =>
   }
@@ -220,7 +216,7 @@ class PluggableModule(globalConfig: Config,
 
   var dwrBTimeFormat = "yyyy-MM-dd HH:00:00"
   try {
-    dwrBTimeFormat = globalConfig.getString(s"modules.$moduleName.dwr.business.time.format.by")
+    dwrBTimeFormat = globalConfig.getString(s"modules.$moduleName.dwr.b_time.format")
   } catch {case _: Throwable =>}
 
   var dwrIncludeRepeated = true
@@ -275,6 +271,9 @@ class PluggableModule(globalConfig: Config,
       initDwrHandlers()
       initDmHandlers()
 
+      tryCreateTableForVersionFeatures()
+      resetKafkaCommittedOffsetByArgsConfig()
+
       if(mixModulesBatchController.isRunnable(moduleName)){
         mySqlJDBCClient.execute(
           s"""
@@ -305,9 +304,6 @@ class PluggableModule(globalConfig: Config,
              |    batch_actual_time = -1
                  """.stripMargin)
       }
-
-      tryCreateTableForVersionFeatures()
-      resetKafkaCommittedOffsetByArgsConfig()
 
       initHeartbeat()
 
@@ -451,8 +447,8 @@ class PluggableModule(globalConfig: Config,
               .withColumn("l_time", expr(dwrLTimeExpr))
               .withColumn("b_date", to_date(expr(businessTimeExtractBy)).cast("string"))
               .withColumn("b_time", expr(s"from_unixtime(unix_timestamp($businessTimeExtractBy), '$dwrBTimeFormat')").as("b_time"))
-              .withColumn("b_version", expr("'0'")) // 默认0
-              .groupBy(col("l_time") :: col("b_date") :: col("b_time") :: col("b_version") :: dwrGroupByExprs: _*)
+              /*.withColumn("b_version", expr("'0'")) // 默认0*/
+              .groupBy(col("l_time") :: col("b_date") :: col("b_time") /*:: col("b_version")*/ :: dwrGroupByExprs: _*)
               .agg(aggExprs.head, aggExprs.tail: _*)
 
             //-----------------------------------------------------------------------------------------------------------------
@@ -568,7 +564,7 @@ class PluggableModule(globalConfig: Config,
       } catch {
         case e: Exception => {
           LOG.warn(s"Kill self yarn app, because module '$moduleName' execution failed !!!", "important_notice", "Kill self yarn app at once !!!", "app_name", appName, "error", e)
-          YarnAppManagerUtil.killApps(appName)
+          YarnAppManagerUtil.killApps(appName, messageClient)
           throw new ModuleException(s"${getClass.getSimpleName} '$moduleName' execution failed !! ", e)
         }
       }
@@ -659,7 +655,7 @@ class PluggableModule(globalConfig: Config,
     dwiHandlers = List()
 
     val initializedHandler = new InitializedDwiHandler(repeatsFilter, businessTimeExtractBy, isEnableDwiUuid, dwiBTimeFormat, argsConfig)
-    initializedHandler.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, null, globalConfig, moduleTracer)
+    initializedHandler.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, null, globalConfig, messageClient, moduleTracer)
 
     dwiHandlers = dwiHandlers :+ initializedHandler
 
@@ -669,7 +665,7 @@ class PluggableModule(globalConfig: Config,
         val hc = x
         val className = hc.getString("class")
         val h = Class.forName(className).newInstance().asInstanceOf[com.mobikok.ssp.data.streaming.handler.dwi.Handler]
-        h.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, hc, globalConfig, moduleTracer)
+        h.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, hc, globalConfig, messageClient, moduleTracer)
         LOG.warn("Init dwi handler", h.getClass.getName)
         h
       }.toList
@@ -678,13 +674,13 @@ class PluggableModule(globalConfig: Config,
     // 核心常用handler的快捷配置，无需在配置文件里指定handler类名
     if (isDwiStore) {
       val hiveDWIPersistHandler = new HiveDWIPersistHandler()
-      hiveDWIPersistHandler.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, null, globalConfig, moduleTracer)
+      hiveDWIPersistHandler.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, null, globalConfig, messageClient, moduleTracer)
       dwiHandlers = dwiHandlers :+ hiveDWIPersistHandler
     }
     // 核心常用handler的快捷配置，无需在配置文件里指定handler类名
     if (isDwiPhoenixStore) {
       val hbaseDWIPersistHandler = new HBaseDWIPersistHandler()
-      hbaseDWIPersistHandler.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, null, globalConfig, moduleTracer)
+      hbaseDWIPersistHandler.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, null, globalConfig, messageClient, moduleTracer)
       dwiHandlers = dwiHandlers :+ hbaseDWIPersistHandler
     }
 
@@ -694,7 +690,9 @@ class PluggableModule(globalConfig: Config,
   def initDwrHandlers(): Unit ={
     dwrHandlers = new util.ArrayList[com.mobikok.ssp.data.streaming.handler.dwr.Handler]()
     if (!dwrIncludeRepeated) {
-      dwrHandlers.add(new NonRepeatedPrepareDwrHandler(repeatsFilter))
+      val h = new NonRepeatedPrepareDwrHandler(repeatsFilter)
+      h.init(moduleName, transactionManager, hbaseClient, hiveClient, clickHouseClient, null, globalConfig, messageClient, moduleTracer)
+      dwrHandlers.add(h)
     }
 
     // Config eg: dwr.handlers = [{class=""}]
@@ -702,19 +700,54 @@ class PluggableModule(globalConfig: Config,
       globalConfig.getConfigList(s"modules.$moduleName.dwr.handlers").foreach { x =>
         val hc = x
         val h = Class.forName(hc.getString("class")).newInstance().asInstanceOf[com.mobikok.ssp.data.streaming.handler.dwr.Handler]
-        h.init(moduleName, transactionManager, hbaseClient, hiveClient, clickHouseClient, hc, globalConfig, moduleTracer)
+        h.init(moduleName, transactionManager, hbaseClient, hiveClient, clickHouseClient, hc, globalConfig, messageClient, moduleTracer)
         dwrHandlers.add(h)
       }
     }
 
     // 核心常用handler的快捷配置，无需在配置文件里指定handler类名
     if (isDwrStore) {
-      val dwrPersistHandler = new HiveDWRPersistHandler()
-      dwrPersistHandler.init(moduleName, transactionManager, hbaseClient, hiveClient, clickHouseClient, null, globalConfig, moduleTracer)
-      dwrHandlers.add(dwrPersistHandler)
+      if(globalConfig.hasPath(s"modules.$moduleName.dwr.subtables")){
+        globalConfig.getConfig(s"modules.$moduleName.dwr.subtables").root().foreach{case(subTableSuffix, _)=>
+
+          val (subDwrTable, groupByFields, where, timeGranularity) = parseSubDwrTablesConfig(moduleName, subTableSuffix)
+
+          val dwrPersistHandler = new HiveDWRPersistHandler(dwrTable, subDwrTable, groupByFields, where, timeGranularity)
+          dwrPersistHandler.init(moduleName, transactionManager, hbaseClient, hiveClient, clickHouseClient, null, globalConfig, messageClient, moduleTracer)
+          dwrHandlers.add(dwrPersistHandler)
+        }
+      }else {
+        val dwrPersistHandler = new HiveDWRPersistHandler(dwrTable, Array("*"), null, TimeGranularity.Default)
+        dwrPersistHandler.init(moduleName, transactionManager, hbaseClient, hiveClient, clickHouseClient, null, globalConfig, messageClient, moduleTracer)
+        dwrHandlers.add(dwrPersistHandler)
+      }
     }
 
     asyncHandlersCount += dwrHandlers.map{ x=>if(x.isAsynchronous) 1 else 0}.sum
+  }
+
+  private def parseSubDwrTablesConfig(moduleName: String, subTableSuffix: String): (String, Array[String], String, TimeGranularity) ={
+    val ts = s"modules.$moduleName.dwr.subtables"
+    val SUB_TABLE_DEFAULT = "this" // this表示配置的dwr.table就是子表自身
+    (
+      // subTable
+      if (SUB_TABLE_DEFAULT.equals(subTableSuffix)) dwrTable else s"${dwrTable}_${subTableSuffix}",
+
+      // groupByFields
+      if(globalConfig.hasPath(s"$ts.${subTableSuffix}.groupby"))
+        globalConfig.getString(s"$ts.${subTableSuffix}.groupby").split(",").map(_.trim).filter(StringUtil.notEmpty(_))
+      else Array("*"),
+
+      // where
+      if(globalConfig.hasPath(s"$ts.${subTableSuffix}.where")) globalConfig.getString(s"$ts.${subTableSuffix}.where") else null,
+
+      // timeGranularity
+      if(subTableSuffix.startsWith(TimeGranularity.Day.name))
+        TimeGranularity.Day
+      else if(subTableSuffix.startsWith(TimeGranularity.Month.name))
+        TimeGranularity.Month
+      else TimeGranularity.Default
+    )
   }
 
   def initDmHandlers(): Unit ={
@@ -756,7 +789,7 @@ class PluggableModule(globalConfig: Config,
     var appId: String = null
     var ms: List[Message] = List()
     if(true/*isMaster*/) {
-      MC.pull("kill_self_cer", Array(s"kill_self_$appName"), { x =>
+      messageClient.pull("kill_self_cer", Array(s"kill_self_$appName"), { x =>
         ms = x
         true
       })
@@ -766,7 +799,7 @@ class PluggableModule(globalConfig: Config,
       ms.foreach{y=>
         appId = y.getKeyBody
         LOG.warn(s"Kill self yarn app via user operation !!!", "important_notice", "Kill self yarn app at once !!!", "app_name", appName)
-        YarnAppManagerUtil.killApps(appName, appId)
+        YarnAppManagerUtil.killApps(appName, appId, messageClient)
       }
     }
 

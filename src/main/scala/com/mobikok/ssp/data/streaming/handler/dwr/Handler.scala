@@ -4,7 +4,7 @@ import java.util.Date
 
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.transaction.{TransactionCookie, TransactionManager, TransactionalHandler}
-import com.mobikok.ssp.data.streaming.util.{Logger, ModuleTracer}
+import com.mobikok.ssp.data.streaming.util.{Logger, MessageClient, ModuleTracer}
 import com.typesafe.config.Config
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.hive.HiveContext
@@ -24,6 +24,7 @@ trait Handler extends TransactionalHandler with com.mobikok.ssp.data.streaming.h
   var handlerConfig: Config = _
   var globalConfig: Config = _
   var moduleConfig: Config = _
+  var messageClient: MessageClient = _
   var moduleTracer: ModuleTracer = _
 
   def init(moduleName: String,
@@ -33,8 +34,9 @@ trait Handler extends TransactionalHandler with com.mobikok.ssp.data.streaming.h
            clickHouseClient: ClickHouseClient,
            handlerConfig: Config,
            globalConfig: Config, // 获取group by，agg字段
+           messageClient: MessageClient,
            moduleTracer: ModuleTracer): Unit = {
-    LOG = new Logger(moduleName, getClass.getName, new Date().getTime)
+    LOG = new Logger(moduleName, getClass, new Date().getTime)
     this.moduleName = moduleName
     this.transactionManager = transactionManager
     this.hbaseClient = hbaseClient
@@ -44,6 +46,7 @@ trait Handler extends TransactionalHandler with com.mobikok.ssp.data.streaming.h
     this.handlerConfig = handlerConfig
     this.globalConfig = globalConfig
     this.moduleConfig = globalConfig.getConfig(s"modules.$moduleName")
+    this.messageClient = messageClient
     this.moduleTracer = moduleTracer
     try {
       isAsynchronous = handlerConfig.getBoolean("async")

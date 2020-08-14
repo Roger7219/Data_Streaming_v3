@@ -17,7 +17,7 @@ object Spark2HiveTest {
 
   Logger.getLogger("org.apache.spark").setLevel(Level.WARN)
 
-  var LOG:com.mobikok.ssp.data.streaming.util.Logger  = new com.mobikok.ssp.data.streaming.util.Logger(this.getClass.getName)
+  var LOG:com.mobikok.ssp.data.streaming.util.Logger  = new com.mobikok.ssp.data.streaming.util.Logger("Spark2HiveTest", this.getClass)
 
 
   var config: Config = ConfigFactory.load

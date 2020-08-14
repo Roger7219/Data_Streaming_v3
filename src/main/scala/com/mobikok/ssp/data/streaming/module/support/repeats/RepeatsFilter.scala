@@ -32,7 +32,7 @@ trait RepeatsFilter {
            dwiTable: String
           ): Unit = {
 
-    LOG = new Logger(moduleName, getClass.getName, new Date().getTime)
+    LOG = new Logger(moduleName, getClass, new Date().getTime)
     this.config = config
     this.shufflePartitions = config.getInt("spark.conf.set.spark.sql.shuffle.partitions")
     this.hiveContext = hiveContext

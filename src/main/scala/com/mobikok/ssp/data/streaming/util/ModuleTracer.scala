@@ -19,7 +19,7 @@ import scala.collection.JavaConversions._
   * Created by Administrator on 2017/10/10.
   * recordHistoryBatches: 记录历史批次次数
   */
-class ModuleTracer(moduleName: String, config: Config, mixModulesBatchController: MixModulesBatchController, recordHistoryBatches:Integer = 20) {
+class ModuleTracer(moduleName: String, globalConfig: Config, mixModulesBatchController: MixModulesBatchController, messageClient: MessageClient, recordHistoryBatches:Integer = 20) {
 
   def trace(traceMessage: String, waitFor: => Unit): Unit = {
 //    pauseBatch()
@@ -29,11 +29,11 @@ class ModuleTracer(moduleName: String, config: Config, mixModulesBatchController
     finalUpdatableTrace(traceMessage)
   }
 
-  val LOG: Logger = new Logger(classOf[ModuleTracer])
-  //兼容此前的
-  def this(){
-    this(null, null, null)
-  }
+  val LOG: Logger = new Logger(moduleName, classOf[ModuleTracer])
+//  //兼容此前的
+//  def this(){
+//    this(null, null, null, null)
+//  }
 
   @volatile private var LOCK: Object = new Object
   @volatile private var moduleBatchEndTime: Long = System.currentTimeMillis()
@@ -173,49 +173,44 @@ class ModuleTracer(moduleName: String, config: Config, mixModulesBatchController
           override def run (): Unit = {
             while (true) {
               try{
-                //兼容此前的
-                if(config != null)  {
-                  val b = config.getInt("spark.conf.streaming.batch.buration")
-                  val n = config.getString("spark.conf.set.spark.app.name")
+                val b = globalConfig.getInt("spark.conf.streaming.batch.buration")
+                val n = globalConfig.getString("spark.conf.set.spark.app.name")
 
 //                  val rand = new Random
 //                  var maxWaitingTimeMS = 1000*rand.nextInt(1000)
 //                  var maxWaitingTimeMS = Math.max(1000*b, 1000*60*60*2)
-                  var maxWaitingTimeMS = Math.max(1000*b, 1000*60*45)
+                var maxWaitingTimeMS = Math.max(1000*b, 1000*60*45)
 //                  var maxWaitingTimeMS = Math.max(1000*b, 1000*60*60*24)
-                  val c = DynamicConfig.of(n, DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS)
-                  MC.pull(s"${moduleName}_batch_processing_timeout_checker_cer", Array(c), { x=>
-                    if(x.nonEmpty) {
-                      try {
-                        maxWaitingTimeMS = Integer.parseInt(x.last.getKeyBody)
-                      }catch {case e:Throwable=>
-                       LOG.warn(s"Pull to the invalid  dynamic config '$c' setting value", x.last)
-                      }
+                val c = DynamicConfig.of(n, DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS)
+                messageClient.pull(s"${moduleName}_batch_processing_timeout_checker_cer", Array(c), { x=>
+                  if(x.nonEmpty) {
+                    try {
+                      maxWaitingTimeMS = Integer.parseInt(x.last.getKeyBody)
+                    }catch {case e:Throwable=>
+                     LOG.warn(s"Pull to the invalid  dynamic config '$c' setting value", x.last)
                     }
-                    true
-                  })
-
-                  val remainingWaitingTimeMS = maxWaitingTimeMS - (System.currentTimeMillis() - moduleBatchEndTime)
-
-                  LOG.trace("Checking batch processing using time",
-                    "remaining_waiting_time_MS", remainingWaitingTimeMS,
-                    "max_waiting_time_MS", maxWaitingTimeMS,
-                    "buration_seconds", b,
-                    "app_name", n,
-                    "app_batch_end_time", CSTTime.time(moduleBatchEndTime)
-                  )
-
-                  if(remainingWaitingTimeMS < 0){
-                    LOG.warn(s"App module batch processing timeout !!!", "important_notice", "Kill self yarn app at once !!!", "app_name", n, "module_name", moduleName, "max_batch_processing_time", (maxWaitingTimeMS/1000.0/60.0) +" minutes")
-
-                    Thread.sleep(1000*5) // 稍等一会儿kill自身，确保上述日志能打印出来
-
-                    YarnAppManagerUtil.killApps(n)
                   }
-                  Thread.sleep(maxWaitingTimeMS)
-                }else {
-                  Thread.sleep(Long.MaxValue)
+                  true
+                })
+
+                val remainingWaitingTimeMS = maxWaitingTimeMS - (System.currentTimeMillis() - moduleBatchEndTime)
+
+                LOG.trace("Checking batch processing using time",
+                  "remaining_waiting_time_MS", remainingWaitingTimeMS,
+                  "max_waiting_time_MS", maxWaitingTimeMS,
+                  "buration_seconds", b,
+                  "app_name", n,
+                  "app_batch_end_time", CSTTime.time(moduleBatchEndTime)
+                )
+
+                if(remainingWaitingTimeMS < 0){
+                  LOG.warn(s"App module batch processing timeout !!!", "important_notice", "Kill self yarn app at once !!!", "app_name", n, "module_name", moduleName, "max_batch_processing_time", (maxWaitingTimeMS/1000.0/60.0) +" minutes")
+
+                  Thread.sleep(1000*5) // 稍等一会儿kill自身，确保上述日志能打印出来
+
+                  YarnAppManagerUtil.killApps(n, messageClient)
                 }
+                Thread.sleep(maxWaitingTimeMS)
 
               }catch {case e:Throwable=>
                 LOG.error("Polling check current batch wait time occurrence error:", e)

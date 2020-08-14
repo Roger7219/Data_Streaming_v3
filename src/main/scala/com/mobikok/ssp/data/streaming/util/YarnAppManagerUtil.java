@@ -254,14 +254,14 @@ public class YarnAppManagerUtil {
 //        LOG.warn("Kill apps (exclude self) done. appName: " + appName + ", selfAppId" + latestApp +", force" + forceKill);
 //    }
 
-    public static void killApps(String appName) throws IOException, YarnException {
-        killApps(appName, null, true, Collections.EMPTY_SET);
+    public static void killApps(String appName, MessageClient messageClient) throws IOException, YarnException {
+        killApps(appName, null, true, Collections.EMPTY_SET, messageClient);
     }
-    public static void killApps(String appName, String specifiedAppId) throws IOException, YarnException {
-        killApps(appName, specifiedAppId, true, Collections.EMPTY_SET);
+    public static void killApps(String appName, String specifiedAppId, MessageClient messageClient) throws IOException, YarnException {
+        killApps(appName, specifiedAppId, true, Collections.EMPTY_SET, messageClient);
     }
-    public static void killApps(String appName, boolean forceKill, String excludeAppId) throws IOException, YarnException {
-        killApps(appName, null, forceKill, Collections.singleton(excludeAppId));
+    public static void killApps(String appName, boolean forceKill, String excludeAppId, MessageClient messageClient) throws IOException, YarnException {
+        killApps(appName, null, forceKill, Collections.singleton(excludeAppId), messageClient);
     }
 
     /**
@@ -270,7 +270,7 @@ public class YarnAppManagerUtil {
      * @throws IOException
      * @throws YarnException
      */
-    public static void killApps(String appName, String specifiedAppId, boolean forceKill, Set<String> excludeAppIds) throws IOException, YarnException {
+    public static void killApps(String appName, String specifiedAppId, boolean forceKill, Set<String> excludeAppIds, MessageClient messageClient) throws IOException, YarnException {
         LOG.warn("Kill apps START. appName: " + appName + ", specifiedAppId: " + specifiedAppId +", forceKill: " + forceKill + ", excludeAppIds: " + excludeAppIds);
 
 //        yarnClientInit();
@@ -308,7 +308,7 @@ public class YarnAppManagerUtil {
                 // 通知Kill,并等待完成
                 }else if(!notifiedKillMessage){
                     LOG.warn("Killing appName: " + currName + ", appId: " + currId + ", forceKill: " + forceKill);
-                    MC.push(new PushReq("kill_self_" + currName, currId));
+                    messageClient.push(new PushReq("kill_self_" + currName, currId));
                     notifiedKillMessage = true;
                 }
             }

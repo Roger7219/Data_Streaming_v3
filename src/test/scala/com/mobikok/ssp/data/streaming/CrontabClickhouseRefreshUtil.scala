@@ -3,12 +3,13 @@ package com.mobikok.ssp.data.streaming
 import java.text.SimpleDateFormat
 import java.util.Date
 
+import com.mobikok.message.client.MessageClientApi
 import com.mobikok.message.{MessageConsumerCommitReq, MessagePullReq, MessagePushReq}
-import com.mobikok.message.client.MessageClient
-import com.mobikok.ssp.data.streaming.BigQueryRefreshUtil.{DF, daysBetween, messageClient, sendMaxWaitingTimeMS}
+import com.mobikok.ssp.data.streaming.BigQueryRefreshUtil.{DF, daysBetween, messageClientApi, sendMaxWaitingTimeMS}
 import com.mobikok.ssp.data.streaming.config.DynamicConfig
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
-import com.mobikok.ssp.data.streaming.util.{CSTTime, MC, OM}
+import com.mobikok.ssp.data.streaming.util.{CSTTime, MessageClient, OM}
+
 import scala.collection.JavaConversions._
 /**nadx_p_matched_dwi_cer
   * Created by Administrator on 2017/9/26.
@@ -16,8 +17,9 @@ import scala.collection.JavaConversions._
 object CrontabClickhouseRefreshUtil {
 
   val DF = new SimpleDateFormat("yyyy-MM-dd")
-  val messageClient = new MessageClient("", "http://104.250.136.138:5555")
-//  val messageClient = new MessageClient("", "http://datarest.noadx.com:5555")
+  val messageClientApi = new MessageClientApi("", "http://104.250.136.138:5555")
+  MessageClient.init("http://datarest.noadx.com:5555")
+  val messageClient = new MessageClient("")
 
 
   // 天表：刷新（campaign、publisher以及 BI天表）
@@ -48,18 +50,18 @@ object CrontabClickhouseRefreshUtil {
 
   // 天表：从最新的消息开始消费，忽略掉历史消息（BI天表）
   def messageResetToLastest_BI_day(): Unit ={
-    messageResetToLastest("ck_report_overall_day", Array("ssp_report_overall_dwr_day", "ssp_report_overall_dm_day_v2_update", "ck_report_overall_day", "PublisherThirdIncomeDMReflush"))
+    messageResetToLatest("ck_report_overall_day", Array("ssp_report_overall_dwr_day", "ssp_report_overall_dm_day_v2_update", "ck_report_overall_day", "PublisherThirdIncomeDMReflush"))
   }
 
   // 天表：从最新的消息开始消费，忽略掉历史消息（SSP campaign和pubsliher天表）
   def messageResetToLastest_ssp_campaign_and_publisher_day(): Unit ={
-    messageResetToLastest("ssp_report_campaign_dm_bqcer", Array("ssp_report_overall_dwr_day", "bq_report_campaign_update"))
-    messageResetToLastest("ssp_report_publisher_dm_bqcer", Array("ssp_report_overall_dwr_day", "bq_report_publisher_update"))
+    messageResetToLatest("ssp_report_campaign_dm_bqcer", Array("ssp_report_overall_dwr_day", "bq_report_campaign_update"))
+    messageResetToLatest("ssp_report_publisher_dm_bqcer", Array("ssp_report_overall_dwr_day", "bq_report_publisher_update"))
   }
 
   // 小时表：从最新的消息开始消费，忽略掉历史消息（BI小时表）
   def messageResetToLastest_BI_hour(): Unit ={
-    messageResetToLastest("cktest", Array("ssp_report_overall_dwr", "update_ssp_report_overall2", "PublisherThirdIncomeDMReflush", "ck_report_overall"))
+    messageResetToLatest("cktest", Array("ssp_report_overall_dwr", "update_ssp_report_overall2", "PublisherThirdIncomeDMReflush", "ck_report_overall"))
   }
 
   def main (args: Array[String]): Unit = {
@@ -458,7 +460,7 @@ object CrontabClickhouseRefreshUtil {
 
 //    killApp("overall_dwi")
 //    killApp("overall")
-//    killApp("overall")
+    killApp("overall", null)
 
 //      killApp("adx_dwr_v20", "application_1561429996932_4476")
 
@@ -556,17 +558,16 @@ object CrontabClickhouseRefreshUtil {
   }
 
 
-  def messageResetToLastest(consumer: String, topics: Array[String]): Unit = {
-    MC.init(messageClient)
-    MC.pull(consumer,topics, {x=> true})
+  def messageResetToLatest(consumer: String, topics: Array[String]): Unit = {
+    messageClient.pull(consumer,topics, {_=>true})
   }
 
   def sendMaxWaitingTimeMS(appName:String, ms: String): Unit ={
-    messageClient.pushMessage(new MessagePushReq(appName, ms))
+    messageClientApi.pushMessage(new MessagePushReq(appName, ms))
   }
 
   def killApp(appName:String, appId:String): Unit = {
-    messageClient.pushMessage(new MessagePushReq("kill_self_"+appName,  appId))
+    messageClientApi.pushMessage(new MessagePushReq("kill_self_"+appName,  appId))
   }
 
 
@@ -578,7 +579,7 @@ object CrontabClickhouseRefreshUtil {
       )
     }
     println(s)
-    messageClient.pushMessage(s: _*);
+    messageClientApi.pushMessage(s: _*);
   }
 
   def sendMsg_btime(topic: String, days: Int): Unit = {
@@ -623,7 +624,7 @@ object CrontabClickhouseRefreshUtil {
       }
     }.flatMap{x=>x}
     println(s)
-    messageClient.pushMessage(s: _*);
+    messageClientApi.pushMessage(s: _*);
   }
 
   def sendMsg_btime (topic: String, b_time: String): Unit = {
@@ -637,14 +638,14 @@ object CrontabClickhouseRefreshUtil {
       }
     }.flatMap{x=>x}
     println(s)
-    messageClient.pushMessage(s: _*);
+    messageClientApi.pushMessage(s: _*);
   }
   //ssp_report_campaign_month_dm_needInitBaseTable
   def sendMsgDmTableGeneratorHandlerNeedInit (topic: String, table:String, appName:String): Unit ={
 
     var yesterdayDateTime = CSTTime.now.offset(-1000*60*60*24, "yyyy-MM-dd 00:00:00")
       //CSTTime.formatter("yyyy-MM-dd 00:00:00").format(CSTTime.timeObject(CSTTime.now.ms() - 1000*60*60*24))
-    messageClient.pushMessage(Array(new MessagePushReq(table + "_needInitBaseTable", "needInit")):_*)
+    messageClientApi.pushMessage(Array(new MessagePushReq(table + "_needInitBaseTable", "needInit")):_*)
     sendMsg_l_time(topic, yesterdayDateTime)
     // +1 天
     val f= CSTTime.formatter("yyyy-MM-dd HH:mm:ss")
@@ -665,7 +666,7 @@ object CrontabClickhouseRefreshUtil {
       )
     }
     println(s)
-    messageClient.pushMessage(s: _*);
+    messageClientApi.pushMessage(s: _*);
 
     sendMaxWaitingTimeMS(DynamicConfig.of(appName, DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(1000*60*5*days*2)) // 4小时
 
@@ -683,7 +684,7 @@ object CrontabClickhouseRefreshUtil {
       )
     }
     println(s)
-    messageClient.pushMessage(s: _*);
+    messageClientApi.pushMessage(s: _*);
   }
 
   //包含startBTime和endBTime
@@ -705,7 +706,7 @@ object CrontabClickhouseRefreshUtil {
       )
     }
 //    println(s)
-    messageClient.pushMessage(s: _*);
+    messageClientApi.pushMessage(s: _*);
 
     sendMaxWaitingTimeMS(DynamicConfig.of(appName, DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(1000*60*5*hours*2)) // 4小时
 
@@ -720,7 +721,7 @@ object CrontabClickhouseRefreshUtil {
       )
     }
     println(s)
-    messageClient.pushMessage(s: _*);
+    messageClientApi.pushMessage(s: _*);
   }
 
   def sendMsg_b_date (topic: String, day: String): Unit = {
@@ -731,7 +732,7 @@ object CrontabClickhouseRefreshUtil {
       )
     }
     println(s)
-    messageClient.pushMessage(s: _*);
+    messageClientApi.pushMessage(s: _*);
   }
 
   def sendMsg_l_time(topic: String, day: String): Unit = {
@@ -742,7 +743,7 @@ object CrontabClickhouseRefreshUtil {
       )
     }
     println(s)
-    messageClient.pushMessage(s: _*);
+    messageClientApi.pushMessage(s: _*);
   }
 
   def bd_offer(): Unit = {

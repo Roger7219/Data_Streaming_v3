@@ -2,7 +2,7 @@ package com.mobikok.ssp.data.streaming.handler.dm
 
 import java.sql.ResultSet
 
-import com.mobikok.message.client.MessageClient
+import com.mobikok.message.client.MessageClientApi
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.util.MySqlJDBCClient.Callback
@@ -97,7 +97,7 @@ class SyncMysql2HiveHandlerV4 extends Handler {
     }
 
     mySqlJDBCClient = new MySqlJDBCClient(
-      rdbUrl, rdbUser, rdbPassword
+      moduleName, rdbUrl, rdbUser, rdbPassword
     )
 
     //    Only for test
@@ -157,7 +157,7 @@ class SyncMysql2HiveHandlerV4 extends Handler {
 
           LOG.warn(s"Incr table append start", "mysqlTable", mysqlT, "hiveTable", hiveT)
 
-          MC.pull(lastIncrCer, Array(lastIncrTopic), {x=>
+          messageClient.pull(lastIncrCer, Array(lastIncrTopic), { x=>
 
             val hiveTableIsEmpty = sql(s"select 1 from from $hiveT limit 1").take(1).isEmpty
 
@@ -220,7 +220,7 @@ class SyncMysql2HiveHandlerV4 extends Handler {
               insertOverwriteTable(hiveT, uniqueAllDF)
 
               // 记录新的last id
-              MC.push(new UpdateReq(lastIncrTopic, OM.toJOSN(incrDF
+              messageClient.push(new UpdateReq(lastIncrTopic, OM.toJOSN(incrDF
                 .selectExpr(s"max($incrField) as lastIncr")
                 .first()
                 .getAs[Object]("lastIncr"))

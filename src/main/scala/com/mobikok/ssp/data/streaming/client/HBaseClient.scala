@@ -5,6 +5,7 @@ import java.util.Date
 import java.util.concurrent.{CopyOnWriteArrayList, CopyOnWriteArraySet, ExecutorService}
 import java.util.regex.Pattern
 
+import com.mobikok.message.client.MessageClientApi
 import com.mobikok.ssp.data.streaming.client.cookie._
 import com.mobikok.ssp.data.streaming.entity.feature.HBaseStorable
 import com.mobikok.ssp.data.streaming.exception.HBaseClientException
@@ -37,9 +38,9 @@ import scala.concurrent.forkjoin.ForkJoinPool
   * 暂时只支持单客户端，多可客户端有并发问题
   * Created by Administrator on 2017/6/8.
   */
-class HBaseClient(moduleName: String, sc: SparkContext, config: Config, transactionManager: TransactionManager, moduleTracer: ModuleTracer) extends TransactionalClient {
+class HBaseClient(moduleName: String, sc: SparkContext, config: Config, messageClient: MessageClient, transactionManager: TransactionManager, moduleTracer: ModuleTracer) extends TransactionalClient {
   //  private[this] val LOG = Logger.getLogger(getClass().getName())
-  val LOG: Logger = new Logger(moduleName, getClass.getName, new Date().getTime)
+  val LOG: Logger = new Logger(moduleName, getClass, new Date().getTime)
 
   @volatile var hiveContext: HiveContext = null;
 
@@ -506,7 +507,7 @@ class HBaseClient(moduleName: String, sc: SparkContext, config: Config, transact
     lock.synchronized{
       if(!isFlushing) {
         var interval = 0
-        val inte = MC.pullUpdatable("hbase_flush_cer", Array("hbase_flush_interval"))
+        val inte = messageClient.pullUpdatable("hbase_flush_cer", Array("hbase_flush_interval"))
         if(StringUtil.notEmpty(inte)) {
           interval = inte.toInt
         }

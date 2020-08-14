@@ -2,11 +2,11 @@ package com.mobikok.ssp.data.streaming.handler.dm
 
 import java.util
 
-import com.mobikok.message.client.MessageClient
+import com.mobikok.message.client.MessageClientApi
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
-import com.mobikok.ssp.data.streaming.util.{JavaMC, ModuleTracer, RunAgainIfError}
+import com.mobikok.ssp.data.streaming.util.{JavaMessageClient, MessageClient, ModuleTracer, RunAgainIfError}
 import com.typesafe.config.Config
 import org.apache.spark.sql.hive.HiveContext
 
@@ -40,10 +40,10 @@ class GoogleBigQueryCustomViewHandler extends Handler {
 
     viewConsumerTopics.foreach{ x=>
 
-      JavaMC.pullAndSortByBDateDescHivePartitionParts(
-        messageClient,
+      JavaMessageClient.pullAndSortByBDateDescHivePartitionParts(
+        messageClient.messageClientApi,
         x._2,
-        new JavaMC.Callback[util.List[HivePartitionPart]] {
+        new JavaMessageClient.Callback[util.List[HivePartitionPart]] {
 
           def doCallback(resp: util.List[HivePartitionPart]) :java.lang.Boolean = {
 

@@ -1,36 +1,27 @@
 package com.mobikok.ssp.data.streaming.client
 
-import java.net.{URLDecoder, URLEncoder}
-import java.text.SimpleDateFormat
-import java.util
-import java.util.concurrent.ExecutorService
-import java.util.{Date, List, UUID}
+import java.net.URLDecoder
+import java.util.{Date, List}
 
-import com.facebook.fb303.FacebookService
 import com.mobikok.message.{MessageConsumerCommitReq, MessagePullReq, MessagePushReq}
-import com.mobikok.message.client.MessageClient
-import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
-import com.mobikok.ssp.data.streaming.exception.{HBaseClientException, HiveClientException}
 import com.mobikok.ssp.data.streaming.client.cookie._
+import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
+import com.mobikok.ssp.data.streaming.exception.HiveClientException
 import com.mobikok.ssp.data.streaming.transaction.{TransactionCookie, TransactionManager, TransactionRoolbackedCleanable, TransactionalClient}
 import com.mobikok.ssp.data.streaming.udf.HiveContextCreator
 import com.mobikok.ssp.data.streaming.util._
 import com.typesafe.config.Config
-import org.apache.hadoop.fs.Path
-import org.apache.hadoop.hbase.{HTableDescriptor, TableName}
 import org.apache.log4j.Level
-import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.execution.command.DropTableCommand
-import org.apache.spark.sql.{Column, DataFrame, Row, SaveMode}
+import org.apache.spark.sql.functions._
 import org.apache.spark.sql.hive.HiveContext
 import org.apache.spark.sql.types.StructType
-import org.apache.spark.sql.functions._
+import org.apache.spark.sql.{Column, DataFrame, Row, SaveMode}
 import org.apache.spark.streaming.StreamingContext
 
 import scala.collection.JavaConversions._
-import scala.collection.JavaConverters._
 import scala.collection.mutable
-import scala.collection.mutable.{ArrayBuffer, ListBuffer}
+import scala.collection.mutable.ListBuffer
 import scala.math.Ordering
 
 /**
@@ -51,7 +42,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
   val shufflePartitions = config.getInt("spark.conf.set.spark.sql.shuffle.partitions")
 
   //  private val transactionalPartitionField = "tid"
-  val LOG: Logger = new Logger(moduleName, getClass.getName, new Date().getTime)
+  val LOG: Logger = new Logger(moduleName, getClass, new Date().getTime)
 
   override def init(): Unit = {
     LOG.warn(s"HiveClient init started")
@@ -183,6 +174,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
     overwriteUnionSum(transactionParentId, table, newDF, aggExprsAlias, unionAggExprsAndAlias, overwriteAggFields, groupByFields, ps, beforeWriteCallback, partitionField, partitionFields:_*)
   }
 
+  // groupByExprsAlias: 不包含分区字段
   def overwriteUnionSum (transactionParentId: String,
                          table: String,
                          newDF: DataFrame,
@@ -578,7 +570,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
     val ms = c.partitions.flatMap{x=>x}.filter{x=>"l_time".equals(x.name)}.distinct.map{x=>
       new MessagePushReq(topic, x.value, true, "")
     }
-    messageClient.pushMessage(ms:_*)
+    messageClient.messageClientApi.pushMessage(ms:_*)
 
     ThreadPool.execute{
       tryCompaction(c)
@@ -603,7 +595,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
     val compactedSuffix = ".compacted"
 
     //拉取
-    var lts = messageClient
+    var lts = messageClient.messageClientApi
       .pullMessage(new MessagePullReq(cons, Array(topic) ))
       .getPageData
 
@@ -700,7 +692,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 //      moduleTracer.trace("    compaction table")
 
       //逐个提交
-      messageClient.commitMessageConsumer(new MessageConsumerCommitReq(cons, topic, x.getOffset))
+      messageClient.messageClientApi.commitMessageConsumer(new MessageConsumerCommitReq(cons, topic, x.getOffset))
 
       //移动完成后删除临时表
       sql(s""" drop table if exists ${compactedTt} """)

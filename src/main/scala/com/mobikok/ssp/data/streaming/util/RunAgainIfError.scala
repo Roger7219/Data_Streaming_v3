@@ -7,7 +7,7 @@ import org.apache.commons.lang3.exception.ExceptionUtils
   * Created by admin on 2017/11/13.
   */
 object RunAgainIfError {
-  private val LOG = new Logger(RunAgainIfError.getClass)
+  private val LOG = new Logger(RunAgainIfError.getClass.getSimpleName, RunAgainIfError.getClass)
 
   def run[T](func: => T): T = {
     run(func, "Run fail")

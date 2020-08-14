@@ -12,8 +12,8 @@ import scala.collection.JavaConversions._
 /**
   * Created by Administrator on 2017/6/14.
   */
-class MySqlJDBCClient(var url: String, var user: String, var password: String) {
-  private val LOG = new Logger( getClass.getName, new Date().getTime) //LoggerFactory.getLogger(getClass)
+class MySqlJDBCClient(loggerName: String, var url: String, var user: String, var password: String) {
+  private val LOG = new Logger(loggerName, getClass, new Date().getTime) //LoggerFactory.getLogger(getClass)
 
   private val driver = "com.mysql.jdbc.Driver"
   var basicDataSource: BasicDataSource = _

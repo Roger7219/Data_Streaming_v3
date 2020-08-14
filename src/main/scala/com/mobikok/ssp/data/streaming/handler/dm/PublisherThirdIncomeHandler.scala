@@ -1,11 +1,11 @@
 package com.mobikok.ssp.data.streaming.handler.dm
 
-import com.mobikok.message.client.MessageClient
+import com.mobikok.message.client.MessageClientApi
 import com.mobikok.message.{MessageConsumerCommitReq, MessagePullReq, MessagePushReq}
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
-import com.mobikok.ssp.data.streaming.util.{DataFrameUtil, ModuleTracer, OM}
+import com.mobikok.ssp.data.streaming.util.{DataFrameUtil, MessageClient, ModuleTracer, OM}
 import com.typesafe.config.Config
 import org.apache.spark.sql.SaveMode
 import org.apache.spark.sql.hive.HiveContext
@@ -50,7 +50,7 @@ class PublisherThirdIncomeHandler extends Handler{
   override def doHandle(): Unit = {
 
     //get time from messgq
-    val datas = messageClient.pullMessage(new MessagePullReq(consumer, Array(topic))).getPageData
+    val datas = messageClient.messageClientApi.pullMessage(new MessagePullReq(consumer, Array(topic))).getPageData
 
     val pushTime = datas.map(x => x.getKeyBody).toArray
 
@@ -84,7 +84,7 @@ class PublisherThirdIncomeHandler extends Handler{
         .insertInto(hiveTable)
 
       val key = OM.toJOSN(Array(Array(HivePartitionPart("b_date", statDate), HivePartitionPart("b_time", s"$statDate 00:00:00"))))
-      messageClient.pushMessage(new MessagePushReq(topicForDMReflush, key))
+      messageClient.messageClientApi.pushMessage(new MessagePushReq(topicForDMReflush, key))
 
       //send messg to kylin for refresh cube
 //      messageClient.pushMessage(new MessagePushReq(
@@ -111,7 +111,7 @@ class PublisherThirdIncomeHandler extends Handler{
 //    )
 
     //commit messg offset
-    messageClient.commitMessageConsumer(datas.map{x=>new MessageConsumerCommitReq(consumer, topic, x.getOffset)}:_* )
+    messageClient.messageClientApi.commitMessageConsumer(datas.map{x=>new MessageConsumerCommitReq(consumer, topic, x.getOffset)}:_* )
 
     LOG.warn("PublisherThirdIncomeHandler done")
   }

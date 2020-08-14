@@ -1,9 +1,9 @@
 package com.mobikok.ssp.data.streaming.handler.dm
 
-import com.mobikok.message.client.MessageClient
+import com.mobikok.message.client.MessageClientApi
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
-import com.mobikok.ssp.data.streaming.util.{ModuleTracer, MySqlJDBCClient, RunAgainIfError}
+import com.mobikok.ssp.data.streaming.util.{MessageClient, ModuleTracer, MySqlJDBCClient, RunAgainIfError}
 import com.typesafe.config.Config
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.hive.HiveContext
@@ -39,7 +39,7 @@ class AggHandler extends  Handler{
       }
     }
 
-    mySqlJDBCClient = new MySqlJDBCClient(rdbUrl, rdbUser, rdbPassword
+    mySqlJDBCClient = new MySqlJDBCClient(moduleName, rdbUrl, rdbUser, rdbPassword
     )
   }
 

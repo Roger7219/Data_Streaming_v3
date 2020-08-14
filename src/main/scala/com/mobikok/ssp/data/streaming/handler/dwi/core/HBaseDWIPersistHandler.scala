@@ -5,7 +5,7 @@ import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.feature.HBaseStorable
 import com.mobikok.ssp.data.streaming.handler.dwi.Handler
 import com.mobikok.ssp.data.streaming.transaction.{TransactionCookie, TransactionManager, TransactionRoolbackedCleanable}
-import com.mobikok.ssp.data.streaming.util.{MC, ModuleTracer, OM, PushReq}
+import com.mobikok.ssp.data.streaming.util._
 import com.typesafe.config.Config
 import org.apache.spark.sql.DataFrame
 
@@ -17,9 +17,9 @@ class HBaseDWIPersistHandler extends Handler {
   var dwiPhoenixTable: String = _
 
 
-  override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, argsConfig: ArgsConfig, handlerConfig: Config, globalConfig: Config, moduleTracer: ModuleTracer): Unit = {
+  override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, argsConfig: ArgsConfig, handlerConfig: Config, globalConfig: Config, messageClient: MessageClient, moduleTracer: ModuleTracer): Unit = {
     isAsynchronous = true
-    super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, handlerConfig, globalConfig, moduleTracer)
+    super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, handlerConfig, globalConfig, messageClient, moduleTracer)
 
     if(globalConfig.hasPath(s"modules.$moduleName.dwi.phoenix.subtable.enable")){
       dwiPhoenixSubtableEnable = globalConfig.getBoolean(s"modules.$moduleName.dwi.phoenix.subtable.enable")
@@ -40,7 +40,7 @@ class HBaseDWIPersistHandler extends Handler {
         hbaseClient.putsNonTransaction(dwiPhoenixTable, dwiP)
       }
       // 收集当前批次数据总量
-      MC.push(PushReq(HBASE_WRITECOUNT_BATCH_TOPIC, newDwi.count().toString))
+      messageClient.push(PushReq(HBASE_WRITECOUNT_BATCH_TOPIC, newDwi.count().toString))
 
       LOG.warn("hbaseClient putsNonTransaction done")
     }

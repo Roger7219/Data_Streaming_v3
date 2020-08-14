@@ -14,24 +14,27 @@ import java.util.*;
 
 public class KafkaOffsetTool {
 
-  private static Logger LOG = new Logger(KafkaOffsetTool.class.getName(), new Date().getTime());
+  private Logger LOG;
 
-//  private static KafkaOffsetTool instance;
+  public KafkaOffsetTool(String loggerName){
+    LOG = new Logger(loggerName, KafkaOffsetTool.class, System.currentTimeMillis());
+  }
+
   static final int TIMEOUT_MS = 5*1000;
   static final int BUFFERSIZE = 64 * 1024;
 
-  public static Map<TopicAndPartition, Long> getLatestOffset(String brokerList, List<String> topics, String clientId) {
+  public Map<TopicAndPartition, Long> getLatestOffset(String brokerList, List<String> topics, String clientId) {
      return getOffsetRunAgainIfError(brokerList, topics, clientId, kafka.api.OffsetRequest.LatestTime());
   }
-  public static Map<TopicAndPartition, Long> getEarliestOffset(String brokerList, List<String> topics, String clientId) {
+  public Map<TopicAndPartition, Long> getEarliestOffset(String brokerList, List<String> topics, String clientId) {
     return getOffsetRunAgainIfError(brokerList, topics, clientId, kafka.api.OffsetRequest.EarliestTime());
   }
 
-  public static Set<TopicAndPartition> getTopicPartitions(String brokerList, List<String> topics){
+  public Set<TopicAndPartition> getTopicPartitions(String brokerList, List<String> topics){
     return getOffsetRunAgainIfError(brokerList, topics, "for_get_TopicPartitions_clientId", kafka.api.OffsetRequest.EarliestTime()).keySet();
   }
 
-  private static Map<TopicAndPartition, Long> getOffsetRunAgainIfError(String brokerList, List<String> topics, String clientId, long whichTime) {
+  private Map<TopicAndPartition, Long> getOffsetRunAgainIfError(String brokerList, List<String> topics, String clientId, long whichTime) {
     while (true){
       try {
         return getOffset0(brokerList, topics, clientId, whichTime);
@@ -45,11 +48,11 @@ public class KafkaOffsetTool {
   }
 
   //whichTime 要获取offset的时间,-1 最新，-2 最早
-  private static Map<TopicAndPartition, Long> getOffset0(String brokerList, List<String> topics, String clientId, long whichTime) {
+  private Map<TopicAndPartition, Long> getOffset0(String brokerList, List<String> topics, String clientId, long whichTime) {
 
     Map<TopicAndPartition, Long> topicAndPartitionLongMap = Maps.newHashMap();
 
-    Map<TopicAndPartition, BrokerEndPoint> topicAndPartitionBrokerMap = KafkaOffsetTool.findLeader(brokerList, topics);
+    Map<TopicAndPartition, BrokerEndPoint> topicAndPartitionBrokerMap = findLeader(brokerList, topics);
 
     for (Map.Entry<TopicAndPartition, BrokerEndPoint> topicAndPartitionBrokerEntry : topicAndPartitionBrokerMap.entrySet()) {
       // get leader broker
@@ -85,7 +88,7 @@ public class KafkaOffsetTool {
    * @param topics
    * @return topicAndPartitions
    */
-  private static Map<TopicAndPartition, BrokerEndPoint> findLeader(String brokerList, List<String> topics) {
+  private Map<TopicAndPartition, BrokerEndPoint> findLeader(String brokerList, List<String> topics) {
     // get broker's url array
     String[] brokerUrlArray = getBorkerUrlFromBrokerList(brokerList);
     // get broker's port map
@@ -131,7 +134,7 @@ public class KafkaOffsetTool {
    * @param clientName
    * @return
    */
-  private static long getTopicAndPartitionLastOffset(SimpleConsumer consumer, TopicAndPartition topicAndPartition, String clientName, long whichTime) {
+  private long getTopicAndPartitionLastOffset(SimpleConsumer consumer, TopicAndPartition topicAndPartition, String clientName, long whichTime) {
     Map<TopicAndPartition, PartitionOffsetRequestInfo> requestInfo =
         new HashMap<TopicAndPartition, PartitionOffsetRequestInfo>();
 
@@ -155,7 +158,7 @@ public class KafkaOffsetTool {
    * @param brokerlist
    * @return
    */
-  private static String[] getBorkerUrlFromBrokerList(String brokerlist) {
+  private String[] getBorkerUrlFromBrokerList(String brokerlist) {
     String[] brokers = brokerlist.split(",");
     for (int i = 0; i < brokers.length; i++) {
       brokers[i] = brokers[i].split(":")[0];
@@ -169,7 +172,7 @@ public class KafkaOffsetTool {
    * @param brokerlist
    * @return
    */
-  private static Map<String, Integer> getPortFromBrokerList(String brokerlist) {
+  private Map<String, Integer> getPortFromBrokerList(String brokerlist) {
     Map<String, Integer> map = new HashMap<String, Integer>();
     String[] brokers = brokerlist.split(",");
     for (String item : brokers) {
@@ -181,55 +184,4 @@ public class KafkaOffsetTool {
     return map;
   }
 
-//  public static void main(String[] args) {
-////	  modifyOffset();
-//    List<String> topics = Lists.newArrayList();
-//    topics.add("topic_ad_fill");
-////    topics.store("bugfix");
-//    Map<TopicAndPartition, Long> topicAndPartitionLongMap =
-//        KafkaOffsetTool.getInstance().getLatestOffset("node14:6667", topics, "my.group.id");
-//
-//    for (Map.Entry<TopicAndPartition, Long> entry : topicAndPartitionLongMap.entrySet()) {
-//     System.out.println(entry.getKey().topic() + "-"+ entry.getKey().partition() + ":" + entry.getValue());
-//    }
-//  }
-  
-  public static void modifyOffset() {
-	  
-	  ZkClient zkClient = new ZkClient("node14:2181/testkafka");	
-	  ZKGroupTopicDirs topicDirs = new ZKGroupTopicDirs("dw_test_group1", "topic_ad_fill");
-	  int children = zkClient.countChildren(topicDirs.consumerDir());
-	  
-	  
-	  Map<TopicAndPartition, Long> fromOffsets  =  new HashMap<TopicAndPartition, Long>();  
-
-	  for (int i =0; i < children  ; i++) {
-		  String partitionOffset = zkClient.<String>readData(topicDirs.consumerOffsetDir() + "/"+i);
-		  TopicAndPartition tp = new TopicAndPartition("topic_ad_fill", i);
-	        fromOffsets .put(tp , Long.valueOf(partitionOffset));  //将不同 partition 对应的 offset 增加到 fromOffsets 中
-	  }
-	  
-	  System.out.println(fromOffsets);
-	  
-	  
-//	  List<String> topics = Lists.newArrayList();
-//	    topics.store("topic_ad_fill");
-//	    
-//	  /** 以下 矫正 offset */
-//	    // 得到Topic/partition 的lastOffsets
-//	    Map<TopicAndPartition, Long> topicAndPartitionLongMap =
-//	        KafkaOffsetTool.getInstance().getLatestOffset("node14:9092",
-//	        		topics, "my.group.id");
-//
-//	    // 遍历每个Topic.partition
-//	    for (Map.Entry<TopicAndPartition, Long> topicAndPartitionLongEntry : fromOffsets.entrySet()) {
-//	      // fromOffset > lastOffset时
-//	      if (topicAndPartitionLongEntry.getValue() >
-//	          topicAndPartitionLongMap.get(topicAndPartitionLongEntry.getKey())) {
-//	         //矫正fromoffset为offset初始值0
-//	        topicAndPartitionLongEntry.setValue(0L);
-//	      }
-//	    }
-//	    /** 以上 矫正 offset */
-  }
 }

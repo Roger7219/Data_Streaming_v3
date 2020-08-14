@@ -5,7 +5,7 @@ import com.mobikok.ssp.data.streaming.client.cookie.HiveTransactionCookie
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.handler.dwi.Handler
 import com.mobikok.ssp.data.streaming.transaction.TransactionManager
-import com.mobikok.ssp.data.streaming.util.{MC, ModuleTracer, OM, PushReq}
+import com.mobikok.ssp.data.streaming.util._
 import com.typesafe.config.Config
 import org.apache.spark.sql.DataFrame
 
@@ -15,14 +15,14 @@ class HiveDWIPersistHandler extends Handler {
   var table: String = _
   var cookie: HiveTransactionCookie = _
 
-  override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, argsConfig: ArgsConfig, handlerConfig: Config, globalConfig: Config, moduleTracer: ModuleTracer): Unit = {
-    super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, handlerConfig, globalConfig, moduleTracer)
+  override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, argsConfig: ArgsConfig, handlerConfig: Config, globalConfig: Config, messageClient: MessageClient, moduleTracer: ModuleTracer): Unit = {
+    super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, handlerConfig, globalConfig, messageClient, moduleTracer)
     isAsynchronous = true
     table = globalConfig.getString(s"modules.$moduleName.dwi.table")
   }
 
   override def doHandle(newDwi: DataFrame): DataFrame = {
-    val partitionFields = Array("repeated", "l_time", "b_date", "b_time", "b_version")
+    val partitionFields = Array("repeated", "l_time", "b_date", "b_time"/*, "b_version"*/)
 
     if(isOverwriteFixedLTime) {
       cookie = hiveClient.overwrite(
@@ -55,11 +55,11 @@ class HiveDWIPersistHandler extends Handler {
     var topic = dwiT.targetTable
     if (dwiT != null && dwiT.partitions != null && dwiT.partitions.nonEmpty) {
       val key = OM.toJOSN(dwiT.partitions.map { x => x.sortBy { y => y.name + y.value } }.sortBy { x => OM.toJOSN(x) })
-      MC.push(PushReq(topic, key))
+      messageClient.push(PushReq(topic, key))
       LOG.warn(s"MessageClient push done", s"topic: $topic, \nkey: $key")
 
       topic = moduleName
-      MC.push(PushReq(topic, key))
+      messageClient.push(PushReq(topic, key))
       LOG.warn(s"MessageClient push done", s"topic: $topic, \nkey: $key")
 
     } else {

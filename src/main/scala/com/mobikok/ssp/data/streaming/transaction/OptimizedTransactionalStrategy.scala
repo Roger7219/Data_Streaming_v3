@@ -6,11 +6,11 @@ import java.util.Date
 import com.mobikok.ssp.data.streaming.util.Logger
 
 
-class OptimizedTransactionalStrategy(val dwiLTimeDateFormat: SimpleDateFormat, val dwrLTimeDateFormat: SimpleDateFormat) extends TransactionalStrategy{
+class OptimizedTransactionalStrategy(val dwiLTimeDateFormat: SimpleDateFormat, val dwrLTimeDateFormat: SimpleDateFormat, dwrShareTable: String) extends TransactionalStrategy{
   @volatile private var currDwiLTime: String = null
   @volatile private var currDwrLTime: String = null
 
-  private val LOG = new Logger(classOf[OptimizedTransactionalStrategy].getName)
+  private val LOG = new Logger(s"${getClass.getSimpleName}($dwrShareTable)", classOf[OptimizedTransactionalStrategy])
 //  private var lastTransactionalPersistenceTime = new Date().getTime
 //
 //  private val EMPTY_PS = Array[Array[HivePartitionPart]]()

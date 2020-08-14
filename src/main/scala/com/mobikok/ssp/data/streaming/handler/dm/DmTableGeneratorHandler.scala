@@ -2,12 +2,12 @@ package com.mobikok.ssp.data.streaming.handler.dm
 
 import java.{lang, util}
 
-import com.mobikok.message.client.MessageClient
+import com.mobikok.message.client.MessageClientApi
 import com.mobikok.message.{Message, Resp}
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
-import com.mobikok.ssp.data.streaming.util.{JavaMC, ModuleTracer, RunAgainIfError}
+import com.mobikok.ssp.data.streaming.util.{JavaMessageClient, MessageClient, ModuleTracer, RunAgainIfError}
 import com.typesafe.config.Config
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.hive.HiveContext
@@ -64,7 +64,7 @@ class DmTableGeneratorHandler extends Handler {
           var needInitTopic = s"${view}_needInitBaseTable"
           var needInitConsumer = s"${needInitTopic}_cer"
           // Init
-          JavaMC.pullAndCommit(messageClient, needInitConsumer, new JavaMC.Callback[Resp[java.util.List[Message]]] {
+          JavaMessageClient.pullAndCommit(messageClient.messageClientApi, needInitConsumer, new JavaMessageClient.Callback[Resp[java.util.List[Message]]] {
             override def doCallback (resp: Resp[util.List[Message]]): lang.Boolean = {
 
               //有消息有说明需要重新初始化baseTable, 无视消息具体内容
@@ -73,10 +73,10 @@ class DmTableGeneratorHandler extends Handler {
               }
 
               LOG.warn(s"Init base table '${baseTable}' start")
-              JavaMC.pullAndSortByLTimeDescHivePartitionParts(
-                messageClient,
+              JavaMessageClient.pullAndSortByLTimeDescHivePartitionParts(
+                messageClient.messageClientApi,
                 consumer,
-                new JavaMC.Callback[util.List[HivePartitionPart]] {
+                new JavaMessageClient.Callback[util.List[HivePartitionPart]] {
                   override def doCallback (resp: util.List[HivePartitionPart]): lang.Boolean = {
 
                     if(resp.isEmpty || resp.tail.isEmpty) {
@@ -124,10 +124,10 @@ class DmTableGeneratorHandler extends Handler {
 
           // Incr
           // 注意用的是含'Tail'的pullAndSortByLTimeDescTailHivePartitionParts,获取的是上上一些l_time(s)
-          JavaMC.pullAndSortByLTimeDescTailHivePartitionParts(
-            messageClient,
+          JavaMessageClient.pullAndSortByLTimeDescTailHivePartitionParts(
+            messageClient.messageClientApi,
             consumer,
-            new JavaMC.Callback[util.List[HivePartitionPart]] {
+            new JavaMessageClient.Callback[util.List[HivePartitionPart]] {
 
               def doCallback(resp: util.List[HivePartitionPart]): java.lang.Boolean = {
 

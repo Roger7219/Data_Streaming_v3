@@ -4,7 +4,7 @@ import java.io.File
 import java.text.SimpleDateFormat
 
 import com.fasterxml.jackson.core.`type`.TypeReference
-import com.mobikok.message.client.MessageClient
+import com.mobikok.message.client.MessageClientApi
 import com.mobikok.ssp.data.streaming.App.{appName, argsConfig}
 import com.mobikok.ssp.data.streaming.client.HBaseClient
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
@@ -44,12 +44,13 @@ object App {
   var appId: String = null
   var version: String = null
   var kafkaTopicVersion: String = null
+  val kafkaOffsetTool = new KafkaOffsetTool(App.getClass.getSimpleName)
 
-  var dwiLoadTimeFormat = CSTTime.formatter("yyyy-MM-dd HH:00:00")
-  var dwrLoadTimeFormat = CSTTime.formatter("yyyy-MM-dd 00:00:00")
+  var dwiLTimeFormat = CSTTime.formatter("yyyy-MM-dd HH:00:00")
+  var dwrLTimeFormat = CSTTime.formatter("yyyy-MM-dd 00:00:00")
   //table, list<module>
-  private var shareTableModulesControllerMap = null.asInstanceOf[java.util.HashMap[String, MixModulesBatchController]]
-  val moduleNameThreadLocal = new InheritableThreadLocal[String]
+  private var shareTableModulesControllerMap: java.util.Map[String, MixModulesBatchController] = null
+  var messageClient: MessageClient = null
 
   def main (args: Array[String]): Unit = {
     try {
@@ -89,7 +90,7 @@ object App {
 
       argsConfig = new ArgsConfig().init(args.tail)
       version = argsConfig.get(ArgsConfig.VERSION, ArgsConfig.Value.VERSION_DEFAULT)
-      kafkaTopicVersion = argsConfig.get(ArgsConfig.TOPIC_VERSION, ArgsConfig.Value.KAFKA_TOPIC_VERSION_DEFAULT)
+      kafkaTopicVersion = argsConfig.get(ArgsConfig.KAFKA_TOPIC_VERSION, ArgsConfig.Value.KAFKA_TOPIC_VERSION_DEFAULT)
 
       if(!ArgsConfig.Value.VERSION_DEFAULT.equals(version) && !appName.endsWith(s"v$version")) throw new IllegalArgumentException(s"App name suffix must be: v$version, Suggests app name: ${appName}_v${version}")
 
@@ -104,7 +105,7 @@ object App {
   def initSparkStreaming() = {
     initLoggerLevel()
     initModulesConfig()
-    initMC()
+    initMessageClient()
     initRDBConfig()
     initStreamingContext()
     initModulesInstances()
@@ -140,26 +141,26 @@ object App {
 
           //---------------------------------- Generate l_time DateFormat START ---------------------------------
           try {
-            dwiLoadTimeFormat =  CSTTime.formatter(allModulesConfig.getString(s"modules.$m.dwi.l_time.format")) //DateFormatUtil.CST(allModulesConfig.getString(s"modules.$m.dwi.l_time.format"))
+            dwiLTimeFormat =  CSTTime.formatter(allModulesConfig.getString(s"modules.$m.dwi.l_time.format")) //DateFormatUtil.CST(allModulesConfig.getString(s"modules.$m.dwi.l_time.format"))
           }catch { case _: Exception =>}
 
           try {
-            dwrLoadTimeFormat = CSTTime.formatter(allModulesConfig.getString(s"modules.$m.dwr.l_time.format"))//DateFormatUtil.CST(allModulesConfig.getString(s"modules.$m.dwr.l_time.format"))
+            dwrLTimeFormat = CSTTime.formatter(allModulesConfig.getString(s"modules.$m.dwr.l_time.format"))//DateFormatUtil.CST(allModulesConfig.getString(s"modules.$m.dwr.l_time.format"))
           }catch {case _:Exception => }
 
           //---------------------------------- Generate l_time DateFormat END ---------------------------------
 
           var cer = shareTableModulesControllerMap.get(t)
           if(cer == null) {
-            cer = new MixModulesBatchController(allModulesConfig, runnableModuleNames, t, new TransactionManager(allModulesConfig, new OptimizedTransactionalStrategy(dwiLoadTimeFormat, dwrLoadTimeFormat)), hiveContext, shufflePartitions)
+            cer = new MixModulesBatchController(allModulesConfig, runnableModuleNames, t, new TransactionManager(allModulesConfig, new OptimizedTransactionalStrategy(dwiLTimeFormat, dwrLTimeFormat, t), t), hiveContext, shufflePartitions)
             shareTableModulesControllerMap.put(t, cer)
           }else {
-            if(!dwrLoadTimeFormat.toPattern.equals(cer.getTransactionManager().dwrLTimeDateFormat().toPattern) || !dwiLoadTimeFormat.toPattern.equals(cer.getTransactionManager().dwiLTimeDateFormat().toPattern)) {
+            if(!dwrLTimeFormat.toPattern.equals(cer.getTransactionManager().dwrLTimeDateFormat().toPattern) || !dwiLTimeFormat.toPattern.equals(cer.getTransactionManager().dwiLTimeDateFormat().toPattern)) {
               throw new AppException(
                 s"""Moudle '$m' config is wrong, Share same dwr table moudles must be the same 'dwi.l_time.format' and same 'dwr.l_time.format', Detail:
-                   |dwrLoadTimeFormat: ${dwrLoadTimeFormat.toPattern}
+                   |dwrLoadTimeFormat: ${dwrLTimeFormat.toPattern}
                    |cer.dwrLoadTimeDateFormat: ${cer.getTransactionManager().dwrLTimeDateFormat().toPattern}
-                   |dwiLoadTimeFormat: ${dwiLoadTimeFormat.toPattern}
+                   |dwiLoadTimeFormat: ${dwiLTimeFormat.toPattern}
                    |cer.dwiLoadTimeDateFormat: ${cer.getTransactionManager().dwiLTimeDateFormat().toPattern}
                  """.stripMargin
               )
@@ -204,7 +205,7 @@ object App {
   }
 
   def initRDBConfig(): Unit ={
-    mySqlJDBCClient = new MySqlJDBCClient(allModulesConfig.getString(s"rdb.url"), allModulesConfig.getString(s"rdb.user"), allModulesConfig.getString(s"rdb.password"))
+    mySqlJDBCClient = new MySqlJDBCClient(getClass.getSimpleName, allModulesConfig.getString(s"rdb.url"), allModulesConfig.getString(s"rdb.user"), allModulesConfig.getString(s"rdb.password"))
     RDBConfig.init(mySqlJDBCClient)
   }
 
@@ -223,7 +224,7 @@ object App {
     //check task Whether has been launched.
     if(YarnAppManagerUtil.isAppRunning(appName)){
       if("true".equals(argsConfig.get(ArgsConfig.FORCE_KILL_PREV_REPEATED_APP))) {
-        YarnAppManagerUtil.killApps(appName, false, appId)
+        YarnAppManagerUtil.killApps(appName, false, appId, messageClient)
       }else {
         throw new RuntimeException(s"This app '$appName' has already submit,forbid to re-submit!")
       }
@@ -296,8 +297,9 @@ object App {
     sparkConf
   }
 
-  def initMC(): Unit ={
-    MC.init(new MessageClient(allModulesConfig.getString("message.client.url")))
+  def initMessageClient(): Unit ={
+    MessageClient.init(allModulesConfig.getString("message.client.url"))
+    messageClient  = new MessageClient(App.getClass.getSimpleName)
   }
 
   def initModulesConfig(): Unit ={
@@ -333,12 +335,7 @@ object App {
         }
 
         // 给kafka partitions中的topic加上对应的version信息
-        var vTps =
-            (if(allModulesConfig.hasPath(s"modules.${vName}.kafka.consumer.partitions"))
-              allModulesConfig.getConfigList(s"modules.${vName}.kafka.consumer.partitions")
-            else
-              allModulesConfig.getConfigList(s"modules.${vName}.kafka.consumer.partitoins") //兼容早期版本错别字：partitoins
-            )
+        var vTps = allModulesConfig.getConfigList(s"modules.${vName}.kafka.consumer.partitions")
             .map{y=>
             var tp = new java.util.HashMap[String, Any]()
             tp.put("topic", versionFeaturesKafkaTopicName(kafkaTopicVersion, y.getString("topic")))
@@ -352,7 +349,7 @@ object App {
           .getConfigList(s"modules.${vName}.kafka.consumer.partitions")
           .filter{y=> !y.hasPath("partition")}
           .map{y=> y.getString("topic")}
-          .map{y=> KafkaOffsetTool.getTopicPartitions(allModulesConfig.getString("kafka.consumer.set.bootstrap.servers"), java.util.Collections.singletonList(y))}
+          .map{y=> kafkaOffsetTool.getTopicPartitions(allModulesConfig.getString("kafka.consumer.set.bootstrap.servers"), java.util.Collections.singletonList(y))}
           .flatMap{y=> y}
           .map{y=> y.asTuple}
           .union(allModulesConfig.getConfigList(s"modules.${vName}.kafka.consumer.partitions")

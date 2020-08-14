@@ -1,12 +1,12 @@
 package com.mobikok.ssp.data.streaming.handler.dm
 
 import com.fasterxml.jackson.core.`type`.TypeReference
-import com.mobikok.message.client.MessageClient
+import com.mobikok.message.client.MessageClientApi
 import com.mobikok.message.{MessageConsumerCommitReq, MessagePullReq}
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
-import com.mobikok.ssp.data.streaming.util.{ModuleTracer, OM, RunAgainIfError, StringUtil}
+import com.mobikok.ssp.data.streaming.util._
 import com.typesafe.config.Config
 import org.apache.spark.sql.hive.HiveContext
 
@@ -38,7 +38,7 @@ class GoogleBigQueryBTimeHandler extends Handler {
     RunAgainIfError.run({
       viewConsumerTopics.foreach{ x=>
 
-        val pd = messageClient
+        val pd = messageClient.messageClientApi
           .pullMessage(new MessagePullReq(x._2, x._3))
           .getPageData
 
@@ -58,7 +58,7 @@ class GoogleBigQueryBTimeHandler extends Handler {
 //        bigQueryClient.deleteTables(bigQueryClient.TABLE_FOR_UPDATE_SUFFIX)
         bigQueryClient.overwriteByBTime(x._1, x._1,  /*y.getValue.split(" ")(0),*/ ms.map(_.value))
 
-        messageClient.commitMessageConsumer(
+        messageClient.messageClientApi.commitMessageConsumer(
           pd.map {d=>
             new MessageConsumerCommitReq(x._2, d.getTopic, d.getOffset)
           }:_*

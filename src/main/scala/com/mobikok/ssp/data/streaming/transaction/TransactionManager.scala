@@ -14,11 +14,11 @@ import scala.collection.JavaConversions._
 
 /**
   * Created by Administrator on 2017/6/20.
+  * 同一个dwrShareTable的Module共享一个TransactionManager对象，共享tid
   */
-// 多模块共享tid
-class TransactionManager(config: Config, transactionalStrategy: TransactionalStrategy) {
+class TransactionManager(config: Config, transactionalStrategy: TransactionalStrategy, dwrShareTable: String) {
 
-  private val LOG: Logger = new Logger("", getClass.getName, new Date().getTime)
+  private val LOG: Logger = new Logger(s"${getClass.getSimpleName}($dwrShareTable)", getClass, new Date().getTime)
 //  val TRANSACTION_ACTION_STATUS_READY = 0
 //  val TRANSACTION_ACTION_STATUS_BEGINED = 1
 //  val TRANSACTION_ACTION_STATUS_COMMITED = 2
@@ -45,6 +45,7 @@ class TransactionManager(config: Config, transactionalStrategy: TransactionalStr
   private val transactionOrderTimeFormat = CSTTime.formatter("yyyyMMddHHmmssSSS")
 
   protected val mySqlJDBCClient = new MySqlJDBCClient(
+    getClass.getSimpleName,
     config.getString(s"rdb.url"),
     config.getString(s"rdb.user"),
     config.getString(s"rdb.password")

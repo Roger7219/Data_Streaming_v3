@@ -1,7 +1,6 @@
 package com.mobikok.ssp.data.streaming.util
 
-import java.sql.{Connection, DriverManager, ResultSet}
-import java.util
+import java.sql.{Connection, DriverManager}
 
 import com.mobikok.ssp.data.streaming.exception.HiveJDBCClientException
 import org.apache.hive.jdbc.HiveDriver

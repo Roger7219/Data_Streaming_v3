@@ -1,10 +1,10 @@
 package com.mobikok.ssp.data.streaming.handler.dm
 
-import com.mobikok.message.client.MessageClient
+import com.mobikok.message.client.MessageClientApi
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.exception.HandlerException
-import com.mobikok.ssp.data.streaming.util.{MC, ModuleTracer, RegexUtil, RunAgainIfError}
+import com.mobikok.ssp.data.streaming.util.{MessageClient, ModuleTracer, RegexUtil, RunAgainIfError}
 import com.typesafe.config.Config
 import org.apache.spark.sql.Column
 import org.apache.spark.sql.functions._
@@ -158,12 +158,78 @@ class AccelerateTableHandler extends Handler {
         var needInitTopic = s"${view}_needInitBaseTable"
         var needInitConsumer = s"${needInitTopic}_cer"
         // Init
-        MC.pull(needInitConsumer, Array(needInitTopic), {resp=>
+        messageClient.pullLTimeDescTail(
+          consumer,
+          topics,
+          {l_times =>
+            if(l_times.nonEmpty) {
+              LOG.warn(s"Incr table  for final dm start", "baseTable", baseTable, "dm", view, "incr l_time(s)", l_times)
+
+              sql(s"drop view if exists $view")
+
+              sql(s""" set l_time = l_time in (${l_times.map(_.value).mkString("'", "', '", "'")}) """)
+
+              //
+              prevSqls.foreach(x=> sql(x))
+
+              val base = hiveContext.read.table(baseTable)
+              val fs = base.schema.fieldNames
+
+              sql(
+                s"""
+                   |insert overwrite table $baseTable
+                   |select ${fs.mkString(", ")}
+                   |from (
+                   |  ${incrViewSql.replaceAll("""\$\{l_time\}""", s""" l_time in (${l_times.map(_.value).mkString("'", "', '", "'")}) """)}
+                   |  union all
+                   |  select * from $baseTable
+                   |  where l_time in (${l_times.map(_.value).mkString("'", "', '", "'")})
+                   |)t
+                   |group by ${unionGroup.mkString(", ")}
+                   |
+                 """.stripMargin)
+
+              //              sql(incrViewSql)
+              //                .union(base.where(s" l_time in (${l_times.map(_.value).mkString("'", "', '", "'")}) "))
+              //                .groupBy(unionGroup:_*)
+              //                .agg(
+              //                  unionSelect.head,
+              //                  unionSelect.tail:_*
+              //                )
+              //                .select(fs.head, fs.tail:_*)
+              //                .write
+              //                .mode(SaveMode.Overwrite)
+              //                .insertInto(baseTable)
+
+              LOG.warn(s"Incr-Overwrite base table '${baseTable}' done")
+
+              var prevLt = l_times.head.value
+
+              sql(s""" set l_time = l_time > "${prevLt}" """)
+
+              sql(
+                s"""create view ${view} as
+                   | select * from $baseTable
+                   | union all
+                   | ${incrViewSql.replaceAll("""\$\{l_time\}""", s""" l_time > "${prevLt}" """)}
+                  """.stripMargin)
+              LOG.warn("Incr table  for final dm done")
+            }
+            true
+          }
+        )
+        //          if(!needInit(0)) {//is need init base table
+        //          }
+
+        // 待添加自检
+        // Incr
+        // 注意用的是含'Tail'的pullAndSortByLTimeDescTailHivePartitionParts,获取的是上上一些l_time(s)
+        messageClient.pull(needInitConsumer, Array(needInitTopic), { resp=>
 
           //有消息有说明需要重新初始化baseTable, 无视消息具体内容
           if(resp.size() > 0) {
             LOG.warn(s"Init base table '${baseTable}' start")
-            MC.pullLTimeDesc(
+            messageClient.pullLTimeDesc(
               consumer,
               topics,
               {l_times=>
@@ -214,72 +280,6 @@ class AccelerateTableHandler extends Handler {
           }
           true
         })
-        //          if(!needInit(0)) {//is need init base table
-        //          }
-
-        // 待添加自检
-        // Incr
-        // 注意用的是含'Tail'的pullAndSortByLTimeDescTailHivePartitionParts,获取的是上上一些l_time(s)
-        MC.pullLTimeDescTail(
-          consumer,
-          topics,
-          {l_times =>
-            if(l_times.nonEmpty) {
-              LOG.warn(s"Incr table  for final dm start", "baseTable", baseTable, "dm", view, "incr l_time(s)", l_times)
-
-              sql(s"drop view if exists $view")
-
-              sql(s""" set l_time = l_time in (${l_times.map(_.value).mkString("'", "', '", "'")}) """)
-
-              //
-              prevSqls.foreach(x=> sql(x))
-
-              val base = hiveContext.read.table(baseTable)
-              val fs = base.schema.fieldNames
-
-              sql(
-                s"""
-                   |insert overwrite table $baseTable
-                   |select ${fs.mkString(", ")}
-                   |from (
-                   |  ${incrViewSql.replaceAll("""\$\{l_time\}""", s""" l_time in (${l_times.map(_.value).mkString("'", "', '", "'")}) """)}
-                   |  union all
-                   |  select * from $baseTable
-                   |  where l_time in (${l_times.map(_.value).mkString("'", "', '", "'")})
-                   |)t
-                   |group by ${unionGroup.mkString(", ")}
-                   |
-                 """.stripMargin)
-
-//              sql(incrViewSql)
-//                .union(base.where(s" l_time in (${l_times.map(_.value).mkString("'", "', '", "'")}) "))
-//                .groupBy(unionGroup:_*)
-//                .agg(
-//                  unionSelect.head,
-//                  unionSelect.tail:_*
-//                )
-//                .select(fs.head, fs.tail:_*)
-//                .write
-//                .mode(SaveMode.Overwrite)
-//                .insertInto(baseTable)
-
-              LOG.warn(s"Incr-Overwrite base table '${baseTable}' done")
-
-              var prevLt = l_times.head.value
-
-              sql(s""" set l_time = l_time > "${prevLt}" """)
-
-              sql(
-                s"""create view ${view} as
-                   | select * from $baseTable
-                   | union all
-                   | ${incrViewSql.replaceAll("""\$\{l_time\}""", s""" l_time > "${prevLt}" """)}
-                  """.stripMargin)
-              LOG.warn("Incr table  for final dm done")
-            }
-            true
-          }
-        )
 
       })
     }

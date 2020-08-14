@@ -3,11 +3,10 @@ package com.mobikok.ssp.data.streaming.handler.dm
 import java.text.SimpleDateFormat
 import java.util.Date
 
-import com.mobikok.message.client.MessageClient
+import com.mobikok.message.client.MessageClientApi
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
-import com.mobikok.ssp.data.streaming.handler.dm.Handler
-import com.mobikok.ssp.data.streaming.util.{CSTTime, ModuleTracer, MySqlJDBCClient, RunAgainIfError}
+import com.mobikok.ssp.data.streaming.util._
 import com.typesafe.config.Config
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.hive.HiveContext
@@ -56,7 +55,7 @@ class CampaignAdverHandler extends Handler{
     }
 
     mySqlJDBCClient = new MySqlJDBCClient(
-      rdbUrl, rdbUser, rdbPassword
+      moduleName, rdbUrl, rdbUser, rdbPassword
     )
   }
 

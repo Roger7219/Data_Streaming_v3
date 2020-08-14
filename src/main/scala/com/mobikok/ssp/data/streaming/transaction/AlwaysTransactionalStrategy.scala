@@ -8,9 +8,9 @@ import com.mobikok.ssp.data.streaming.util.Logger
 /**
   * Created by Administrator on 2017/10/31.
   */
-class AlwaysTransactionalStrategy(val dwiLTimeDateFormat: SimpleDateFormat, val dwrLTimeDateFormat: SimpleDateFormat) extends TransactionalStrategy{
+class AlwaysTransactionalStrategy(val dwiLTimeDateFormat: SimpleDateFormat, val dwrLTimeDateFormat: SimpleDateFormat, dwrShareTable: String) extends TransactionalStrategy{
 
-  private val LOG = new Logger(classOf[AlwaysTransactionalStrategy].getName)
+  private val LOG = new Logger(s"${getClass.getSimpleName}($dwrShareTable)", classOf[AlwaysTransactionalStrategy])
   @volatile private var currDwiLoadTime: String = null
   @volatile private var currDwrLoadTime: String = null
 

@@ -1,40 +1,34 @@
 package com.mobikok.ssp.data.streaming.client
 
-import java.io.{ByteArrayOutputStream, InputStream}
+import java.io.InputStream
 import java.net.{HttpURLConnection, URL, URLEncoder}
 import java.nio.charset.Charset
-import java.util
 import java.util.Date
 import java.util.concurrent.{CountDownLatch, ExecutorService}
 
-import com.mobikok.message.client.MessageClient
-import com.mobikok.ssp.data.streaming.client.cookie._
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
 import com.mobikok.ssp.data.streaming.exception.{ClickHouseClientException, HandlerException}
 import com.mobikok.ssp.data.streaming.transaction.TransactionManager
 import com.mobikok.ssp.data.streaming.util._
 import com.mobikok.ssp.data.streaming.util.http.{Callback, Entity, Requests}
 import com.typesafe.config.Config
-import okio.{Buffer, GzipSink, Okio}
+import okio.Okio
 import org.apache.hadoop.fs.{FileStatus, FileSystem, Path, PathFilter}
 import org.apache.hadoop.hdfs.HdfsConfiguration
 import org.apache.http.HttpStatus
-import org.apache.spark.sql.functions._
 import org.apache.spark.sql.hive.HiveContext
-import org.apache.spark.sql.{DataFrame, Dataset, SaveMode}
-import org.apache.spark.storage.StorageLevel
+import org.apache.spark.sql.{DataFrame, SaveMode}
 import org.apache.spark.streaming.StreamingContext
 
 import scala.collection.JavaConversions._
-import scala.collection.mutable
-import scala.collection.mutable.ListBuffer
 import scala.collection.JavaConverters._
+import scala.collection.mutable
 
 class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext,
                        messageClient: MessageClient, transactionManager: TransactionManager,
                        hiveContext: HiveContext, moduleTracer: ModuleTracer) {
 
-  private val LOG: Logger = new Logger(moduleName, getClass.getName, new Date().getTime)
+  private val LOG: Logger = new Logger(moduleName, getClass, new Date().getTime)
   private val conf = new HdfsConfiguration()
   private val fileSystem = FileSystem.get(conf)
 

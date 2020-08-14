@@ -2,7 +2,7 @@ package com.mobikok.ssp.data.streaming.handler.dm
 
 import java.util
 
-import com.mobikok.message.client.MessageClient
+import com.mobikok.message.client.MessageClientApi
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.HivePartitionPart
@@ -52,7 +52,7 @@ class UserInfoHandler extends Handler {
     }
 
     mySqlJDBCClient = new MySqlJDBCClient(
-      rdbUrl, rdbUser, rdbPassword
+      moduleName, rdbUrl, rdbUser, rdbPassword
     )
   }
 
@@ -61,7 +61,7 @@ class UserInfoHandler extends Handler {
 
     RunAgainIfError.run({
 
-      JavaMC.pullAndSortByLTimeDescHivePartitionParts(messageClient, consumer, new JavaMC.Callback[util.List[HivePartitionPart]]{
+      JavaMessageClient.pullAndSortByLTimeDescHivePartitionParts(messageClient.messageClientApi, consumer, new JavaMessageClient.Callback[util.List[HivePartitionPart]]{
 
         override def doCallback(resp: util.List[HivePartitionPart]): java.lang.Boolean = {
 
@@ -431,7 +431,7 @@ object xvc{
 //      }
 //    }
 
-    val mySqlJDBCClient = new MySqlJDBCClient(url, user, password
+    val mySqlJDBCClient = new MySqlJDBCClient("test", url, user, password
     )
 
     mySqlJDBCClient.execute(sql)
