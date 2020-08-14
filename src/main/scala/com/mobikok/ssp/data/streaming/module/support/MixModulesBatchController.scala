@@ -5,7 +5,7 @@ import java.util.Date
 
 import com.mobikok.ssp.data.streaming.exception.{AppException, ModuleException}
 import com.mobikok.ssp.data.streaming.transaction.TransactionManager
-import com.mobikok.ssp.data.streaming.util.{HeartbeatsReporter, Logger, OM}
+import com.mobikok.ssp.data.streaming.util.{HeartbeatsTimer, Logger, OM}
 import org.apache.spark.sql.{Column, DataFrame}
 import org.apache.spark.sql.hive.HiveContext
 import org.apache.spark.storage.StorageLevel
@@ -54,7 +54,7 @@ class MixModulesBatchController(config:Config, runnableModuleNames: Array[String
   var dwrGroupByUnionAggExprsAndAlias:List[Column] = null
   var dwrGroupByDimensionFieldsAlias:List[Column] = null
 
-  val heartbeatsReporter = new HeartbeatsReporter(10)
+  val heartbeatsTimer = new HeartbeatsTimer()
 
   def getShareDwrTable(): String={
     shareDwrTable
@@ -163,7 +163,7 @@ class MixModulesBatchController(config:Config, runnableModuleNames: Array[String
       if(allReadied) {
         b = false
       }else {
-        if(heartbeatsReporter.isTimeToReport){
+        if(heartbeatsTimer.isTimeToReport){
           LOG.warn(s"[$moduleName] wait all modules union done [waiting]", "moduleNamesMappingCurrBatchModuleUnionReadied", moduleNamesMappingCurrBatchModuleUnionReadied)
         }
         Thread.sleep(100)

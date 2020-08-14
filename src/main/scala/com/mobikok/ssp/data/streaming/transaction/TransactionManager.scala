@@ -45,7 +45,7 @@ class TransactionManager(config: Config, transactionalStrategy: TransactionalStr
 
   private val tidTimeFormat = CSTTime.formatter("yyyyMMdd_HHmmss_SSS") //DateFormatUtil.CST("yyyyMMdd_HHmmss_SSS");// new SimpleDateFormat("yyyyMMdd_HHmmss_SSS")
   private val transactionOrderTimeFormat = CSTTime.formatter("yyyyMMddHHmmssSSS")
-  val heartbeatsReporter = new HeartbeatsReporter(10)
+  val heartbeatsTimer = new HeartbeatsTimer()
 
   protected val mySqlJDBCClient = new MySqlJDBCClient(
     getClass.getSimpleName,
@@ -215,8 +215,6 @@ class TransactionManager(config: Config, transactionalStrategy: TransactionalStr
     synchronizedCall(new Callback {
       override def onCallback (): Unit = {
 
-        //        isAllModuleTransactionCommited = false
-        //        moduleTransactionRunningMap.put(moduleName, true)
         LOG.warn(s"Obtain begin transaction [$moduleName]", "module", moduleName, "order", order/*, "uninitializedCurrentBatch", uninitializedCurrentBatch*/)
 
         if(countDownLatch == null || countDownLatch.getCount == 0 /*alreadyCommittedModules.isEmpty || alreadyCommittedModules.size().equals(mixModuleNames.size())*/ /*uninitializedCurrentBatch*/ /*transactionActionStatus == TRANSACTION_ACTION_STATUS_READY || transactionActionStatus == TRANSACTION_ACTION_STATUS_COMMITED*/ /*transactionParentIdCache == null*/) {
@@ -225,16 +223,7 @@ class TransactionManager(config: Config, transactionalStrategy: TransactionalStr
 
           alreadyCommittedModules.clear()
 
-//          uninitializedCurrentBatch = false
-////          isAllModuleTransactionCommitted = false
           countDownLatch = new CountDownLatch(mixModuleNames.size())
-
-          //          //效验状态
-          //          moduleNamesMappingCurrBatchModuleCommitReadied.entrySet().foreach{x=>
-          //            if(x.getValue) {
-          //              throw new ModuleException("The current module is ready to commit, So cannot start a new transaction")
-          //            }
-          //          }
 
           transactionParentIdCache = newTransactionParentId()
           //          countDownLatch = new CountDownLatch(mixModuleNames.size())
@@ -306,7 +295,7 @@ class TransactionManager(config: Config, transactionalStrategy: TransactionalStr
     alreadyCommittedModules.add(moduleName)
 
     while(!alreadyCommittedModules.size().equals(mixModuleNames.size())) {
-      if(heartbeatsReporter.isTimeToReport){
+      if(heartbeatsTimer.isTimeToReport){
         LOG.warn(s"[$moduleName] wait all mix modules transaction commit [waiting]", "alreadyCommittedModules", alreadyCommittedModules, "moduleTotalCount", mixModuleNames.size())
       }
       Thread.sleep(100)
@@ -315,15 +304,8 @@ class TransactionManager(config: Config, transactionalStrategy: TransactionalStr
     allMixModuleCommittedCallback
 
     val _countDownLatch = countDownLatch
-
-//    if(isMasterModule) {
-//      // reset
-//      alreadyCommittedModules.clear()
-//      countDownLatch = null
-//      uninitializedCurrentBatch = true
-//    }
-
     _countDownLatch.countDown()
+    // 等待，使所有的module都同步执行到了这一步，再一起往下执行，以便下一次事务根据countDownLatch值来初始化
     _countDownLatch.await()
 
     // 使beginTransaction()中的等待队列放行下一个order，order先进先出
