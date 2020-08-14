@@ -420,16 +420,16 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
     }
   }
 
-  // 将分区信息转成DF格式
+  // 将分区信息转成DF格式数据
   // 目前仅支持b_time、b_date和l_time分区作为Dataframe列名
   def partitionsAsDataFrame(ps : Array[Array[HivePartitionPart]]): DataFrame ={
     var rows = ps.map{x=>
       val row = new Array[String](3)
       x.map{y=>
         y.name match {
-          case "b_time" => row(0) = y.value
+          case "l_time" => row(0) = y.value
           case "b_date" => row(1) = y.value
-          case "l_time" => row(2) = y.value
+          case "b_time" => row(2) = y.value
         }
       }
       (row(0), row(1), row(2))
@@ -437,7 +437,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 
     hiveContext
       .createDataFrame(rows)
-      .toDF("b_time", "b_date", "l_time")
+      .toDF("l_time", "b_date", "b_time")
   }
 
   private def lTimePartitionsAlterSQL(ps : Array[Array[HivePartitionPart]]): Array[String] = {

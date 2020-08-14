@@ -125,6 +125,13 @@ class PluggableModule(globalConfig: Config,
   val clickHouseClient = new ClickHouseClient(moduleName, globalConfig, ssc, messageClient, transactionManager, hiveContext, moduleTracer)
   //-------------------------  Clients End  -------------------------
 
+  var dwiHandlers: List[com.mobikok.ssp.data.streaming.handler.dwi.Handler] = _
+  var dwiBTimeFormat = "yyyy-MM-dd HH:00:00"
+  try {
+    dwiBTimeFormat = globalConfig.getString(s"modules.$moduleName.dwi.b_time.format")
+  } catch {
+    case _: Throwable =>
+  }
 
   //-------------------------  Dwi about  -------------------------
   var isDwiPhoenixStore = false
@@ -137,21 +144,12 @@ class PluggableModule(globalConfig: Config,
   try {
     isDwiStore = globalConfig.getBoolean(s"modules.$moduleName.dwi.store")
   } catch {case _: Exception =>}
-  try {
-    if(isDwiStore){
-      dwiTable = globalConfig.getString(s"modules.$moduleName.dwi.table")
-    }
-  } catch {
-    case e: Throwable => throw new ModuleException(s"Module ${moduleName} must setting dwi.table value if dwi.store=true", e)
-  }
+  try{
+    dwiTable = globalConfig.getString(s"modules.$moduleName.dwi.table")
+  }catch {case _:Exception =>}
 
-//  var dwiHandlerCookies: Array[(com.mobikok.ssp.data.streaming.handler.dwi.Handler, Array[TransactionCookie])] = _ // Array[(com.mobikok.ssp.data.streaming.handler.dwi.Handler, Array[TransactionCookie])]()
-  var dwiHandlers: List[com.mobikok.ssp.data.streaming.handler.dwi.Handler] = _
-  var dwiBTimeFormat = "yyyy-MM-dd HH:00:00"
-  try {
-    dwiBTimeFormat = globalConfig.getString(s"modules.$moduleName.dwi.b_time.format")
-  } catch {
-    case _: Throwable =>
+  if(isDwiStore && StringUtil.isEmpty(dwiTable)){
+    throw new ModuleException(s"Module ${moduleName} must setting dwi.table value if dwi.store=true")
   }
 
   // dwi明细去重功能
@@ -162,6 +160,9 @@ class PluggableModule(globalConfig: Config,
     isEnableDwiUuid = globalConfig.getBoolean(s"modules.$moduleName.dwi.uuid.enable")
   } catch {case _: Exception =>}
   if (isEnableDwiUuid) {
+    if(StringUtil.isEmpty(dwiTable)) {
+      throw new ModuleException(s"Module ${moduleName} must setting dwi.table value if dwi.uuid.enable=true")
+    }
     dwiUuidFields = globalConfig.getStringList(s"modules.$moduleName.dwi.uuid.fields").toArray[String](new Array[String](0))
     try {
       dwiUuidFieldsAlias = globalConfig.getString(s"modules.$moduleName.dwi.uuid.alias")
@@ -180,7 +181,6 @@ class PluggableModule(globalConfig: Config,
   }
   repeatsFilter.init(moduleName, globalConfig, hiveContext, moduleTracer, dwiUuidFieldsAlias, businessTimeExtractBy, dwiTable)
   //-------------------------  Dwi End  -------------------------
-
 
   //-------------------------  Dwr about  -------------------------
 

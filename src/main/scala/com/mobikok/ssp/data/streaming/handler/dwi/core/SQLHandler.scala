@@ -17,11 +17,17 @@ class SQLHandler extends Handler {
   var messageTopics: Array[String] = null
   var messageConsumer: String = null
 
+  var inputDwiAsViewName = "dwi"
+  var messageClientPullDataAsViewName = "ps"  // ps: partitions简称
+
   override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, argsConfig: ArgsConfig, handlerConfig: Config, globalConfig: Config, messageClient: MessageClient, moduleTracer: ModuleTracer): Unit = {
     super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, handlerConfig, globalConfig, messageClient, moduleTracer)
 
     messageTopics = handlerConfig.getStringList("message.topics").toArray(new Array[String](0))
     messageConsumer = versionFeaturesKafkaCer(version, handlerConfig.getString("message.consumer"))
+
+    inputDwiAsViewName = if(handlerConfig.hasPath("dwi.view")) handlerConfig.getString("dwi.view") else inputDwiAsViewName
+    messageClientPullDataAsViewName = if(handlerConfig.hasPath("message.view")) handlerConfig.getString("message.view") else messageClientPullDataAsViewName
 
     plainSql = handlerConfig.getString("sql")
     sqlSegments = plainSql
@@ -37,19 +43,20 @@ class SQLHandler extends Handler {
   override def doHandle(newDwi: DataFrame): DataFrame = {
 
     LOG.warn(s"SQLHandler handle start")
-
-    // newDwi 是空的
-    var resultDF: DataFrame = newDwi
+    var resultDF: DataFrame = null
     RunAgainIfError.run{
+
+      resultDF = newDwi
+
       messageClient.pullBTimeDesc(messageConsumer, messageTopics, bTimes =>{
 
-        if(bTimes.size > 0) {
-          val partitions= bTimes.toSet[HivePartitionPart].map{x=>Array(x)}.toArray
-          hiveClient.partitionsAsDataFrame(partitions).createOrReplaceTempView("ps") // ps: partitions简称
+        newDwi.createOrReplaceTempView(inputDwiAsViewName)
 
-          sqlSegments.foreach{s=>
-            resultDF = sql(s)
-          }
+        val partitions= bTimes.toSet[HivePartitionPart].map{x=>Array(x)}.toArray
+        hiveClient.partitionsAsDataFrame(partitions).createOrReplaceTempView(messageClientPullDataAsViewName)
+
+        sqlSegments.foreach{s=>
+          resultDF = sql(s)
         }
 
         //提交偏移
