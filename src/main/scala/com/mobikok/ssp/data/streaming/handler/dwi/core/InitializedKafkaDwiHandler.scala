@@ -16,7 +16,7 @@ import org.apache.spark.sql.DataFrame
   *
   * Core handler, default configure is {modules.$moduleName.dwi.uuid.enable= true}
   */
-class InitializedDwiHandler extends Handler {
+class InitializedKafkaDwiHandler extends Handler {
 
   var repeatsFilter: RepeatsFilter = _
   var businessTimeExtractBy: String = _
