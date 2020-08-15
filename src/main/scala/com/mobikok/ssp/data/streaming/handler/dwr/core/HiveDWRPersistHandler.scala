@@ -69,16 +69,6 @@ class HiveDWRPersistHandler(dwrTable: String, subDwrTable: String, val subDwrTab
 
     currentBatchCookies = new util.ArrayList[TransactionCookie]()
 
-    val ts = partitionFields
-    val ps = persistenceDwr
-      .dropDuplicates(ts)
-      .collect()
-      .map { x =>
-        ts.map { y =>
-          HivePartitionPart(y, x.getAs[String](y))
-        }
-      }
-
     var resultDF: DataFrame = persistenceDwr
 
     if(StringUtil.notEmpty(where)) {
@@ -111,6 +101,16 @@ class HiveDWRPersistHandler(dwrTable: String, subDwrTable: String, val subDwrTab
           }: _*
         )
     }
+
+    val ts = partitionFields
+    val ps = resultDF
+      .dropDuplicates(ts)
+      .collect()
+      .map { x =>
+        ts.map { y =>
+          HivePartitionPart(y, x.getAs[String](y))
+        }
+      }
 
     currentBatchCookies.add(
       hiveClient.overwriteUnionSum(
@@ -177,7 +177,7 @@ class HiveDWRPersistHandler(dwrTable: String, subDwrTable: String, val subDwrTab
     else if(fieldName.equals("b_date")) {
       timeGranularity match {
         case TimeGranularity.Day     => col(fieldName)
-        case TimeGranularity.Month   => expr(s"from_unixtime(unix_timestamp(b_date), 'yyyy-MM-01')").as("b_date")
+        case TimeGranularity.Month   => expr("trunc(b_date, 'MM')").cast("string").as("b_date")
         case TimeGranularity.Default => col(fieldName)
       }
     }else {

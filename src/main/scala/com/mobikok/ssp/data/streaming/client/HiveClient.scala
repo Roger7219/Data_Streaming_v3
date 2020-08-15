@@ -255,7 +255,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 
         val fileNumber = aHivePartitionRecommendedFileNumber("HiveClient unionSum repartition", shufflePartitions, updated.rdd.getNumPartitions, ps.length)
         moduleTracer.trace(forTraceLog("union sum repartition", updated.rdd.getNumPartitions, makeShowPartition(ps), fileNumber))
-        LOG.warn("Union sum partitions", makeShowPartition(ps).mkString("\n"))
+        LOG.warn("Union sum partitions", "targetTable", table, "partitions", makeShowPartition(ps).mkString("\n"))
 
         if(transactionManager.needRealTransactionalAction()) {
           //支持事务，先写入临时表，commit()时在写入目标表
@@ -348,7 +348,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 
       val fileNumber = aHivePartitionRecommendedFileNumber("HiveClient overwrite repartition", shufflePartitions, df.rdd.getNumPartitions, ps.length)
       moduleTracer.trace(forTraceLog("overwrite repartition", df.rdd.getNumPartitions, makeShowPartition(ps), fileNumber))
-      LOG.warn("Overwrite partitions", makeShowPartition(ps).mkString("\n"))
+      LOG.warn("Overwrite partitions", "targetTable", table, "partitions", makeShowPartition(ps).mkString("\n"))
 
       if(!transactionManager.needRealTransactionalAction()) {
         df.selectExpr(fs:_*)
@@ -365,20 +365,19 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
       val pt = table + transactionalLegacyDataBackupProgressingTableSign + tid
       val ct = table + transactionalLegacyDataBackupCompletedTableSign + tid
 
-      if(!df.take(1).isEmpty) {
-//        createTableIfNotExists(tt, table)
-      }
+//      if(!df.take(1).isEmpty) {
+////        df.repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
+////          .write
+////          .format("orc")
+////          .mode(SaveMode.Overwrite)
+////          .insertInto(tt)
+//
+//        df.selectExpr(fs:_*)
+//          .createOrReplaceTempView(tt);
+//      }
 
-      if(!df.take(1).isEmpty) {
-//        df.repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
-//          .write
-//          .format("orc")
-//          .mode(SaveMode.Overwrite)
-//          .insertInto(tt)
-
-        df.selectExpr(fs:_*)
-          .createOrReplaceTempView(tt);
-      }
+      df.selectExpr(fs:_*)
+        .createOrReplaceTempView(tt);
 
       new HiveRollbackableTransactionCookie(
         transactionParentId,
@@ -508,7 +507,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
         //hivePartitions不一定是df.rdd.getNumPartitions, 待优化
         val fileNumber = aHivePartitionRecommendedFileNumber("HiveClient read for backup repartition", shufflePartitions, df.rdd.getNumPartitions, backPss)
         moduleTracer.trace(forTraceLog("read for backup", df.rdd.getNumPartitions, backPs, fileNumber))
-        LOG.warn("Read for backup partitions", backPs.mkString("\n"))
+        LOG.warn("Read for backup", "table", c.targetTable, "partitions", backPs.mkString("\n"))
 
         // 待优化，文件直接复制
         df//.coalesce(fileNumber)
@@ -529,7 +528,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 
         val fileNumber2 = aHivePartitionRecommendedFileNumber("HiveClient read table repartition", shufflePartitions, df2.rdd.getNumPartitions, c.partitions.length)
         moduleTracer.trace(forTraceLog("read transactional tmp table", df2.rdd.getNumPartitions, makeShowPartition(c.partitions), fileNumber2))
-        LOG.warn(s"Read transactional tmp table partitions", makeShowPartition(c.partitions).mkString("\n"))
+        LOG.warn(s"Read transactional tmp table", "table", c.transactionalTmpTable, "partitions", makeShowPartition(c.partitions).mkString("\n"))
 
         df2.coalesce(fileNumber2)
           //.repartition(fileNumber2*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber2}) ) )"))
