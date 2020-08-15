@@ -25,7 +25,7 @@ class MySqlJDBCClient(loggerName: String, var url: String, var user: String, var
       throw new MySQLJDBCClientException("加载Mysql Driver类异常", e)
   }
   basicDataSource = new BasicDataSource
-  basicDataSource.setMaxActive(5)
+  basicDataSource.setMaxActive(3)
   basicDataSource.setDriverClassName(driver)
   basicDataSource.setUrl(this.url)
   basicDataSource.setRemoveAbandoned(true)
@@ -37,7 +37,7 @@ class MySqlJDBCClient(loggerName: String, var url: String, var user: String, var
   //在空闲连接回收器线程运行期间休眠的时间值,以毫秒为单位，一般比minEvictableIdleTimeMillis小
   basicDataSource.setTimeBetweenEvictionRunsMillis(1000*60*5);
   //在每次空闲连接回收器线程(如果有)运行时检查的连接数量，最好和maxActive一致
-  basicDataSource.setNumTestsPerEvictionRun(5);
+  basicDataSource.setNumTestsPerEvictionRun(3);
   //连接池中连接，在时间段内一直空闲，被逐出连接池的时间(1000*60*60)，以毫秒为单位
   basicDataSource.setMinEvictableIdleTimeMillis(1000*60*60)
 

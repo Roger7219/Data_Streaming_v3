@@ -107,7 +107,7 @@ class MixModulesBatchController(config:Config, runnableModuleNames: Array[String
     allMixModuleNames.toArray[String](new Array[String](0))
   }
 
-  def waitUnionAll (appendDwr: DataFrame, isMasterModule: Boolean, moduleName:String): Unit = {
+  def waitingForUnionAll(appendDwr: DataFrame, isMasterModule: Boolean, moduleName:String): Unit = {
 
     synchronizedCall(new Callback {
       override def onCallback (): Unit = {
@@ -163,7 +163,7 @@ class MixModulesBatchController(config:Config, runnableModuleNames: Array[String
       if(allReadied) {
         b = false
       }else {
-        if(heartbeatsTimer.isTimeToReport){
+        if(heartbeatsTimer.isTimeToLog){
           LOG.warn(s"[$moduleName] wait all modules union done [waiting]", "moduleNamesMappingCurrBatchModuleUnionReadied", moduleNamesMappingCurrBatchModuleUnionReadied)
         }
         Thread.sleep(100)
@@ -229,7 +229,17 @@ class MixModulesBatchController(config:Config, runnableModuleNames: Array[String
     }, lock);
   }
 
-  def addMoudle(moduleName: String, isMasterOfConfigSpecify:Boolean): Unit = {
+  def isWaitingOtherMixModules(isMasterModule: Boolean): Boolean= {
+    val c= moduleNamesMappingCurrBatchModuleUnionReadied.values().map{x=>if(x) 1 else 0}.sum
+    if(isMasterModule) {
+      // 如果master module比其它module先到, 那么它是等待状态
+      c + 1 < allMixModuleNames.size()
+    }else {
+      c + 1 != allMixModuleNames.size()
+    }
+  }
+
+  def addModule(moduleName: String, isMasterOfConfigSpecify:Boolean): Unit = {
     synchronizedCall(new Callback {
       override def onCallback (): Unit = {
         LOG.warn("Adding Module", "moduleName", moduleName, "isMasterOfConfigSpecify", isMasterOfConfigSpecify, "runnableModuleNames", runnableModuleNames)

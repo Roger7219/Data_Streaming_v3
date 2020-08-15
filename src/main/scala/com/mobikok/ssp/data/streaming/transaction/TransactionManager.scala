@@ -28,7 +28,6 @@ class TransactionManager(config: Config, transactionalStrategy: TransactionalStr
   @volatile private var transactionParentIdCache: String = null
 
   @volatile private var LOCK = new Object
-  @volatile private var STRATEGY_LOCK = new Object
 
   //  @volatile private var moduleNames :java.util.HashSet[String] = new util.HashSet[String]()
   @volatile private var countDownLatch: CountDownLatch = null
@@ -183,7 +182,7 @@ class TransactionManager(config: Config, transactionalStrategy: TransactionalStr
     moudleTransactionOrders.get(moduleName).min == order
   }
 
-  // 加入等待队列
+  // 加入Module等待队列, 同一个Module只能跑一个批次, 不然就进入等待状态
   private def waitingQueue(moduleName: String, order: Long): Unit ={
 
     LOG.warn(" Require begin transaction", "module", moduleName, "ownOrder", order, "currentTransactionOrder", moduleCurrentTransactionOrder.get(moduleName))
@@ -208,11 +207,11 @@ class TransactionManager(config: Config, transactionalStrategy: TransactionalStr
     }
   }
 
-  def beginTransaction(moduleName: String, groupName: String, order: Long, moduleTracer: ModuleTracer): String = {
+  def beginTransaction(moduleName: String, groupName: String, order: Long): String = {
 
-    moduleTracer.trace("wait mix tx begin start")
+//    moduleTracer.trace("wait mix tx begin start")
     waitingQueue(moduleName, order)
-    moduleTracer.trace("wait mix tx begin done")
+//    moduleTracer.trace("wait mix tx begin done")
 
     synchronizedCall(new Callback {
       override def onCallback (): Unit = {
@@ -288,16 +287,16 @@ class TransactionManager(config: Config, transactionalStrategy: TransactionalStr
     transactionParentIdCache
   }
 
-  def commitTransaction(isMasterModule: Boolean, moduleName:String, moduleTracer: ModuleTracer, allMixModuleCommittedCallback: =>Unit): Unit ={
+  def commitTransaction(isMasterModule: Boolean, moduleName:String, allMixModuleCommittedCallback: =>Unit): Unit ={
     LOG.warn(s"[$moduleName] wait all mix modules transaction commit [start]", "moduleName", moduleName, "isMaster", isMasterModule, "transactionParentId", getCurrentTransactionParentId())
-    moduleTracer.trace("wait mix tx commit start")
+//    moduleTracer.trace("wait mix tx commit start")
 
     moduleCommitTransaction(isMasterModule, getCurrentTransactionParentId(), moduleName)
 
     alreadyCommittedModules.add(moduleName)
 
     while(!alreadyCommittedModules.size().equals(mixModuleNames.size())) {
-      if(heartbeatsTimer.isTimeToReport){
+      if(heartbeatsTimer.isTimeToLog){
         LOG.warn(s"[$moduleName] wait all mix modules transaction commit [waiting]", "alreadyCommittedModules", alreadyCommittedModules, "moduleTotalCount", mixModuleNames.size())
       }
       Thread.sleep(100)
@@ -315,7 +314,7 @@ class TransactionManager(config: Config, transactionalStrategy: TransactionalStr
     moduleCurrentTransactionOrder.remove(moduleName)
 
     LOG.warn(s"[$moduleName] wait all mix modules transaction commit [done]", "moduleName", moduleName, "isMaster", isMasterModule, "transactionParentId", getCurrentTransactionParentId())
-    moduleTracer.trace("wait mix tx commit done")
+//    moduleTracer.trace("wait mix tx commit done")
   }
 
   private def moduleCommitTransaction(isMasterModule: Boolean, parentTransactionId: String, moduleName: String) = {
@@ -425,6 +424,15 @@ class TransactionManager(config: Config, transactionalStrategy: TransactionalStr
       result = cleanCookies.toArray
     }
     result
+  }
+
+  def isWaitingOtherMixModulesCommitTransaction(isMasterModule: Boolean): Boolean= {
+    if(isMasterModule) {
+      // 如果master module比其它module先到, 那么它是等待状态
+      alreadyCommittedModules.size() + 1 < mixModuleNames.size()
+    }else {
+      alreadyCommittedModules.size() + 1 != mixModuleNames.size()
+    }
   }
 
   trait Callback{

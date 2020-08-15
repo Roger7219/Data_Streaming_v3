@@ -13,7 +13,7 @@ public class HeartbeatsTimer {
     }
 
 
-    public boolean isTimeToReport(){
+    public boolean isTimeToLog(){
         boolean b = System.currentTimeMillis() - lastReportTime >= intervalTimeMs;
         if(b){
             lastReportTime = System.currentTimeMillis();

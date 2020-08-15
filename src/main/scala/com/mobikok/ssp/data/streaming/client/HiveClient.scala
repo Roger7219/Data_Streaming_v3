@@ -69,8 +69,8 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
     sql(s"create table if not exists $table like $like")
   }
 
-  private def forTraceLog(title: String, rddNumPartitions: Int, ps : Array[String], fileNumber: Int): String ={
-    val overview = s"        $title rs: ${rddNumPartitions}, ps: ${ps.length}, fs: $fileNumber"
+  private def forTraceLog(title: String, rddNumPartitions: Int, ps : Array[String], fileCount: Int): String ={
+    val overview = s"        $title rs: ${rddNumPartitions}, ps: ${ps.length}, fs: $fileCount"
     s"${ps.mkString(s"$overview\n                                                ", "\n                                                ", "")}"
   }
 
@@ -82,15 +82,15 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 
       tid = transactionManager.generateTransactionId(transactionParentId)
 
-      val fileNumber = aHivePartitionRecommendedFileNumber("HiveClient into repartition", shufflePartitions, df.rdd.getNumPartitions, ps.length)
-      moduleTracer.trace(forTraceLog("into repartition", df.rdd.getNumPartitions, makeShowPartition(ps), fileNumber))
+      val fileCount = aHivePartitionMaxFileCount("HiveClient into repartition", shufflePartitions, df.rdd.getNumPartitions, ps.length)
+      moduleTracer.trace(forTraceLog("into repartition", df.rdd.getNumPartitions, makeShowPartition(ps), fileCount))
       LOG.warn("Into partitions", makeShowPartition(ps).mkString("\n"))
 
       if(!transactionManager.needRealTransactionalAction()) {
 
         df.selectExpr(fs:_*)
-          .coalesce(fileNumber)
-          //.repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
+          .coalesce(fileCount)
+          //.repartition(fileCount*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileCount}) ) )"))
           .write
           .format("orc")
           .mode(SaveMode.Append)
@@ -105,7 +105,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 //      createTableIfNotExists(tt, table)
 //
 //      df.selectExpr(fs:_*)
-//        .repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
+//        .repartition(fileCount*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileCount}) ) )"))
 //        .write
 //        .format("orc")
 //        .mode(SaveMode.Append)
@@ -253,8 +253,8 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
           )
           .select(fs.head, fs.tail:_* /*groupByFields ++ aggExprsAlias ++ ts:_**/)
 
-        val fileNumber = aHivePartitionRecommendedFileNumber("HiveClient unionSum repartition", shufflePartitions, updated.rdd.getNumPartitions, ps.length)
-        moduleTracer.trace(forTraceLog("union sum repartition", updated.rdd.getNumPartitions, makeShowPartition(ps), fileNumber))
+        val fileCount = aHivePartitionMaxFileCount("HiveClient unionSum repartition", shufflePartitions, updated.rdd.getNumPartitions, ps.length)
+        moduleTracer.trace(forTraceLog("union sum repartition", updated.rdd.getNumPartitions, makeShowPartition(ps), fileCount))
         LOG.warn("Union sum partitions", "targetTable", table, "partitions", makeShowPartition(ps).mkString("\n"))
 
         if(transactionManager.needRealTransactionalAction()) {
@@ -262,7 +262,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 //          createTableIfNotExists(tt, table)
 //          updated
 //  //          .coalesce(1)
-//            .repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
+//            .repartition(fileCount*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileCount}) ) )"))
 //            .write
 //            .format("orc")
 //            .mode(SaveMode.Overwrite)
@@ -275,8 +275,8 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
         }else {
           //非事务，直接写入目标表
           updated
-            .coalesce(fileNumber)
-            //.repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
+            .coalesce(fileCount)
+            //.repartition(fileCount*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileCount}) ) )"))
             .write
             .format("orc")
             .mode(SaveMode.Overwrite)
@@ -346,14 +346,14 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 
       tid = transactionManager.generateTransactionId(transactionParentId)
 
-      val fileNumber = aHivePartitionRecommendedFileNumber("HiveClient overwrite repartition", shufflePartitions, df.rdd.getNumPartitions, ps.length)
-      moduleTracer.trace(forTraceLog("overwrite repartition", df.rdd.getNumPartitions, makeShowPartition(ps), fileNumber))
+      val fileCount = aHivePartitionMaxFileCount("HiveClient overwrite repartition", shufflePartitions, df.rdd.getNumPartitions, ps.length)
+      moduleTracer.trace(forTraceLog("overwrite repartition", df.rdd.getNumPartitions, makeShowPartition(ps), fileCount))
       LOG.warn("Overwrite partitions", "targetTable", table, "partitions", makeShowPartition(ps).mkString("\n"))
 
       if(!transactionManager.needRealTransactionalAction()) {
         df.selectExpr(fs:_*)
-          .coalesce(fileNumber)
-          //.repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
+          .coalesce(fileCount)
+          //.repartition(fileCount*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileCount}) ) )"))
           .write
           .format("orc")
           .mode(SaveMode.Overwrite)
@@ -366,7 +366,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
       val ct = table + transactionalLegacyDataBackupCompletedTableSign + tid
 
 //      if(!df.take(1).isEmpty) {
-////        df.repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
+////        df.repartition(fileCount*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileCount}) ) )"))
 ////          .write
 ////          .format("orc")
 ////          .mode(SaveMode.Overwrite)
@@ -505,13 +505,13 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
         moduleTracer.trace(s"        read for backup repartition start")
 
         //hivePartitions不一定是df.rdd.getNumPartitions, 待优化
-        val fileNumber = aHivePartitionRecommendedFileNumber("HiveClient read for backup repartition", shufflePartitions, df.rdd.getNumPartitions, backPss)
-        moduleTracer.trace(forTraceLog("read for backup", df.rdd.getNumPartitions, backPs, fileNumber))
+        val fileCount = aHivePartitionMaxFileCount("HiveClient read for backup repartition", shufflePartitions, df.rdd.getNumPartitions, backPss)
+        moduleTracer.trace(forTraceLog("read for backup", df.rdd.getNumPartitions, backPs, fileCount))
         LOG.warn("Read for backup", "table", c.targetTable, "partitions", backPs.mkString("\n"))
 
         // 待优化，文件直接复制
-        df//.coalesce(fileNumber)
-          //.repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
+        df//.coalesce(fileCount)
+          //.repartition(fileCount*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileCount}) ) )"))
           .write
           .format("orc")
           .mode(SaveMode.Overwrite)
@@ -526,12 +526,12 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
           .read
           .table(c.transactionalTmpTable)
 
-        val fileNumber2 = aHivePartitionRecommendedFileNumber("HiveClient read table repartition", shufflePartitions, df2.rdd.getNumPartitions, c.partitions.length)
-        moduleTracer.trace(forTraceLog("read transactional tmp table", df2.rdd.getNumPartitions, makeShowPartition(c.partitions), fileNumber2))
+        val fileCount2 = aHivePartitionMaxFileCount("HiveClient read table repartition", shufflePartitions, df2.rdd.getNumPartitions, c.partitions.length)
+        moduleTracer.trace(forTraceLog("read transactional tmp table", df2.rdd.getNumPartitions, makeShowPartition(c.partitions), fileCount2))
         LOG.warn(s"Read transactional tmp table", "table", c.transactionalTmpTable, "partitions", makeShowPartition(c.partitions).mkString("\n"))
 
-        df2.coalesce(fileNumber2)
-          //.repartition(fileNumber2*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber2}) ) )"))
+        df2.coalesce(fileCount2)
+          //.repartition(fileCount2*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileCount2}) ) )"))
           .write
           .format("orc")
           .mode(c.saveMode)
@@ -904,11 +904,11 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
                   .table(t)
                   .selectExpr(selects:_*)
 
-                val fileNumber = aHivePartitionRecommendedFileNumber("HiveClient read backup table repartition", shufflePartitions, df.rdd.getNumPartitions, ps.length)
+                val fileCount = aHivePartitionMaxFileCount("HiveClient read backup table repartition", shufflePartitions, df.rdd.getNumPartitions, ps.length)
 //                val parts = sparkPartitionNum("HiveClient read backup table repartition", shufflePartitions, df.rdd.getNumPartitions, ps.length)
 
-                df.coalesce(fileNumber)
-                  //.repartition(fileNumber*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileNumber}) ) )"))
+                df.coalesce(fileCount)
+                  //.repartition(fileCount*2, expr(s"concat_ws('^', b_date, b_time, l_time, ceil( rand() * ceil(${fileCount}) ) )"))
                   .write
                   .format("orc")
                   .mode(SaveMode.Overwrite)
@@ -1033,7 +1033,8 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
 //
 //  }
 
-  def aHivePartitionRecommendedFileNumber(logTip: String, shufflePartitions: Int, rddPartitions: Int, hivePartitions: Int): Int ={
+  // 允许一个hive分区（完整路径的分区）最大个文件数
+  def aHivePartitionMaxFileCount(logTip: String, shufflePartitions: Int, rddPartitions: Int, hivePartitions: Int): Int ={
     var result = 0
     if(rddPartitions == 0 || hivePartitions == 0) {
       result = 10 //Math.ceil(8.0/hivePartitions).toInt
@@ -1041,8 +1042,7 @@ class HiveClient(moduleName:String, config: Config, ssc: StreamingContext, messa
       result = 10;//Math.ceil(8.0/hivePartitions).toInt //Math.ceil(1.0*shufflePartitions/hivePartitions).toInt
     }
 
-    LOG.warn(logTip, "aHivePartitionRecommendedFileNumber", result, "shufflePartitions", shufflePartitions, "rddPartitions", rddPartitions, "hivePartition", hivePartitions)
-//    Math.ceil(hivePartitions).toInt
+    LOG.warn(logTip, "aHivePartitionMaxFileCount", result, "shufflePartitions", shufflePartitions, "rddPartitions", rddPartitions, "hivePartition", hivePartitions)
     result
   }
 

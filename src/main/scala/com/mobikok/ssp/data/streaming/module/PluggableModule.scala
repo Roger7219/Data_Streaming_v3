@@ -10,7 +10,7 @@ import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.OffsetRange
 import com.mobikok.ssp.data.streaming.exception.ModuleException
 import com.mobikok.ssp.data.streaming.handler.dm
-import com.mobikok.ssp.data.streaming.handler.dwi.core.{HBaseDWIPersistHandler, HiveDWIPersistHandler, InitializedDwiHandler}
+import com.mobikok.ssp.data.streaming.handler.dwi.core.{HBaseDWIPersistHandler, HiveDWIPersistHandler, InitializedKafkaDwiHandler}
 import com.mobikok.ssp.data.streaming.handler.dwr.core._
 import com.mobikok.ssp.data.streaming.module.support.repeats.{BTimeRangeRepeatsFilter, DefaultRepeatsFilter, RepeatsFilter}
 import com.mobikok.ssp.data.streaming.module.support.{MixModulesBatchController, TimeGranularity}
@@ -368,7 +368,7 @@ class PluggableModule(globalConfig: Config,
               Thread.sleep(1000)
             }
             isModuleReadingKafka.put(moduleName, true)
-          })
+          }, false)
 
           LOG.warn("Kafka Offset Range", offsetRanges)
 
@@ -407,7 +407,11 @@ class PluggableModule(globalConfig: Config,
           //-----------------------------------------------------------------------------------------------------------------
           //  Begin Transaction !!
           //-----------------------------------------------------------------------------------------------------------------
-          val parentTransactionId = transactionManager.beginTransaction(moduleName, groupName, order, moduleTracer)
+          var parentTransactionId: String = null
+          moduleTracer.trace("wait mix tx begin", {
+            parentTransactionId = transactionManager.beginTransaction(moduleName, groupName, order)
+          }, false)
+
           val parentThreadId= Thread.currentThread().getId
 
           val dwrLTimeExpr = s"'${transactionManager.dwrLTime(moduleConfig)}'"
@@ -453,9 +457,9 @@ class PluggableModule(globalConfig: Config,
             //-----------------------------------------------------------------------------------------------------------------
             // Wait mix module union dwr data. Key code !!
             //-----------------------------------------------------------------------------------------------------------------
-            moduleTracer.trace("wait dwr union all", {
-              mixModulesBatchController.waitUnionAll(preparedDwr, isMaster, moduleName)
-            })
+            moduleTracer.trace("wait mix dwr union all", {
+              mixModulesBatchController.waitingForUnionAll(preparedDwr, isMaster, moduleName)
+            }, mixModulesBatchController.isWaitingOtherMixModules(isMaster))
           }
 
           //-----------------------------------------------------------------------------------------------------------------
@@ -501,14 +505,17 @@ class PluggableModule(globalConfig: Config,
           //------------------------------------------------------------------------------------
           // Wait all asynchronous handler done
           //------------------------------------------------------------------------------------
-          asyncWorker.await()
+           asyncWorker.await()
+
 
           //------------------------------------------------------------------------------------
           // Wait mix module transaction commit, Key code !!
           //------------------------------------------------------------------------------------
-          transactionManager.commitTransaction(isMaster, moduleName, moduleTracer, {
-            mixModulesBatchController.completeBatch(isMaster)
-          })
+          moduleTracer.trace("wait mix tx commit", {
+            transactionManager.commitTransaction(isMaster, moduleName, {
+              mixModulesBatchController.completeBatch(isMaster)
+            })
+          }, transactionManager.isWaitingOtherMixModulesCommitTransaction(isMaster))
 
           //------------------------------------------------------------------------------------
           // Clean transaction tmp data
@@ -620,7 +627,7 @@ class PluggableModule(globalConfig: Config,
   def initDwiHandlers(): Unit = {
     dwiHandlers = List()
 
-    val initializedHandler = new InitializedDwiHandler(repeatsFilter, businessTimeExtractBy, isEnableDwiUuid, dwiBTimeFormat, argsConfig)
+    val initializedHandler = new InitializedKafkaDwiHandler(repeatsFilter, businessTimeExtractBy, isEnableDwiUuid, dwiBTimeFormat, argsConfig)
     initializedHandler.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, null, globalConfig, messageClient, moduleTracer)
 
     dwiHandlers = dwiHandlers :+ initializedHandler

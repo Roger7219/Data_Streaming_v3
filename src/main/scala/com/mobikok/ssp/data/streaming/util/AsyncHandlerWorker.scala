@@ -59,6 +59,7 @@ class AsyncHandlerWorker(moduleName: String, totalTaskSize:Int, moduleTracer: Mo
           Thread.sleep(100)
         }catch {case _:Exception=>}
       }
+    moduleTracer.trace("wait async handlers done")
     LOG.warn("Wait AsyncHandlerWorker all async action [done]")
   }
 

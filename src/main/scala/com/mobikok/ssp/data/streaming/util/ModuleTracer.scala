@@ -21,42 +21,39 @@ import scala.collection.JavaConversions._
   */
 class ModuleTracer(moduleName: String, globalConfig: Config, mixModulesBatchController: MixModulesBatchController, messageClient: MessageClient, recordHistoryBatches:Integer = 20) {
 
-  def trace(traceMessage: String, waitFor: => Unit): Unit = {
-//    pauseBatch()
-    updatableTrace(s"$traceMessage [doing]")
-    waitFor
-//    continueBatch()
-    finalUpdatableTrace(traceMessage)
+  // 等待mix组里的其它Modules
+  def trace(traceMessage: String, waitingFor: => Unit, isWaitingOtherModules: Boolean): Unit = {
+    if(isWaitingOtherModules) pauseOwnModuleUsingTimeCount()
+
+    setUpdatableTrace(s"$traceMessage [doing]")
+
+    waitingFor
+
+    if(isWaitingOtherModules) continueOwnModuleUsingTimeCount()
+    finalizeUpdatableTrace(traceMessage)
   }
 
   val LOG: Logger = new Logger(moduleName, classOf[ModuleTracer])
-//  //兼容此前的
-//  def this(){
-//    this(null, null, null, null)
-//  }
 
   @volatile private var LOCK: Object = new Object
   @volatile private var moduleBatchEndTime: Long = System.currentTimeMillis()
   @volatile private var checkCurrBatchWaitTimePollingThread: Thread = null
 
-
-  //mixModulesBatchController == null 为了兼容此前的
-
-  if(mixModulesBatchController == null || mixModulesBatchController.isRunnable(moduleName)) {
+  if(mixModulesBatchController.isRunnable(moduleName)) {
     initBatchProcessingTimeoutChecker();
   }else {
-    LOG.warn("No inited BatchProcessingTimeoutChecker", "moduleName", moduleName)
+    LOG.warn("Not need init BatchProcessingTimeoutChecker, because the module is not runnable", "moduleName", moduleName)
   }
 
   private val traceBatchUsingTimeFormat = new DecimalFormat("#####0.00")
 
   private var batchBeginTime = new ThreadLocal[Long]()
-  private var batchContinueTime = new ThreadLocal[Long]()// batchBeginTime //暂停后再次启动的时间
+  private var batchContinueTimestamp = new ThreadLocal[Long]()// batchBeginTime //暂停后再次启动的时间
 
   private var batchUsingTime = new ThreadLocal[Long]() //0.asInstanceOf[Long]
   private var batchActualTime = new ThreadLocal[Long]() //0.asInstanceOf[Long]
 
-  private var lastTraceTime = new ThreadLocal[Long]()//new Date().getTime
+  private var lastTraceTimestamp = new ThreadLocal[Long]()//new Date().getTime
   private var traceBatchUsingTimeLog = new ThreadLocal[mutable.ListBuffer[String]]()//mutable.ListBuffer[String]()
   private var threadPrefix = new ThreadLocal[String](){
     override protected def initialValue: String = {
@@ -68,10 +65,10 @@ class ModuleTracer(moduleName: String, globalConfig: Config, mixModulesBatchCont
 
   def startBatch: Unit = {
     batchBeginTime.set(new Date().getTime)
-    batchContinueTime.set(batchBeginTime.get())
+    batchContinueTimestamp.set(batchBeginTime.get())
     batchActualTime.set(0)
     batchUsingTime.set(0)
-    lastTraceTime.set(batchBeginTime.get())
+    lastTraceTimestamp.set(batchBeginTime.get())
 
     var b = mutable.ListBuffer[String]()
     historyBatchCollector.add(b)
@@ -89,10 +86,10 @@ class ModuleTracer(moduleName: String, globalConfig: Config, mixModulesBatchCont
 
   private def start0(transactionOrder: Long, parentTransactionId: String, parentThreadId: java.lang.Long, prefix: String): Unit = {
     batchBeginTime.set(new Date().getTime)
-    batchContinueTime.set(batchBeginTime.get())
+    batchContinueTimestamp.set(batchBeginTime.get())
     batchActualTime.set(0)
     batchUsingTime.set(0)
-    lastTraceTime.set(batchBeginTime.get())
+    lastTraceTimestamp.set(batchBeginTime.get())
 
     var b = mutable.ListBuffer[String]()
     historyBatchCollector.add(b)
@@ -108,7 +105,7 @@ class ModuleTracer(moduleName: String, globalConfig: Config, mixModulesBatchCont
 
   def endBatch(): Unit ={
     batchUsingTime.set(new Date().getTime - batchBeginTime.get())
-    batchActualTime.set((new Date().getTime - batchContinueTime.get()) + batchActualTime.get())
+    batchActualTime.set((new Date().getTime - batchContinueTimestamp.get()) + batchActualTime.get())
     moduleBatchEndTime = System.currentTimeMillis()
   }
 
@@ -120,33 +117,33 @@ class ModuleTracer(moduleName: String, globalConfig: Config, mixModulesBatchCont
     (100.0*batchActualTime.get()/1000/60).asInstanceOf[Int]/100.0
   }
 
-  @deprecated
-  def pauseBatch() {
-    batchActualTime.set((new Date().getTime - batchContinueTime.get()) + batchActualTime.get())
+//  @deprecated
+  def pauseOwnModuleUsingTimeCount() {
+    batchActualTime.set((new Date().getTime - batchContinueTimestamp.get()) + batchActualTime.get())
   }
 
-  @deprecated
-  def continueBatch() {
-    batchContinueTime.set(new Date().getTime())
-    lastTraceTime.set(batchContinueTime.get())
+//  @deprecated
+  def continueOwnModuleUsingTimeCount() {
+    batchContinueTimestamp.set(new Date().getTime())
+//    lastTraceTime.set(batchContinueTimestamp.get())
   }
 
   def trace (title: String) = {
-    val ms = System.currentTimeMillis() - lastTraceTime.get()
+    val ms = System.currentTimeMillis() - lastTraceTimestamp.get()
     val m = traceBatchUsingTimeFormat.format((100.0*ms/1000/60).asInstanceOf[Int]/100.0)
-    lastTraceTime.set(new Date().getTime)
+    lastTraceTimestamp.set(new Date().getTime)
     if (traceBatchUsingTimeLog.get() == null) {
       startBatch
     }
     traceBatchUsingTimeLog.get().append(s"${CSTTime.now.time}  $m  ${threadPrefix.get()}$title")
   }
 
-  private def updatableTrace (title: String) = {
+  private def setUpdatableTrace (title: String) = {
     traceBatchUsingTimeLog.get().append(s"${CSTTime.now.time}  ----  $title")
   }
 
-  private def finalUpdatableTrace (title: String) = {
-    val ms = new Date().getTime - lastTraceTime.get()
+  private def finalizeUpdatableTrace (title: String) = {
+    val ms = new Date().getTime - lastTraceTimestamp.get()
     val m = traceBatchUsingTimeFormat.format((100.0*ms/1000/60).asInstanceOf[Int]/100.0)
     val log = traceBatchUsingTimeLog.get()
     val lastIdx = log.length - 1
@@ -154,7 +151,7 @@ class ModuleTracer(moduleName: String, globalConfig: Config, mixModulesBatchCont
       log.remove(lastIdx)
     }
     traceBatchUsingTimeLog.get().append(s"${CSTTime.now.time}  $m  $title")
-    lastTraceTime.set(new Date().getTime)
+    lastTraceTimestamp.set(new Date().getTime)
   }
 
   def getTraceResult (): String ={

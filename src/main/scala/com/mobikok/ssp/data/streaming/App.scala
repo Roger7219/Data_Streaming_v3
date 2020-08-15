@@ -166,7 +166,7 @@ object App {
               )
             }
           }
-          cer.addMoudle(m, isM)
+          cer.addModule(m, isM)
         }
 
         //效验
