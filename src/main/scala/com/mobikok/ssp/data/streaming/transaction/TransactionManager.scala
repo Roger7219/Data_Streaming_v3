@@ -208,9 +208,11 @@ class TransactionManager(config: Config, transactionalStrategy: TransactionalStr
     }
   }
 
-  def beginTransaction(moduleName: String, groupName: String, order: Long): String = {
+  def beginTransaction(moduleName: String, groupName: String, order: Long, moduleTracer: ModuleTracer): String = {
 
+    moduleTracer.trace("wait begin transaction")
     waitingQueue(moduleName, order)
+    moduleTracer.trace("wait begin transaction done")
 
     synchronizedCall(new Callback {
       override def onCallback (): Unit = {

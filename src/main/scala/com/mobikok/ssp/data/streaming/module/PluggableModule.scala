@@ -356,7 +356,7 @@ class PluggableModule(globalConfig: Config,
         // 1) 必须是独立module, 即不需要汇合每个module自身的dwr数据到master module中
         // 2) 并且上一个批次还未结束(如果结束了isLastUncompletedTransaction()不会返回true了);
         // 3) 并且当前批次数据为空
-        if (false/*!mixModulesBatchController.isMultipleModulesOperateSameShareDwrTable() && transactionManager.isLastUncompletedTransaction(moduleName) && dwiCount == 0*/) {
+        if (!mixModulesBatchController.isMultipleModulesOperateSameShareDwrTable() && transactionManager.isLastUncompletedTransaction(moduleName) && dwiCount == 0) {
 
           LOG.warn("Fast polling", "concurrentGroup", concurrentGroup, "moduleName", moduleName)
           moduleTracer.trace("fast polling")
@@ -407,7 +407,7 @@ class PluggableModule(globalConfig: Config,
           //-----------------------------------------------------------------------------------------------------------------
           //  Begin Transaction !!
           //-----------------------------------------------------------------------------------------------------------------
-          val parentTransactionId = transactionManager.beginTransaction(moduleName, groupName, order)
+          val parentTransactionId = transactionManager.beginTransaction(moduleName, groupName, order, moduleTracer)
           val parentThreadId= Thread.currentThread().getId
 
           val dwrLTimeExpr = s"'${transactionManager.dwrLTime(moduleConfig)}'"

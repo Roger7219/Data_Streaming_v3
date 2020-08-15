@@ -19,7 +19,7 @@ import scala.collection.JavaConverters._
 class DefaultRepeatsFilter(dwiBTimeFormat: String = "yyyy-MM-dd HH:00:00") extends RepeatsFilter{
 
   @volatile var uuidBloomFilterMap:util.Map[String, BloomFilterWrapper] = new util.HashMap[String, BloomFilterWrapper]()
-  var bloomFilteBTimeformat: String = dwiBTimeFormat //_ //"yyyy-MM-dd HH:00:00"
+  var bloomFilterBTimeFormat: String = dwiBTimeFormat //_ //"yyyy-MM-dd HH:00:00"
 
   override def dwrNonRepeatedWhere (): String = {
     "repeated = 'N'"
@@ -34,7 +34,7 @@ class DefaultRepeatsFilter(dwiBTimeFormat: String = "yyyy-MM-dd HH:00:00") exten
       .dropDuplicates(dwiUuidFieldsAlias)
       .select(
         expr(s"$dwiUuidFieldsAlias"),
-        expr(s"from_unixtime(unix_timestamp($businessTimeExtractBy), '${bloomFilteBTimeformat}')").as("b_time")
+        expr(s"from_unixtime(unix_timestamp($businessTimeExtractBy), '${bloomFilterBTimeFormat}')").as("b_time")
       )
       .rdd
       .map { x =>
@@ -62,7 +62,7 @@ class DefaultRepeatsFilter(dwiBTimeFormat: String = "yyyy-MM-dd HH:00:00") exten
     val b_dates = dwi
       .select(
         to_date(expr(businessTimeExtractBy)).cast("string").as("b_date"),
-        expr(s"from_unixtime(unix_timestamp($businessTimeExtractBy), '${bloomFilteBTimeformat}')").as("b_time")
+        expr(s"from_unixtime(unix_timestamp($businessTimeExtractBy), '${bloomFilterBTimeFormat}')").as("b_time")
       )
       .dropDuplicates("b_date", "b_time")
       .rdd.map{
@@ -154,7 +154,7 @@ class DefaultRepeatsFilter(dwiBTimeFormat: String = "yyyy-MM-dd HH:00:00") exten
           c = hiveContext
             .read
             .table(dwiTable)
-            .where(s"repeated = 'N' and b_date = '${b_date}' and from_unixtime(unix_timestamp($businessTimeExtractBy), '${bloomFilteBTimeformat}') = '${b_time}' ")
+            .where(s"repeated = 'N' and b_date = '${b_date}' and from_unixtime(unix_timestamp($businessTimeExtractBy), '${bloomFilterBTimeFormat}') = '${b_time}' ")
             .select(col(a))
             .rdd
             .map{x=>
