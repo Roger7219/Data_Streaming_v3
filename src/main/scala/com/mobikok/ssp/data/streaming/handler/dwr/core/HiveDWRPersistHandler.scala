@@ -82,22 +82,28 @@ class HiveDWRPersistHandler(dwrTable: String, subDwrTable: String, val subDwrTab
       val subTableAllGroupByFieldsLowerCase = (subDwrTableGroupByFields ++ partitionFields).map(_.toLowerCase)
       val subTableAllGroupByFields = (subDwrTableGroupByFields ++ partitionFields).map(forColumn(_, timeGranularity))
 
+      val aggFieldsLowerCase = aggExprsAlias.map(_.toLowerCase)
+
       resultDF = resultDF
         .groupBy(subTableAllGroupByFields:_*)
         .agg(unionAggExprsAndAlias.head, unionAggExprsAndAlias.tail: _*)
         .select(
           persistenceDwr.schema.fields.map { f =>
-            var c: Column = null
             val fLowerCase = f.name.toLowerCase
 
-            // 是否子表需统计的字段
-            if(subTableAllGroupByFieldsLowerCase.contains(fLowerCase)){
-              c = forColumn(f.name, timeGranularity)
+            // 度量字段, 都要统计
+            if(aggFieldsLowerCase.contains(fLowerCase)) {
+              col(f.name)
+            // 维度字段
             }else {
-              c = expr("null").cast(f.dataType).as(f.name)
+              // 统计的选定的维度字段
+              if(subTableAllGroupByFieldsLowerCase.contains(fLowerCase)){
+                forColumn(f.name, timeGranularity)
+              // 不需要统计的维度则置空
+              }else {
+                expr("null").cast(f.dataType).as(f.name)
+              }
             }
-
-            c
           }: _*
         )
     }
