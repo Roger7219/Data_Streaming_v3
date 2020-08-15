@@ -5,8 +5,6 @@ import java.util.Date
 import java.util.concurrent.CountDownLatch
 
 import com.mobikok.message.Message
-import com.mobikok.message.client.MessageClientApi
-import com.mobikok.ssp.data.streaming.App
 import com.mobikok.ssp.data.streaming.client._
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.OffsetRange
@@ -14,8 +12,8 @@ import com.mobikok.ssp.data.streaming.exception.ModuleException
 import com.mobikok.ssp.data.streaming.handler.dm
 import com.mobikok.ssp.data.streaming.handler.dwi.core.{HBaseDWIPersistHandler, HiveDWIPersistHandler, InitializedDwiHandler}
 import com.mobikok.ssp.data.streaming.handler.dwr.core._
-import com.mobikok.ssp.data.streaming.module.support.{MixModulesBatchController, TimeGranularity}
 import com.mobikok.ssp.data.streaming.module.support.repeats.{BTimeRangeRepeatsFilter, DefaultRepeatsFilter, RepeatsFilter}
+import com.mobikok.ssp.data.streaming.module.support.{MixModulesBatchController, TimeGranularity}
 import com.mobikok.ssp.data.streaming.transaction.TransactionRoolbackedCleanable
 import com.mobikok.ssp.data.streaming.udf.HiveContextCreator
 import com.mobikok.ssp.data.streaming.util._
@@ -617,39 +615,6 @@ class PluggableModule(globalConfig: Config,
       }
     }
   }
-
-//  //<cookieKind, <transactionParentId, transactionCookies>>
-//  private def cacheTransactionCookies(cookieKind: String, transactionCookie: TransactionCookie): Unit = {
-//
-//    if (transactionCookie.isInstanceOf[HiveRollbackableTransactionCookie]
-//      || transactionCookie.isInstanceOf[KafkaRollbackableTransactionCookie]
-//      || transactionCookie.isInstanceOf[HBaseTransactionCookie] // HBaseTransactionCookie待删
-//    ) {
-//
-//      var pr = batchsTransactionCookiesCache.get(cookieKind)
-//      if (pr == null) {
-//        pr = new util.ArrayList[TransactionCookie]()
-//        batchsTransactionCookiesCache.put(cookieKind, pr)
-//      }
-//      pr.add(transactionCookie)
-//    }
-//  }
-
-//  private val EMPTY_TRANSACTION_COOKIES = Array[TransactionCookie]()
-//
-//  //找到上一次事务的临时数据并移除
-//  private def popNeedCleanTransactions(cookieKind: String, excludeCurrTransactionParentId: String): Array[TransactionCookie] = {
-//    var result = EMPTY_TRANSACTION_COOKIES
-//    val pr = batchsTransactionCookiesCache.get(cookieKind)
-//    val isTran = transactionManager.needRealTransactionalAction()
-//    if (pr != null && isTran) {
-//      val needCleans = pr.filter(!_.parentId.equals(excludeCurrTransactionParentId))
-//      pr.removeAll(needCleans)
-//      result = needCleans.toArray
-//    }
-//    result
-//  }
-
 
   var asyncHandlersCount = 0
   def initDwiHandlers(): Unit = {
