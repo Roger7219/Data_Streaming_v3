@@ -358,7 +358,7 @@ class PluggableModule(globalConfig: Config,
         // 3) 并且当前批次数据为空
         if (!mixModulesBatchController.isMultipleModulesOperateSameShareDwrTable() && transactionManager.isLastUncompletedTransaction(moduleName) && dwiCount == 0) {
 
-          LOG.warn("Fast polling", "concurrentGroup", concurrentGroup, "moduleName", moduleName)
+          LOG.warn("Empty running, Fast polling", "concurrentGroup", concurrentGroup, "moduleName", moduleName)
           moduleTracer.trace("fast polling")
 
         } else {
