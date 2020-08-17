@@ -16,10 +16,15 @@ import scala.collection.JavaConverters._
   * 建议改用BTimeRangeUuidFilter
   * Created by Administrator on 2018/4/17.
   */
-class DefaultRepeatsFilter(dwiBTimeFormat: String = "yyyy-MM-dd HH:00:00") extends RepeatsFilter{
+@Deprecated
+class DefaultRepeatsFilter(dwiBTimeFormat: String = "yyyy-MM-dd HH:00:00", bTimeExpandRanges: Int = 24) extends RepeatsFilter{
 
   @volatile var uuidBloomFilterMap:util.Map[String, BloomFilterWrapper] = new util.HashMap[String, BloomFilterWrapper]()
-  var bloomFilterBTimeFormat: String = dwiBTimeFormat //_ //"yyyy-MM-dd HH:00:00"
+  var bloomFilterBTimeFormat: String = dwiBTimeFormat
+
+  // 这个值越大过滤精度越高(即本身不是重复的，却被误当重复的过滤掉的概率越低)，但内存占用越高，
+  // 20 来自于 Int.MaxValue/100000000，设置为20是占用内存和过滤精度的平衡点，是目前采用的
+  val wronglyFilteredIndex = 20
 
   override def dwrNonRepeatedWhere (): String = {
     "repeated = 'N'"
@@ -124,13 +129,10 @@ class DefaultRepeatsFilter(dwiBTimeFormat: String = "yyyy-MM-dd HH:00:00") exten
     var result = new util.ArrayList[(String, String)]()
 
     b_times.foreach{bt=>
-      // CSTTime.neighborTimes(bt, 1.0, 1).foreach{x=> result.add((x.split(" ")(0), x))}
-      // for nadx
-      CSTTime.neighborBTimes(bt, 0).foreach{ x=> result.add((x.split(" ")(0), x))}
+      CSTTime.neighborBTimes(bt, 1.0, bTimeExpandRanges).foreach{ x=> result.add((x.split(" ")(0), x))}
     }
     result.toArray(new Array[(String, String)](0))
   }
-
 
   def loadUuidsIfNonExists(dwiTable: String, b_dates:Array[(String, String)]): Unit = {
     LOG.warn("BloomFilter try load uuids if not exists start", s"contained b_date: ${OM.toJOSN(uuidBloomFilterMap.keySet())}\ndwi table: $dwiTable\ntry apppend b_dates: ${OM.toJOSN(b_dates)}")
@@ -165,9 +167,7 @@ class DefaultRepeatsFilter(dwiBTimeFormat: String = "yyyy-MM-dd HH:00:00") exten
         })
         LOG.warn("read dwi table uuids done", "count ", c.length, "b_time ", b_time)
 
-//        val bf = new BloomFilter(math.max(20,/*(Int.MaxValue/100000000)*/ 20 * c.length), 12 /*16*/, Hash.MURMUR_HASH)
-
-        val vectorSize = if(c.length == 0) 40 else c.length * 40
+        val vectorSize = math.max(wronglyFilteredIndex*c.length, wronglyFilteredIndex) * bts.length
         val bf = new BloomFilter(vectorSize, 16, Hash.MURMUR_HASH)
         var wrap = uuidBloomFilterMap.get(b_time)
         if(wrap == null) {
@@ -207,12 +207,9 @@ class DefaultRepeatsFilter(dwiBTimeFormat: String = "yyyy-MM-dd HH:00:00") exten
     //Uuid BloomFilter 去重（重复的rowkey）
     val repeatedIds = ids.map{ case(_bt, _ids) =>
 
-      // var bts = CSTTime.neighborTimes(_bt, 1.0, 1)
-      // for nadx
-      var bts = CSTTime.neighborBTimes(_bt, 0)
+      var bts = CSTTime.neighborBTimes(_bt, 1.0, bTimeExpandRanges)
 
-      val vectorSize = if(_ids.size == 0) 40 else _ids.size * 40
-      // Integer.MAX_VALUE*_ids.size/100000000
+      val vectorSize = math.max(wronglyFilteredIndex*_ids.size, wronglyFilteredIndex) * bts.length
       LOG.warn("BloomFilter filter neighborTimes", "currBTime", _bt, "neighborTimes", bts, "sourceBTimes", ids.map(_._1), "dataCount", _ids.size, "vectorSize", vectorSize)
 
       val bf = new BloomFilter(vectorSize, 16, Hash.MURMUR_HASH)

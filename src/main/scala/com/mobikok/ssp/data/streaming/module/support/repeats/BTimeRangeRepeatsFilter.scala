@@ -22,6 +22,11 @@ class BTimeRangeRepeatsFilter(dwiBTimeFormat: String = "yyyy-MM-dd HH:00:00", bT
 
   @volatile var uuidBloomFilterMap:util.Map[String, BloomFilterWrapper] = new util.HashMap[String, BloomFilterWrapper]()
   var bloomFilterBTimeFormat: String = dwiBTimeFormat
+
+  // 这个值越大过滤精度越高(即本身不是重复的，却被误当重复的过滤掉的概率越低)，但内存占用越高，
+  // 20 来自于 Int.MaxValue/100000000，设置为20是占用内存和过滤精度的平衡点，是目前采用的
+  val wronglyFilteredIndex = 20
+
   val startOffsetHour = bTimeRange(0)
   val endOffsetHour = bTimeRange(1)
 
@@ -135,7 +140,7 @@ class BTimeRangeRepeatsFilter(dwiBTimeFormat: String = "yyyy-MM-dd HH:00:00", bT
   def loadUuidsIfNonExists(dwiTable: String, b_dates:Array[(String, String)]): Unit = {
     LOG.warn("BloomFilter try load uuids if not exists start", s"contained b_date: ${OM.toJOSN(uuidBloomFilterMap.keySet())}\ndwi table: $dwiTable\ntry apppend b_dates: ${OM.toJOSN(b_dates)}")
 
-    var bts = intervalBTimes(b_dates.map(_._2).filter{x=>StringUtil.notEmpty(x)})
+    val bts = intervalBTimes(b_dates.map(_._2).filter{x=>StringUtil.notEmpty(x)})
     LOG.warn("BloomFilter try load history uuids neighborBTimes", bts)
 
     bts.foreach{case(b_date, b_time)=>
@@ -165,9 +170,7 @@ class BTimeRangeRepeatsFilter(dwiBTimeFormat: String = "yyyy-MM-dd HH:00:00", bT
         })
         LOG.warn("read dwi table uuids done", "count ", c.length, "b_time ", b_time)
 
-//        val bf = new BloomFilter(math.max(20,/*(Int.MaxValue/100000000)*/ 20 * c.length), 12 /*16*/, Hash.MURMUR_HASH)
-
-        val vectorSize = if(c.length == 0) 40 else c.length * 40
+        val vectorSize = math.max(wronglyFilteredIndex*c.length, wronglyFilteredIndex) * bts.length
         val bf = new BloomFilter(vectorSize, 16, Hash.MURMUR_HASH)
         var wrap = uuidBloomFilterMap.get(b_time)
         if(wrap == null) {
@@ -209,8 +212,7 @@ class BTimeRangeRepeatsFilter(dwiBTimeFormat: String = "yyyy-MM-dd HH:00:00", bT
 
       var bts = CSTTime.intervalBTimes(_bt, startOffsetHour, endOffsetHour)
 
-      val vectorSize = if(_ids.size == 0) 40 else _ids.size * 40
-      // Integer.MAX_VALUE*_ids.size/100000000
+      val vectorSize = math.max(wronglyFilteredIndex*_ids.size, wronglyFilteredIndex) * bts.length
       LOG.warn("BloomFilter filter neighborTimes", "currBTime", _bt, "neighborTimes", bts, "sourceBTimes", ids.map(_._1), "dataCount", _ids.size, "vectorSize", vectorSize)
 
       val bf = new BloomFilter(vectorSize, 16, Hash.MURMUR_HASH)
