@@ -17,7 +17,7 @@ import scala.collection.JavaConverters._
   *
   * 比如 new BTimeRangeRepeatsFilter("yyyy-MM-dd HH:00:00", List(-1,1))
   * 其中"yyyy-MM-dd HH:00:00"表示dwi的b_time是精确到了小时，
-  * List(-1,1)表示当前批次处理中，取dwi的前一个小时、当前小时，后一个小时的数据来判断是否重复
+  * List(-1,1)表示当前批次处理中，取dwi的前一个小时、当前小时和后一个小时，这3小时内的数据来判断是否重复
   *
   * 指定开始和结束的时间区间，通过startOffsetHour和endOffsetHour
   * Created by Administrator on 2018/4/17.
