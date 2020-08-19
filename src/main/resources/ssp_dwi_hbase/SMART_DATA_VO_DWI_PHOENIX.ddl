@@ -1,0 +1,1 @@
+create 'SMART_DATA_VO_DWI_PHOENIX', '0'
