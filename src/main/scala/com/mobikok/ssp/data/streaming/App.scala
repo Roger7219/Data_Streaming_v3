@@ -2,6 +2,7 @@ package com.mobikok.ssp.data.streaming
 
 import java.io.File
 import java.text.SimpleDateFormat
+import java.util.Collections
 
 import com.fasterxml.jackson.core.`type`.TypeReference
 import com.mobikok.message.client.MessageClientApi
@@ -12,6 +13,7 @@ import com.mobikok.ssp.data.streaming.entity.{HivePartitionPart, LatestOffsetRec
 import com.mobikok.ssp.data.streaming.exception.AppException
 import com.mobikok.ssp.data.streaming.module.Module
 import com.mobikok.ssp.data.streaming.module.support.MixModulesBatchController
+import com.mobikok.ssp.data.streaming.schema.dwi.kafka.EmptyDWISchema
 import com.mobikok.ssp.data.streaming.transaction.{OptimizedTransactionalStrategy, TransactionManager}
 import com.mobikok.ssp.data.streaming.util._
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
@@ -108,7 +110,7 @@ object App {
     initMessageClient()
     initRDBConfig()
     initStreamingContext()
-    initModulesInstances()
+    initAllModulesInstances()
   }
 
   def generateMixMoudlesBatchController(hiveContext: HiveContext, shufflePartitions:Int, moduleName: String, runnableModuleNames: Array[String]): MixModulesBatchController ={
@@ -231,8 +233,8 @@ object App {
     }
   }
 
-  def initModulesInstances(): Unit ={
-    initAllModuleInstance() { case (concurrentGroup, moduleName, moduleClass/*, structType*/) =>
+  def initAllModulesInstances(): Unit ={
+    initAllModulesInstances0() { case (/*concurrentGroup, */moduleName, moduleClass/*, structType*/) =>
 
       val shufflePartitions = allModulesConfig.getInt("spark.conf.set.spark.sql.shuffle.partitions")
       val runnableModuleNames = runnableModulesConfig.getConfig("modules").root.map(_._1).toArray
@@ -241,8 +243,8 @@ object App {
 
       val m: Module = Class
         .forName(moduleClass)
-        .getConstructor(classOf[Config], argsConfig.getClass, concurrentGroup.getClass, cer.getClass, moduleName.getClass, runnableModuleNames.getClass, ssc.getClass)
-        .newInstance(allModulesConfig, argsConfig, concurrentGroup, cer, moduleName, runnableModuleNames, ssc).asInstanceOf[Module]
+        .getConstructor(classOf[Config], argsConfig.getClass, /*concurrentGroup.getClass,*/ cer.getClass, moduleName.getClass, runnableModuleNames.getClass, ssc.getClass)
+        .newInstance(allModulesConfig, argsConfig, /*concurrentGroup,*/ cer, moduleName, runnableModuleNames, ssc).asInstanceOf[Module]
 
       val isInitable = cer.isInitable(moduleName)
       val isRunnable = cer.isRunnable(moduleName)
@@ -305,118 +307,103 @@ object App {
   def initModulesConfig(): Unit ={
     var refs: java.util.List[String]= null
     var ms: Config = null
-//    val appName = sparkConf.get("spark.app.name")
 
     try {
       ms = allModulesConfig.getConfig("modules")
-    }catch {case e:Exception=>}
-    if(ms != null) {
+    } catch {case e:Exception=>
+      throw new AppException("No modules be configured !!!", e)
+    }
+
+    ms.root().foreach{x=>
+      val name = x._1
+      val vName = versionFeaturesModuleName(version, name)
+
+      if(!ArgsConfig.Value.VERSION_DEFAULT.equals(version)) {
+
+        // 给module nmae加上对应version信息
+        allModulesConfig = allModulesConfig.withValue(s"modules.${vName}", x._2)
+
+        if(allModulesConfig.hasPath(s"modules.${x._1}.dwi.table"))
+          allModulesConfig = allModulesConfig.withValue(
+            s"modules.${vName}.dwi.table",
+            ConfigValueFactory.fromAnyRef(versionFeaturesTableName(version,  allModulesConfig.getValue(s"modules.${x._1}.dwi.table").unwrapped().toString)))
+
+        if(allModulesConfig.hasPath(s"modules.${x._1}.dwr.table"))
+          allModulesConfig = allModulesConfig.withValue(
+            s"modules.${vName}.dwr.table",
+            ConfigValueFactory.fromAnyRef(versionFeaturesTableName(version,  allModulesConfig.getValue(s"modules.${x._1}.dwr.table").unwrapped().toString)))
+
+        // 清理
+        allModulesConfig = allModulesConfig.withoutPath(s"modules.${name}")
+      }
+
+      // dm handler层module离线调度相关，套用流统计的配置启动离线调度
+      // 免去手动在配置文件里配置kafka.consumer.partitions这些固定的值，自动在这里补全配置
       ms.root().foreach{x=>
-        val name = x._1
-        val vName = versionFeaturesModuleName(version, name)
-
-        if(!ArgsConfig.Value.VERSION_DEFAULT.equals(version)) {
-
-          // 给module nmae加上对应version信息
-          allModulesConfig = allModulesConfig.withValue(s"modules.${vName}", x._2)
-
-          if(allModulesConfig.hasPath(s"modules.${x._1}.dwi.table"))
-            allModulesConfig = allModulesConfig.withValue(
-              s"modules.${vName}.dwi.table",
-              ConfigValueFactory.fromAnyRef(versionFeaturesTableName(version,  allModulesConfig.getValue(s"modules.${x._1}.dwi.table").unwrapped().toString)))
-
-          if(allModulesConfig.hasPath(s"modules.${x._1}.dwr.table"))
-            allModulesConfig = allModulesConfig.withValue(
-              s"modules.${vName}.dwr.table",
-              ConfigValueFactory.fromAnyRef(versionFeaturesTableName(version,  allModulesConfig.getValue(s"modules.${x._1}.dwr.table").unwrapped().toString)))
-
-          // 清理
-          allModulesConfig = allModulesConfig.withoutPath(s"modules.${name}")
+        // 自动补全为: kafka.consumer {partitions = [{topic = "topic_empty"}]}
+        if(!allModulesConfig.hasPath(s"modules.${x._1}.kafka.consumer.partitions")){
+          allModulesConfig = allModulesConfig.withValue(s"modules.${x._1}.kafka.consumer.partitions", ConfigValueFactory.fromIterable(Collections.singleton(Collections.singletonMap("topic", "topic_empty") )))
+          allModulesConfig = allModulesConfig.withValue(s"modules.${x._1}.dwi.kafka.schema", ConfigValueFactory.fromAnyRef(classOf[EmptyDWISchema].getName))
+          if(!allModulesConfig.hasPath(s"modules.${x._1}.b_time.by")){
+            allModulesConfig = allModulesConfig.withValue(s"modules.${x._1}.b_time.by", ConfigValueFactory.fromAnyRef("empty_time"))
+          }
         }
+      }
 
-        // 给kafka partitions中的topic加上对应的version信息
-        var vTps = allModulesConfig.getConfigList(s"modules.${vName}.kafka.consumer.partitions")
-            .map{y=>
+      // 给kafka partitions中的topic加上对应的version信息
+      var vTps = allModulesConfig.getConfigList(s"modules.${vName}.kafka.consumer.partitions")
+          .map{y=>
             var tp = new java.util.HashMap[String, Any]()
             tp.put("topic", versionFeaturesKafkaTopicName(kafkaTopicVersion, y.getString("topic")))
             if(y.hasPath("partition")) tp.put("partition", y.getInt("partition"))
             tp
-          }
-        allModulesConfig = allModulesConfig.withValue(s"modules.${vName}.kafka.consumer.partitions", ConfigValueFactory.fromIterable(vTps))
+        }
+      allModulesConfig = allModulesConfig.withValue(s"modules.${vName}.kafka.consumer.partitions", ConfigValueFactory.fromIterable(vTps))
 
-        // 读取kafka服务器，获取tipic对应的partition并补全配置
-        var tps = allModulesConfig
-          .getConfigList(s"modules.${vName}.kafka.consumer.partitions")
-          .filter{y=> !y.hasPath("partition")}
-          .map{y=> y.getString("topic")}
-          .map{y=> kafkaOffsetTool.getTopicPartitions(allModulesConfig.getString("kafka.consumer.set.bootstrap.servers"), java.util.Collections.singletonList(y))}
-          .flatMap{y=> y}
-          .map{y=> y.asTuple}
-          .union(allModulesConfig.getConfigList(s"modules.${vName}.kafka.consumer.partitions")
-            .filter{y=> y.hasPath("partition")}
-            .map{y=> (y.getString("topic"), y.getInt("partition"))})
-          .distinct
-          .map{y=>
-            var tp = new java.util.HashMap[String, Any]()
-            tp.put("topic", y._1)
-            tp.put("partition", y._2)
-            tp
-          }
-        allModulesConfig = allModulesConfig.withValue(s"modules.${vName}.kafka.consumer.partitions", ConfigValueFactory.fromIterable(tps))
+      // 读取kafka服务器，获取tipic对应的partition并补全所有分区配置
+      var tps = allModulesConfig
+        .getConfigList(s"modules.${vName}.kafka.consumer.partitions")
+        .filter{y=> !y.hasPath("partition")}
+        .map{y=> y.getString("topic")}
+        .map{y=> kafkaOffsetTool.getTopicPartitions(allModulesConfig.getString("kafka.consumer.set.bootstrap.servers"), java.util.Collections.singletonList(y))}
+        .flatMap{y=> y}
+        .map{y=> y.asTuple}
+        .union(allModulesConfig.getConfigList(s"modules.${vName}.kafka.consumer.partitions")
+          .filter{y=> y.hasPath("partition")}
+          .map{y=> (y.getString("topic"), y.getInt("partition"))})
+        .distinct
+        .map{y=>
+          var tp = new java.util.HashMap[String, Any]()
+          tp.put("topic", y._1)
+          tp.put("partition", y._2)
+          tp
+        }
+      allModulesConfig = allModulesConfig.withValue(s"modules.${vName}.kafka.consumer.partitions", ConfigValueFactory.fromIterable(tps))
 
-        if(argsConfig.has(ArgsConfig.EX)) {
-          //拿到用户配置的ex
-          val exDims = argsExDimColmunNames(argsConfig).map(_.trim).toSet
-          if(allModulesConfig.hasPath(s"modules.${vName}.dwr.groupby.fields")){
-            // 排除dwr.groupby.fields中不需要统计的字段
-            var fields = allModulesConfig
-              .getConfigList(s"modules.${vName}.dwr.groupby.fields")
-              .map{y=>
-                var filed = new java.util.HashMap[String, String]()
-                // 复制字段
-                y.root().foreach{case(key, value)=>
-                  filed.put(key, value.unwrapped().toString)
-                }
-                // 重置字段值
-                if(exDims.contains(y.getString("as"))){
-                  filed.put("expr", "null")
-                }else{
-                  filed.put("expr", y.getString("expr"))
-                }
-//                filed.put("as", y.getString("as"))
-                filed
+      if(argsConfig.has(ArgsConfig.EX)) {
+        //拿到用户配置的ex
+        val exDims = argsExDimColmunNames(argsConfig).map(_.trim).toSet
+        if(allModulesConfig.hasPath(s"modules.${vName}.dwr.groupby.fields")){
+          // 排除dwr.groupby.fields中不需要统计的字段
+          var fields = allModulesConfig
+            .getConfigList(s"modules.${vName}.dwr.groupby.fields")
+            .map{y=>
+              var filed = new java.util.HashMap[String, String]()
+              // 复制字段
+              y.root().foreach{case(key, value)=>
+                filed.put(key, value.unwrapped().toString)
               }
-            allModulesConfig = allModulesConfig.withValue(s"modules.${vName}.dwr.groupby.fields", ConfigValueFactory.fromIterable(fields))
-          }
+              // 重置字段值
+              if(exDims.contains(y.getString("as"))){
+                filed.put("expr", "null")
+              }else{
+                filed.put("expr", y.getString("expr"))
+              }
+//                filed.put("as", y.getString("as"))
+              filed
+            }
+          allModulesConfig = allModulesConfig.withValue(s"modules.${vName}.dwr.groupby.fields", ConfigValueFactory.fromIterable(fields))
         }
-      }
-    }
-
-    try {
-      refs = allModulesConfig.getStringList("ref.modules")
-    }catch {
-      case e:Exception =>
-        LOG.warn("No ref modules config ")
-    }
-    if(refs != null) {
-      refs.foreach{x=>
-
-        var f = new File(x)
-        if(!f.exists()) {
-          throw new AppException(s"The ref modules config file '$x' does not exist")
-        }
-
-        val refC = ConfigFactory.parseFile(f)//load(args(0))
-
-        LOG.warn(s"\nApp ref config file ${x}(exists: ${f.exists()}):\n" + refC.root().unwrapped().toString +"\n")
-
-        allModulesConfig = allModulesConfig.withFallback(refC)
-
-        refC.getConfig("modules").root().foreach{y=>
-          allModulesConfig = allModulesConfig.withValue(s"modules.${y._1}", y._2)
-          //config = config.withValue(s"modules.${y._1}.concurrent.group", refC.getValue("spark.conf.app.name"))
-        }
-
       }
     }
 
@@ -454,6 +441,8 @@ object App {
         throw new AppException("No maxRatePerPartition can be configured !!!", e)
     }
 
+    // 需要定义新的特性，请在上面定义
+
     runnableModulesConfig = allModulesConfig
 
     // 去掉不需要运行的模块配置
@@ -482,12 +471,8 @@ object App {
 
     try {
       ms = runnableModulesConfig.getConfig("modules")
-      if(ms.root().size() == 0) {
-        throw new AppException("No any modules be configured !!!")
-      }
-
     } catch {case e:Exception=>
-      throw new AppException("No modules be configured !!!", e)
+      throw new AppException("No runnable modules be configured !!!", e)
     }
 
     LOG.warn("\nApp runnable modules final config content:\n" + runnableModulesConfig.root().unwrapped().toString +"\n")
@@ -521,18 +506,18 @@ object App {
     return if(ArgsConfig.Value.KAFKA_TOPIC_VERSION_DEFAULT.equals(kafkaTopicVersion)) kafkaTopic else s"${kafkaTopic}_v${kafkaTopicVersion}".trim
   }
 
-  def initAllModuleInstance()(newModule: (String, String, String/*, StructType*/) => Unit) : Unit = {
+  def initAllModulesInstances0()(createModule: (/*String, */String, String/*, StructType*/) => Unit) : Unit = {
     // 初始化与当前runnable模块关联同一个dwr表的模块
     allModulesConfig.getConfig("modules").root.map{ case(moduleName, _)=>
-        initModuleInstance(moduleName, moduleName, newModule)
+        initModuleInstance(/*moduleName,*/ moduleName, createModule)
     }.toArray
 
   }
 
-  private def initModuleInstance(concurrentGroup: String, moduleName: String, newModule: (String, String, String/*, StructType*/) => Unit): Unit = {
+  private def initModuleInstance(/*concurrentGroup: String, */moduleName: String, createModule: (/*String, */String, String/*, StructType*/) => Unit): Unit = {
     val n = moduleName
     val mc = allModulesConfig.getString(s"modules.${n}.class")
-    newModule(concurrentGroup, n, mc)
+    createModule(/*concurrentGroup, */n, mc)
   }
 
 

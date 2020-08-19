@@ -1,7 +1,7 @@
 package com.mobikok.ssp.data.streaming.transaction
 
 /**
-  * Created by Administrator on 2017/6/8.
+  * dwi/dwr层支持事务的handler需要继承该类
   */
 trait TransactionalHandler {
 

@@ -5,7 +5,7 @@ import com.mobikok.ssp.data.streaming.entity.feature.JSONSerializable
 import scala.beans.BeanProperty
 
 /**
-  * Created by Administrator on 2017/6/8.
+  * 对事务操作的返回值的封装，记录了该事务的一些参数
   */
 class TransactionCookie(_parentId: String, _id: String) extends JSONSerializable {
 

@@ -3,8 +3,8 @@ package com.mobikok.ssp.data.streaming.transaction
 import scala.collection.mutable.ListBuffer
 
 /**
-  * 封装了对“事务过程中产生的临时数据”的清理操作
   * Created by Administrator on 2018/3/3.
+  * 封装了对“事务过程中产生的临时数据”的清理操作
   */
 class TransactionRoolbackedCleanable {
 

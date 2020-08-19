@@ -316,7 +316,7 @@ class BigQueryClient (moduleName: String, config: Config, ssc: StreamingContext,
   def overwriteByBTime (bigQueryPartitionedTable: String, hiveTable: String, hivePartitionBTimes: Array[String]): Unit = {
 
     LOG.warn(s"Overwrite bigQueryTable start", "bigQueryTable", bigQueryPartitionedTable, "hiveTable", hiveTable, "hivePartitionBTimes", hivePartitionBTimes)
-    moduleTracer.trace(s"     bigquery overwrite b_time(s): ${hivePartitionBTimes.mkString("\n        ", "\n        ", "")}")
+    moduleTracer.trace(s"     bigquery overwrite b_time(s): ${hivePartitionBTimes.mkString("\n                                                ", "\n                                                ", "")}")
 
     RunAgainIfError.run({
 

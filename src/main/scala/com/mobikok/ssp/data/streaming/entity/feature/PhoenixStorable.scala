@@ -35,25 +35,25 @@ trait PhoenixStorable extends HBaseStorable {
     ifNull(source.get(("0", fieldName)), null, java.lang.Double.valueOf( Bytes.toString(source.get(("0", fieldName)).get)))
   }
 
-  def ifNull[T] (o: Option[Array[Byte]], a: => T, b: => T): T = {
-    if(o == null || o.isEmpty) a else b
-  }
-
-  def ifNull (o: Any, a: => Array[Byte], b: => Array[Byte]): Array[Byte] = {
-    if(o == null)  a else b
-  }
-
   //integer
-  def setInt(value: Integer): Array[Byte] = {
+  protected def setInt(value: Integer): Array[Byte] = {
     ifNull(value, null, Bytes.toBytes(value - Int.MaxValue - 1))
   }
   //string
-  def setStr(value: String):Array[Byte] = {
+  protected def setStr(value: String):Array[Byte] = {
     ifNull(value, null, Bytes.toBytes(value))
   }
   //double
-  def setDou(value: java.lang.Double): Array[Byte] = {
+  protected def setDou(value: java.lang.Double): Array[Byte] = {
     ifNull(value, null, Bytes.toBytes(value  + ""))
+  }
+
+  private def ifNull[T] (o: Option[Array[Byte]], a: => T, b: => T): T = {
+    if(o == null || o.isEmpty) a else b
+  }
+
+  private def ifNull (o: Any, a: => Array[Byte], b: => Array[Byte]): Array[Byte] = {
+    if(o == null)  a else b
   }
 
   @deprecated

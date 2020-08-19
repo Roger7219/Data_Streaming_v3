@@ -6,7 +6,8 @@ import java.util.Date
 import com.mobikok.ssp.data.streaming.util.Logger
 
 /**
-  * Created by Administrator on 2017/10/31.
+  * 策略接口的实现类，输出当前批次的运行的l_time的值，
+  * needRealTransactionalAction()方法总是返回true，表示每个批次都需要执行真的事务操作
   */
 class AlwaysTransactionalStrategy(val dwiLTimeDateFormat: SimpleDateFormat, val dwrLTimeDateFormat: SimpleDateFormat, dwrShareTable: String) extends TransactionalStrategy{
 

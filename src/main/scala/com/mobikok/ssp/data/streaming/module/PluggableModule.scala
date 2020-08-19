@@ -12,7 +12,7 @@ import com.mobikok.ssp.data.streaming.exception.ModuleException
 import com.mobikok.ssp.data.streaming.handler.dm
 import com.mobikok.ssp.data.streaming.handler.dwi.core.{HBaseDWIPersistHandler, HiveDWIPersistHandler, InitializedKafkaDwiHandler}
 import com.mobikok.ssp.data.streaming.handler.dwr.core._
-import com.mobikok.ssp.data.streaming.module.support.repeats.{BTimeRangeRepeatsFilter, DefaultRepeatsFilter, RepeatsFilter}
+import com.mobikok.ssp.data.streaming.module.support.repeats.{BTimeRangeRepeatsFilter, RepeatsFilter}
 import com.mobikok.ssp.data.streaming.module.support.{MixModulesBatchController, TimeGranularity}
 import com.mobikok.ssp.data.streaming.transaction.TransactionRoolbackedCleanable
 import com.mobikok.ssp.data.streaming.udf.HiveContextCreator
@@ -34,7 +34,7 @@ import scala.collection.mutable
 
 class PluggableModule(globalConfig: Config,
                       argsConfig: ArgsConfig,
-                      concurrentGroup: String,
+//                      concurrentGroup: String,
                       mixModulesBatchController: MixModulesBatchController,
                       moduleName: String,
                       runnableModuleNames: Array[String],
@@ -49,6 +49,9 @@ class PluggableModule(globalConfig: Config,
   val dwiStructType = ksc.getMethod("structType").invoke(ksc.newInstance()).asInstanceOf[StructType]
   var moduleConfig = globalConfig.getConfig(s"modules.$moduleName")
   val dwiUuidFieldsSeparator = "^"
+
+  var dwiBTimeFormat = "yyyy-MM-dd HH:00:00"
+  var dwrBTimeFormat = "yyyy-MM-dd HH:00:00"
 
   val tidTimeFormat = CSTTime.formatter("yyyyMMdd_HHmmss_SSS")
 
@@ -124,7 +127,6 @@ class PluggableModule(globalConfig: Config,
   //-------------------------  Clients End  -------------------------
 
   var dwiHandlers: List[com.mobikok.ssp.data.streaming.handler.dwi.Handler] = _
-  var dwiBTimeFormat = "yyyy-MM-dd HH:00:00"
   try {
     dwiBTimeFormat = globalConfig.getString(s"modules.$moduleName.dwi.b_time.format")
   } catch {
@@ -175,7 +177,7 @@ class PluggableModule(globalConfig: Config,
     // b_time小时级别
     repeatsFilter = new BTimeRangeRepeatsFilter(dwiBTimeFormat, globalConfig.getStringList("dwi.uuid.b_time.range").map(_.toInt).toList)
   }else {
-    repeatsFilter = new DefaultRepeatsFilter(dwiBTimeFormat)
+    repeatsFilter = new BTimeRangeRepeatsFilter(dwiBTimeFormat, 0)
   }
   repeatsFilter.init(moduleName, globalConfig, hiveContext, moduleTracer, dwiUuidFieldsAlias, businessTimeExtractBy, dwiTable)
   //-------------------------  Dwi End  -------------------------
@@ -212,7 +214,6 @@ class PluggableModule(globalConfig: Config,
     }.toList
   } catch {case _: Exception =>}
 
-  var dwrBTimeFormat = "yyyy-MM-dd HH:00:00"
   try {
     dwrBTimeFormat = globalConfig.getString(s"modules.$moduleName.dwr.b_time.format")
   } catch {case _: Throwable =>}
@@ -358,7 +359,7 @@ class PluggableModule(globalConfig: Config,
         // 3) 并且当前批次数据为空
         if (!mixModulesBatchController.isMultipleModulesOperateSameShareDwrTable() && transactionManager.isLastUncompletedTransaction(moduleName) && dwiCount == 0) {
 
-          LOG.warn("Empty running, Fast polling", "concurrentGroup", concurrentGroup, "moduleName", moduleName)
+          LOG.warn("Empty running, Fast polling", /*"concurrentGroup", concurrentGroup, */"moduleName", moduleName)
           moduleTracer.trace("fast polling")
 
         } else {
@@ -569,7 +570,7 @@ class PluggableModule(globalConfig: Config,
         }
       } catch {
         case e: Exception => {
-          LOG.warn(s"Kill self yarn app, because module '$moduleName' execution error !!!", "important_notice", "Kill self yarn app at once !!!", "app_name", appName, "error", e)
+          LOG.warn(s"Kill self yarn app, because module execution error !!!", "module", moduleName,"important_notice", "Kill self yarn app at once !!!", "app_name", appName, "error", e)
           YarnAppManagerUtil.killApps(appName, messageClient)
           throw new ModuleException(s"${getClass.getSimpleName} '$moduleName' execution error !! ", e)
         }

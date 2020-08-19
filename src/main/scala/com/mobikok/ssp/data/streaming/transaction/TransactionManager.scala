@@ -9,12 +9,11 @@ import java.util.{Collections, Date}
 import com.mobikok.ssp.data.streaming.client.HiveClient
 import com.mobikok.ssp.data.streaming.util._
 import com.typesafe.config.Config
-import org.eclipse.jetty.util.ConcurrentHashSet
 
 import scala.collection.JavaConversions._
 
 /**
-  * Created by Administrator on 2017/6/20.
+  * 事务管理器，负责开启、提交事务的实现。
   * 同一个dwrShareTable的Module共享一个TransactionManager对象，共享tid
   */
 class TransactionManager(config: Config, transactionalStrategy: TransactionalStrategy, dwrShareTable: String) {
@@ -289,7 +288,6 @@ class TransactionManager(config: Config, transactionalStrategy: TransactionalStr
 
   def commitTransaction(isMasterModule: Boolean, moduleName:String, allMixModuleCommittedCallback: =>Unit): Unit ={
     LOG.warn(s"[$moduleName] wait all mix modules transaction commit [start]", "moduleName", moduleName, "isMaster", isMasterModule, "transactionParentId", getCurrentTransactionParentId())
-//    moduleTracer.trace("wait mix tx commit start")
 
     moduleCommitTransaction(isMasterModule, getCurrentTransactionParentId(), moduleName)
 
@@ -314,7 +312,6 @@ class TransactionManager(config: Config, transactionalStrategy: TransactionalStr
     moduleCurrentTransactionOrder.remove(moduleName)
 
     LOG.warn(s"[$moduleName] wait all mix modules transaction commit [done]", "moduleName", moduleName, "isMaster", isMasterModule, "transactionParentId", getCurrentTransactionParentId())
-//    moduleTracer.trace("wait mix tx commit done")
   }
 
   private def moduleCommitTransaction(isMasterModule: Boolean, parentTransactionId: String, moduleName: String) = {

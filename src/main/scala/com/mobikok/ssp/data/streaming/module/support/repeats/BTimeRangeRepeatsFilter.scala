@@ -13,7 +13,11 @@ import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
 
 /**
-  * 去重功能，最新实现，建议使用，不建议用 DefaultRepeatsFilter 和NativeRepeatsFilter实现
+  * 去重功能
+  *
+  * 比如 new BTimeRangeRepeatsFilter("yyyy-MM-dd HH:00:00", List(-1,1))
+  * 其中"yyyy-MM-dd HH:00:00"表示dwi的b_time是精确到了小时，
+  * List(-1,1)表示当前批次处理中，取dwi的前一个小时、当前小时，后一个小时的数据来判断是否重复
   *
   * 指定开始和结束的时间区间，通过startOffsetHour和endOffsetHour
   * Created by Administrator on 2018/4/17.
@@ -25,10 +29,14 @@ class BTimeRangeRepeatsFilter(dwiBTimeFormat: String = "yyyy-MM-dd HH:00:00", bT
 
   // 这个值越大过滤精度越高(即本身不是重复的，却被误当重复的过滤掉的概率越低)，但内存占用越高，
   // 20 来自于 Int.MaxValue/100000000，设置为20是占用内存和过滤精度的平衡点，是目前采用的
-  val wronglyFilteredIndex = 20
+  val wronglyFilterIndex = 20
 
-  val startOffsetHour = bTimeRange(0)
-  val endOffsetHour = bTimeRange(1)
+  val bTimeStartOffsetHour = bTimeRange(0)
+  val bTimeEndOffsetHour = bTimeRange(1)
+
+  def this(dwiBTimeFormat: String, bTimeSameStartAndEndOffsetHourRange: Int){
+    this(dwiBTimeFormat, List( - bTimeSameStartAndEndOffsetHourRange, bTimeSameStartAndEndOffsetHourRange))
+  }
 
   override def dwrNonRepeatedWhere (): String = {
     "repeated = 'N'"
@@ -132,7 +140,7 @@ class BTimeRangeRepeatsFilter(dwiBTimeFormat: String = "yyyy-MM-dd HH:00:00", bT
   def intervalBTimes(b_times: Array[String]): Array[(String, String)] ={
     var result = new util.ArrayList[(String, String)]()
     b_times.foreach{bt=>
-      CSTTime.intervalBTimes(bt, startOffsetHour, endOffsetHour).foreach{ x=> result.add((x.split(" ")(0), x))}
+      CSTTime.intervalBTimes(bt, bTimeStartOffsetHour, bTimeEndOffsetHour).foreach{ x=> result.add((x.split(" ")(0), x))}
     }
     result.toArray(new Array[(String, String)](0))
   }
@@ -170,7 +178,7 @@ class BTimeRangeRepeatsFilter(dwiBTimeFormat: String = "yyyy-MM-dd HH:00:00", bT
         })
         LOG.warn("read dwi table uuids done", "count ", c.length, "b_time ", b_time)
 
-        val vectorSize = math.max(wronglyFilteredIndex*c.length, wronglyFilteredIndex) * bts.length
+        val vectorSize = math.max(wronglyFilterIndex*c.length, wronglyFilterIndex) * bts.length
         val bf = new BloomFilter(vectorSize, 16, Hash.MURMUR_HASH)
         var wrap = uuidBloomFilterMap.get(b_time)
         if(wrap == null) {
@@ -210,9 +218,9 @@ class BTimeRangeRepeatsFilter(dwiBTimeFormat: String = "yyyy-MM-dd HH:00:00", bT
     //Uuid BloomFilter 去重（重复的rowkey）
     val repeatedIds = ids.map{ case(_bt, _ids) =>
 
-      var bts = CSTTime.intervalBTimes(_bt, startOffsetHour, endOffsetHour)
+      var bts = CSTTime.intervalBTimes(_bt, bTimeStartOffsetHour, bTimeEndOffsetHour)
 
-      val vectorSize = math.max(wronglyFilteredIndex*_ids.size, wronglyFilteredIndex) * bts.length
+      val vectorSize = math.max(wronglyFilterIndex*_ids.size, wronglyFilterIndex) * bts.length
       LOG.warn("BloomFilter filter neighborTimes", "currBTime", _bt, "neighborTimes", bts, "sourceBTimes", ids.map(_._1), "dataCount", _ids.size, "vectorSize", vectorSize)
 
       val bf = new BloomFilter(vectorSize, 16, Hash.MURMUR_HASH)

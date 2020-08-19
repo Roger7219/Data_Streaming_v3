@@ -121,8 +121,8 @@ object CSTTime {
       DF_DATE.get().format(new Date(new Date().getTime + (hour*1000*60*60).toLong))
     }
 
-    def modifyHourAsBTime(hour: Double):String={
-      B_TIME.get().format(new Date(new Date().getTime + (hour*1000*60*60).toLong))
+    def modifyHourAsTime(hour: Double):String={
+      DF_TIME.get().format(new Date(new Date().getTime + (hour*1000*60*60).toLong))
     }
 
     def modifyMinuteAsTime(Minute: Double):String={
@@ -229,7 +229,10 @@ object CSTTime {
   //TEST
   def main (args: Array[String]): Unit = {
 
-//    println(OM.toJOSN(CSTTime.neighborBTimes("2018-12-12 11:13:44", 0)))
+//    println(neighborBTimes("2002-01-12 12:00:00", 2).toList)
+//   print(intervalBTimes("2002-01-12 12:00:00", -1,1).toList)
+
+    //    println(OM.toJOSN(CSTTime.neighborBTimes("2018-12-12 11:13:44", 0)))
 
 //    println(OM.toJOSN(CSTTime.intervalBTimes("2018-12-12 11:13:44", -2,0)))
 
@@ -245,8 +248,16 @@ object CSTTime {
 //      }).start()
 //
 //    }
+
+//    new a(i=12).prin()
   }
 
 }
 
 
+//class a(s:String="12", i:Int=22){
+////  this(s){}
+//  def prin(): Unit ={
+//    print(s"$s $i" )
+//  }
+//}

@@ -40,7 +40,7 @@ class ClickHouseClient(moduleName: String, config: Config, ssc: StreamingContext
 
   def overwriteByBTime(clickHouseTmpTable: String, hiveTable: String, hivePartitionBTimes: Array[String]): Unit = {
     LOG.warn(s"ClickHouseTable all b_time overwrite start", "clickHouseTable", clickHouseTmpTable, "hiveTable", hiveTable, "hivePartitionBTimes", hivePartitionBTimes)
-    moduleTracer.trace(s"     ck overwrite b_time(s): ${hivePartitionBTimes.mkString("\n        ", "\n        ", "")}")
+    moduleTracer.trace(s"     ck overwrite b_time(s): ${hivePartitionBTimes.mkString("\n                                                ", "\n                                                ", "")}")
     //    taskCount.addAndGet(hivePartitionBTime.length)
 
 //    var dataCount = -1L

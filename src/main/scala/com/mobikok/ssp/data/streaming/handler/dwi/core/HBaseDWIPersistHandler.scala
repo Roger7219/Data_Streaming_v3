@@ -32,10 +32,9 @@ class HBaseDWIPersistHandler extends Handler {
       val dwiPhoenixHBaseStorableClass = globalConfig.getString(s"modules.$moduleName.dwi.phoenix.hbase.storable.class")
       val cls = Class.forName(dwiPhoenixHBaseStorableClass).asInstanceOf[Class[_ <: HBaseStorable]]
       val dwiP = newDwi.toJSON.rdd.map{ x => OM.toBean(x, cls)}
-//      LOG.warn()
 
       if (dwiPhoenixSubtableEnable) {
-        hbaseClient.asInstanceOf[HBaseClient].putsNonTransactionMultiSubTable(dwiPhoenixTable, dwiP)
+        hbaseClient.putsNonTransactionMultiSubTable(dwiPhoenixTable, dwiP)
       } else {
         hbaseClient.putsNonTransaction(dwiPhoenixTable, dwiP)
       }

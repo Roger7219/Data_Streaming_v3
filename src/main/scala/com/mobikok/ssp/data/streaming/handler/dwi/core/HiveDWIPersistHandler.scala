@@ -11,14 +11,19 @@ import org.apache.spark.sql.DataFrame
 
 class HiveDWIPersistHandler extends Handler {
 
+  val TTL_FOREVER = -1
+
   // 有配置表示enable
   var table: String = _
   var cookie: HiveTransactionCookie = _
+  var ttl = TTL_FOREVER // 表数据保存时间,单位时天，过了这个时间将根据l_time删除过期的分区，-1表示永不删除
 
   override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, argsConfig: ArgsConfig, handlerConfig: Config, globalConfig: Config, messageClient: MessageClient, moduleTracer: ModuleTracer): Unit = {
     super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, handlerConfig, globalConfig, messageClient, moduleTracer)
     isAsynchronous = true
     table = globalConfig.getString(s"modules.$moduleName.dwi.table")
+    ttl = if(globalConfig.hasPath(s"modules.$moduleName.dwi.ttl")) globalConfig.getInt(s"modules.$moduleName.dwi.ttl") else TTL_FOREVER
+    tryCreateTTLCleanThread()
   }
 
   override def doHandle(newDwi: DataFrame): DataFrame = {
@@ -72,9 +77,39 @@ class HiveDWIPersistHandler extends Handler {
     transactionManager.cleanLastTransactionCookie(hiveClient)
   }
 
+  def tryCreateTTLCleanThread(): Unit ={
+    if(ttl > TTL_FOREVER) {
+      new Thread(new Runnable {
+        override def run(): Unit = {
+          while(true){
+            try{
+
+              val expiredLTime = CSTTime.now.modifyHourAsTime(- 24 * ttl)
+
+              hiveClient
+                .partitions(table)
+                .flatMap{x=>x}
+                .filter{x=>"l_time".equals(x.name) && x.value < expiredLTime && !HiveClient.OVERWIRTE_FIXED_L_TIME.equals(x.value) && !"__HIVE_DEFAULT_PARTITION__".equals(x.value)  && StringUtil.notEmpty(x.value)  }
+                .distinct
+                .foreach{x=>
+                  sql(s"alter table $table drop partition (l_time='${x.value}')")
+                }
+
+            }catch {
+              case e: Throwable=> LOG.warn(s"Dwi table '$table' TTL clean thread error", e)
+            }finally {
+              try{
+                Thread.sleep(1000*60*60*12) // 12小时执行一次
+              }catch {
+                case e: Throwable=> LOG.warn(s"Dwi table '$table' TTL clean thread error", e)
+              }
+            }
+          }
+        }
+      }).start()
+    }
+  }
 }
-
-
 
 
 

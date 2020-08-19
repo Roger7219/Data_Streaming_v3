@@ -6,6 +6,10 @@ import java.util.Date
 import com.mobikok.ssp.data.streaming.util.Logger
 
 
+/**
+  * 策略接口的实现类，输出当前批次的运行的l_time的值，
+  * needRealTransactionalAction()在每个小时的首次批次返回true，即每隔一小时执行一次真的事务操作
+  */
 class OptimizedTransactionalStrategy(val dwiLTimeDateFormat: SimpleDateFormat, val dwrLTimeDateFormat: SimpleDateFormat, dwrShareTable: String) extends TransactionalStrategy{
   @volatile private var currDwiLTime: String = null
   @volatile private var currDwrLTime: String = null

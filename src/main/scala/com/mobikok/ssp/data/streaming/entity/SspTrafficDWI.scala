@@ -127,57 +127,56 @@ case class  SspTrafficDWI (
 
   override def assembleFields (row: Array[Byte], source: collection.Map[(String, String), Array[Byte]]): Unit = {
 
-    repeats = ifNull(source.get(("0","repeats")), null,  Bytes.toInt(source.get(("0","repeats")).get) + Int.MaxValue + 1)
-    rowkey = ifNull(source.get(("0","rowkey")), null, Bytes.toString(source.get(("0","rowkey")).get))
+    repeats = getInt(source, "repeats")//ifNull(source.get(("0","repeats")), null,  Bytes.toInt(source.get(("0","repeats")).get) + Int.MaxValue + 1)
+    rowkey = getStr(source, "rowkey")//ifNull(source.get(("0","rowkey")), null, Bytes.toString(source.get(("0","rowkey")).get))
 
-    id =  ifNull(source.get(("0","id")), null,  Bytes.toInt(source.get(("0","id")).get) + Int.MaxValue + 1)
-    publisherId = ifNull(source.get(("0","publisherId")), null,  Bytes.toInt(source.get(("0","publisherId")).get) + Int.MaxValue + 1)
-    subId =       ifNull(source.get(("0","subId")), null,  Bytes.toInt(source.get(("0","subId")).get) + Int.MaxValue + 1)
-    offerId =     ifNull(source.get(("0","offerId")), null,  Bytes.toInt(source.get(("0","offerId")).get) + Int.MaxValue + 1)
-    campaignId = ifNull(source.get(("0","campaignId")), null,  Bytes.toInt(source.get(("0","campaignId")).get) + Int.MaxValue + 1)
+    id =  getInt(source, "id")//ifNull(source.get(("0","id")), null,  Bytes.toInt(source.get(("0","id")).get) + Int.MaxValue + 1)
+    publisherId = getInt(source, "publisherId")//ifNull(source.get(("0","publisherId")), null,  Bytes.toInt(source.get(("0","publisherId")).get) + Int.MaxValue + 1)
+    subId =       getInt(source, "subId")//ifNull(source.get(("0","subId")), null,  Bytes.toInt(source.get(("0","subId")).get) + Int.MaxValue + 1)
+    offerId =     getInt(source, "offerId")//ifNull(source.get(("0","offerId")), null,  Bytes.toInt(source.get(("0","offerId")).get) + Int.MaxValue + 1)
+    campaignId = getInt(source, "campaignId")//ifNull(source.get(("0","campaignId")), null,  Bytes.toInt(source.get(("0","campaignId")).get) + Int.MaxValue + 1)
 
-    countryId = ifNull(source.get(("0","countryId")), null,  Bytes.toInt(source.get(("0","countryId")).get) + Int.MaxValue + 1)
-    carrierId = ifNull(source.get(("0","carrierId")), null,  Bytes.toInt(source.get(("0","carrierId")).get) + Int.MaxValue + 1)
-    deviceType = ifNull(source.get(("0","deviceType")), null,  Bytes.toInt(source.get(("0","deviceType")).get) + Int.MaxValue + 1)
-    userAgent = ifNull(source.get(("0","userAgent")), null,  Bytes.toString(source.get(("0","userAgent")).get))
-    ipAddr = ifNull(source.get(("0","ipAddr")), null,  Bytes.toString(source.get(("0","ipAddr")).get))
+    countryId = getInt(source, "countryId")//ifNull(source.get(("0","countryId")), null,  Bytes.toInt(source.get(("0","countryId")).get) + Int.MaxValue + 1)
+    carrierId = getInt(source, "carrierId")//ifNull(source.get(("0","carrierId")), null,  Bytes.toInt(source.get(("0","carrierId")).get) + Int.MaxValue + 1)
+    deviceType = getInt(source, "deviceType")//ifNull(source.get(("0","deviceType")), null,  Bytes.toInt(source.get(("0","deviceType")).get) + Int.MaxValue + 1)
+    userAgent = getStr(source, "userAgent")//ifNull(source.get(("0","userAgent")), null,  Bytes.toString(source.get(("0","userAgent")).get))
+    ipAddr = getStr(source, "ipAddr")//ifNull(source.get(("0","ipAddr")), null,  Bytes.toString(source.get(("0","ipAddr")).get))
 
-    clickId = ifNull(source.get(("0","clickId")), null,  Bytes.toString(source.get(("0","clickId")).get))
-    price = ifNull(source.get(("0","price")), null,  java.lang.Double.valueOf( Bytes.toString(source.get(("0","price")).get)))
-    reportTime = ifNull(source.get(("0","reportTime")), null,  Bytes.toString(source.get(("0","reportTime")).get))
-    createTime = ifNull(source.get(("0","createTime")), null,  Bytes.toString(source.get(("0","createTime")).get))
-    clickTime = ifNull(source.get(("0","clickTime")), null, Bytes.toString(source.get(("0","clickTime")).get))
+    clickId = getStr(source, "clickId")//ifNull(source.get(("0","clickId")), null,  Bytes.toString(source.get(("0","clickId")).get))
+    price = getDou(source, "price")//ifNull(source.get(("0","price")), null,  java.lang.Double.valueOf( Bytes.toString(source.get(("0","price")).get)))
+    reportTime = getStr(source, "reportTime")//ifNull(source.get(("0","reportTime")), null,  Bytes.toString(source.get(("0","reportTime")).get))
+    createTime = getStr(source, "createTime")//ifNull(source.get(("0","createTime")), null,  Bytes.toString(source.get(("0","createTime")).get))
+    clickTime = getStr(source, "clickTime")//ifNull(source.get(("0","clickTime")), null, Bytes.toString(source.get(("0","clickTime")).get))
 
-    showTime = ifNull(source.get(("0","showTime")), null, Bytes.toString(source.get(("0","showTime")).get))
-    requestType = ifNull(source.get(("0","requestType")), null, Bytes.toString(source.get(("0","requestType")).get))
-    priceMethod = ifNull(source.get(("0","priceMethod")), null, Bytes.toInt(source.get(("0","priceMethod")).get) + Int.MaxValue + 1)
-    bidPrice = ifNull(source.get(("0","bidPrice")), null, java.lang.Double.valueOf( Bytes.toString(source.get(("0","bidPrice")).get)))
-    adType = ifNull(source.get(("0","adType")), null, Bytes.toInt(source.get(("0","adType")).get) + Int.MaxValue + 1)
+    showTime = getStr(source, "showTime")//ifNull(source.get(("0","showTime")), null, Bytes.toString(source.get(("0","showTime")).get))
+    requestType = getStr(source, "requestType")//ifNull(source.get(("0","requestType")), null, Bytes.toString(source.get(("0","requestType")).get))
+    priceMethod = getInt(source, "priceMethod")//ifNull(source.get(("0","priceMethod")), null, Bytes.toInt(source.get(("0","priceMethod")).get) + Int.MaxValue + 1)
+    bidPrice = getDou(source, "bidPrice")//ifNull(source.get(("0","bidPrice")), null, java.lang.Double.valueOf( Bytes.toString(source.get(("0","bidPrice")).get)))
+    adType = getInt(source, "adType")//ifNull(source.get(("0","adType")), null, Bytes.toInt(source.get(("0","adType")).get) + Int.MaxValue + 1)
 
-    isSend = ifNull(source.get(("0","isSend")), null,  Bytes.toInt(source.get(("0","isSend")).get) + Int.MaxValue + 1)
-    reportPrice = ifNull(source.get(("0","reportPrice")), null,  java.lang.Double.valueOf( Bytes.toString(source.get(("0","reportPrice")).get)))
-    sendPrice = ifNull(source.get(("0","sendPrice")), null, java.lang.Double.valueOf( Bytes.toString(source.get(("0","sendPrice")).get)))
-    s1 = ifNull(source.get(("0","s1")), null,  Bytes.toString(source.get(("0","s1")).get))
-    s2 = ifNull(source.get(("0","s2")), null,  Bytes.toString(source.get(("0","s2")).get))
+    isSend = getInt(source, "isSend")//ifNull(source.get(("0","isSend")), null,  Bytes.toInt(source.get(("0","isSend")).get) + Int.MaxValue + 1)
+    reportPrice = getDou(source, "reportPrice")//ifNull(source.get(("0","reportPrice")), null,  java.lang.Double.valueOf( Bytes.toString(source.get(("0","reportPrice")).get)))
+    sendPrice = getDou(source, "sendPrice")//ifNull(source.get(("0","sendPrice")), null, java.lang.Double.valueOf( Bytes.toString(source.get(("0","sendPrice")).get)))
+    s1 = getStr(source, "s1")//ifNull(source.get(("0","s1")), null,  Bytes.toString(source.get(("0","s1")).get))
+    s2 = getStr(source, "s2")//ifNull(source.get(("0","s2")), null,  Bytes.toString(source.get(("0","s2")).get))
 
-    gaid = ifNull(source.get(("0","gaid")), null,  Bytes.toString(source.get(("0","gaid")).get))
-    androidId = ifNull(source.get(("0","androidId")), null, Bytes.toString(source.get(("0","androidId")).get))
-    idfa = ifNull(source.get(("0","idfa")), null,  Bytes.toString(source.get(("0","idfa")).get))
-    postBack = ifNull(source.get(("0","postBack")), null,  Bytes.toString(source.get(("0","postBack")).get))
-    sendStatus = ifNull(source.get(("0","sendStatus")), null,  Bytes.toInt(source.get(("0","sendStatus")).get) + Int.MaxValue + 1)
+    gaid = getStr(source, "gaid")//ifNull(source.get(("0","gaid")), null,  Bytes.toString(source.get(("0","gaid")).get))
+    androidId = getStr(source, "androidId")//ifNull(source.get(("0","androidId")), null, Bytes.toString(source.get(("0","androidId")).get))
+    idfa = getStr(source, "idfa")//ifNull(source.get(("0","idfa")), null,  Bytes.toString(source.get(("0","idfa")).get))
+    postBack = getStr(source, "postBack")//ifNull(source.get(("0","postBack")), null,  Bytes.toString(source.get(("0","postBack")).get))
+    sendStatus = getInt(source, "sendStatus")//ifNull(source.get(("0","sendStatus")), null,  Bytes.toInt(source.get(("0","sendStatus")).get) + Int.MaxValue + 1)
 
-    sendTime = ifNull(source.get(("0","sendTime")), null,  Bytes.toString(source.get(("0","sendTime")).get))
-    sv = ifNull(source.get(("0","sv")), null,  Bytes.toString(source.get(("0","sv")).get))
-    imei = ifNull(source.get(("0","imei")), null,  Bytes.toString(source.get(("0","imei")).get))
-    imsi = ifNull(source.get(("0","imsi")), null,  Bytes.toString(source.get(("0","imsi")).get))
-    imageId = ifNull(source.get(("0","imageId")), null,  Bytes.toInt(source.get(("0","imageId")).get) + Int.MaxValue + 1)
+    sendTime = getStr(source, "sendTime")//ifNull(source.get(("0","sendTime")), null,  Bytes.toString(source.get(("0","sendTime")).get))
+    sv = getStr(source, "sv")//ifNull(source.get(("0","sv")), null,  Bytes.toString(source.get(("0","sv")).get))
+    imei = getStr(source, "imei") //ifNull(source.get(("0","imei")), null,  Bytes.toString(source.get(("0","imei")).get))
+    imsi = getStr(source, "imsi")//ifNull(source.get(("0","imsi")), null,  Bytes.toString(source.get(("0","imsi")).get))
+    imageId = getInt(source, "imageId")//ifNull(source.get(("0","imageId")), null,  Bytes.toInt(source.get(("0","imageId")).get) + Int.MaxValue + 1)
 
-    affSub = ifNull(source.get(("0","affSub")), null,  Bytes.toString(source.get(("0","affSub")).get))
-    s3 = ifNull(source.get(("0","s3")), null,  Bytes.toString(source.get(("0","s3")).get))
-    s4 = ifNull(source.get(("0","s4")), null,  Bytes.toString(source.get(("0","s4")).get))
-    s5 = ifNull(source.get(("0","s5")), null,  Bytes.toString(source.get(("0","s5")).get))
+    affSub = getStr(source, "affSub")//ifNull(source.get(("0","affSub")), null,  Bytes.toString(source.get(("0","affSub")).get))
+    s3 = getStr(source, "s3")//ifNull(source.get(("0","s3")), null,  Bytes.toString(source.get(("0","s3")).get))
+    s4 = getStr(source, "s4")//ifNull(source.get(("0","s4")), null,  Bytes.toString(source.get(("0","s4")).get))
+    s5 = getStr(source, "s5")//ifNull(source.get(("0","s5")), null,  Bytes.toString(source.get(("0","s5")).get))
 
-    //新版写法
     packageName = getStr(source, "packageName")
     domain      = getStr(source, "domain")
     respStatus  = getInt(source, "respStatus")
@@ -217,13 +216,13 @@ case class  SspTrafficDWI (
     caId          = getStr(source, "caId")
     deviceid      = getStr(source, "deviceid")
 
-    repeated = ifNull(source.get(("0","repeated")), null,  Bytes.toString(source.get(("0","repeated")).get))
-    l_time = ifNull(source.get(("0","l_time")), null,   Bytes.toString(source.get(("0","l_time")).get))
-    b_date = ifNull(source.get(("0","b_date")), null,   Bytes.toString(source.get(("0","b_date")).get))
-    b_time = ifNull(source.get(("0","b_time")), null,   Bytes.toString(source.get(("0","b_time")).get))
+    repeated = getStr(source, "repeated")//ifNull(source.get(("0","repeated")), null,  Bytes.toString(source.get(("0","repeated")).get))
+    l_time = getStr(source, "l_time")//ifNull(source.get(("0","l_time")), null,   Bytes.toString(source.get(("0","l_time")).get))
+    b_date = getStr(source, "b_date")//ifNull(source.get(("0","b_date")), null,   Bytes.toString(source.get(("0","b_date")).get))
+    b_time = getStr(source, "b_time")//ifNull(source.get(("0","b_time")), null,   Bytes.toString(source.get(("0","b_time")).get))
   }
 
-  //保存
+  //用于保存时，生成hbase rowkey
   override def toHBaseRowkey: Array[Byte] = {
     if(clickId == null ) null else Bytes.toBytes(clickId)
   }
@@ -239,57 +238,56 @@ case class  SspTrafficDWI (
   override def toColumns: Map[(String, String), Array[Byte]] = {
     Map(
 
-      ("0","repeats") ->    ifNull(repeats, null, Bytes.toBytes(repeats - Int.MaxValue - 1)),
-      ("0","rowkey") ->     ifNull(rowkey, null, Bytes.toBytes(rowkey)),
+      ("0","repeats") ->    setInt(repeats),//ifNull(repeats, null, Bytes.toBytes(repeats - Int.MaxValue - 1)),
+      ("0","rowkey") ->     setStr(rowkey),//ifNull(rowkey, null, Bytes.toBytes(rowkey)),
 
-      ("0","id") ->         ifNull(id, null, Bytes.toBytes(id - Int.MaxValue - 1)),
-      ("0","publisherId") ->ifNull(publisherId, null, Bytes.toBytes(publisherId - Int.MaxValue - 1)),
-      ("0","subId") ->      ifNull(subId, null, Bytes.toBytes(subId - Int.MaxValue - 1)),
-      ("0","offerId") ->    ifNull(offerId, null, Bytes.toBytes(offerId - Int.MaxValue - 1)),
-      ("0","campaignId") -> ifNull(campaignId, null, Bytes.toBytes(campaignId - Int.MaxValue - 1)),
+      ("0","id") ->         setInt(id),//ifNull(id, null, Bytes.toBytes(id - Int.MaxValue - 1)),
+      ("0","publisherId") ->setInt(publisherId),//ifNull(publisherId, null, Bytes.toBytes(publisherId - Int.MaxValue - 1)),
+      ("0","subId") ->      setInt(subId),//ifNull(subId, null, Bytes.toBytes(subId - Int.MaxValue - 1)),
+      ("0","offerId") ->    setInt(offerId),//ifNull(offerId, null, Bytes.toBytes(offerId - Int.MaxValue - 1)),
+      ("0","campaignId") -> setInt(campaignId),//ifNull(campaignId, null, Bytes.toBytes(campaignId - Int.MaxValue - 1)),
 
-      ("0","countryId") ->  ifNull(countryId, null, Bytes.toBytes(countryId - Int.MaxValue - 1)),
-      ("0","carrierId") ->  ifNull(carrierId, null, Bytes.toBytes(carrierId - Int.MaxValue - 1)),
-      ("0","deviceType") -> ifNull(deviceType, null, Bytes.toBytes(deviceType - Int.MaxValue - 1)),
-      ("0","userAgent") ->  ifNull(userAgent, null, Bytes.toBytes(userAgent)),
-      ("0","ipAddr") ->     ifNull(ipAddr, null, Bytes.toBytes(ipAddr)),
+      ("0","countryId") ->  setInt(countryId),//ifNull(countryId, null, Bytes.toBytes(countryId - Int.MaxValue - 1)),
+      ("0","carrierId") ->  setInt(carrierId),//ifNull(carrierId, null, Bytes.toBytes(carrierId - Int.MaxValue - 1)),
+      ("0","deviceType") -> setInt(deviceType),//ifNull(deviceType, null, Bytes.toBytes(deviceType - Int.MaxValue - 1)),
+      ("0","userAgent") ->  setStr(userAgent),//ifNull(userAgent, null, Bytes.toBytes(userAgent)),
+      ("0","ipAddr") ->     setStr(ipAddr),//ifNull(ipAddr, null, Bytes.toBytes(ipAddr)),
 
-      ("0","clickId") ->    ifNull(clickId, null, Bytes.toBytes(clickId)),
-      ("0","price") ->      ifNull(price, null, Bytes.toBytes(price + "")),
-      ("0","reportTime") -> ifNull(reportTime, null, Bytes.toBytes(reportTime)),
-      ("0","createTime") -> ifNull(createTime, null, Bytes.toBytes(createTime)),
-      ("0","clickTime") ->  ifNull(clickTime, null, Bytes.toBytes(clickTime)),
+      ("0","clickId") ->    setStr(clickId),//ifNull(clickId, null, Bytes.toBytes(clickId)),
+      ("0","price") ->      setDou(price),//ifNull(price, null, Bytes.toBytes(price + "")),
+      ("0","reportTime") -> setStr(reportTime),//ifNull(reportTime, null, Bytes.toBytes(reportTime)),
+      ("0","createTime") -> setStr(createTime),//ifNull(createTime, null, Bytes.toBytes(createTime)),
+      ("0","clickTime") ->  setStr(clickTime),//ifNull(clickTime, null, Bytes.toBytes(clickTime)),
 
-      ("0","showTime") ->    ifNull(showTime, null, Bytes.toBytes(showTime)),
-      ("0","requestType") -> ifNull(requestType, null, Bytes.toBytes(requestType)),
-      ("0","priceMethod") -> ifNull(priceMethod, null, Bytes.toBytes(priceMethod - Int.MaxValue - 1)),
-      ("0","bidPrice") ->    ifNull(bidPrice, null, Bytes.toBytes(bidPrice + "")),
-      ("0","adType") ->      ifNull(adType, null, Bytes.toBytes(adType - Int.MaxValue - 1)),
+      ("0","showTime") ->    setStr(showTime),//ifNull(showTime, null, Bytes.toBytes(showTime)),
+      ("0","requestType") -> setStr(requestType),//ifNull(requestType, null, Bytes.toBytes(requestType)),
+      ("0","priceMethod") -> setInt(priceMethod),//ifNull(priceMethod, null, Bytes.toBytes(priceMethod - Int.MaxValue - 1)),
+      ("0","bidPrice") ->    setDou(bidPrice),//ifNull(bidPrice, null, Bytes.toBytes(bidPrice + "")),
+      ("0","adType") ->      setInt(adType),//ifNull(adType, null, Bytes.toBytes(adType - Int.MaxValue - 1)),
 
-      ("0","isSend") ->      ifNull(isSend, null, Bytes.toBytes(isSend - Int.MaxValue - 1)),
-      ("0","reportPrice") -> ifNull(reportPrice, null, Bytes.toBytes(reportPrice + "")),
-      ("0","sendPrice") ->   ifNull(sendPrice, null, Bytes.toBytes(sendPrice + "")),
-      ("0","s1") ->          ifNull(s1, null, Bytes.toBytes(s1)),
-      ("0","s2") ->          ifNull(s2, null, Bytes.toBytes(s2)),
+      ("0","isSend") ->      setInt(isSend),//ifNull(isSend, null, Bytes.toBytes(isSend - Int.MaxValue - 1)),
+      ("0","reportPrice") -> setDou(reportPrice),//ifNull(reportPrice, null, Bytes.toBytes(reportPrice + "")),
+      ("0","sendPrice") ->   setDou(sendPrice),//ifNull(sendPrice, null, Bytes.toBytes(sendPrice + "")),
+      ("0","s1") ->          setStr(s1),//ifNull(s1, null, Bytes.toBytes(s1)),
+      ("0","s2") ->          setStr(s2),//ifNull(s2, null, Bytes.toBytes(s2)),
 
-      ("0","gaid") ->       ifNull(gaid, null, Bytes.toBytes(gaid)),
-      ("0","androidId") ->  ifNull(androidId, null, Bytes.toBytes(androidId)),
-      ("0","idfa") ->       ifNull(idfa, null, Bytes.toBytes(idfa)),
-      ("0","postBack") ->   ifNull(postBack, null, Bytes.toBytes(postBack)),
-      ("0","sendStatus") -> ifNull(sendStatus, null, Bytes.toBytes(sendStatus - Int.MaxValue - 1)),
+      ("0","gaid") ->       setStr(gaid),//ifNull(gaid, null, Bytes.toBytes(gaid)),
+      ("0","androidId") ->  setStr(androidId),//ifNull(androidId, null, Bytes.toBytes(androidId)),
+      ("0","idfa") ->       setStr(idfa),//ifNull(idfa, null, Bytes.toBytes(idfa)),
+      ("0","postBack") ->   setStr(postBack),//ifNull(postBack, null, Bytes.toBytes(postBack)),
+      ("0","sendStatus") -> setInt(sendStatus),//ifNull(sendStatus, null, Bytes.toBytes(sendStatus - Int.MaxValue - 1)),
 
-      ("0","sendTime") -> ifNull(sendTime, null, Bytes.toBytes(sendTime)),
-      ("0","sv") ->       ifNull(sv, null, Bytes.toBytes(sv)),
-      ("0","imei") ->     ifNull(imei, null, Bytes.toBytes(imei)),
-      ("0","imsi") ->     ifNull(imsi, null, Bytes.toBytes(imsi)),
-      ("0","imageId") ->  ifNull(imageId, null, Bytes.toBytes(imageId - Int.MaxValue - 1)),
+      ("0","sendTime") -> setStr(sendTime),//ifNull(sendTime, null, Bytes.toBytes(sendTime)),
+      ("0","sv") ->       setStr(sv),//ifNull(sv, null, Bytes.toBytes(sv)),
+      ("0","imei") ->     setStr(imei),//ifNull(imei, null, Bytes.toBytes(imei)),
+      ("0","imsi") ->     setStr(imsi),//ifNull(imsi, null, Bytes.toBytes(imsi)),
+      ("0","imageId") ->  setInt(imageId),//ifNull(imageId, null, Bytes.toBytes(imageId - Int.MaxValue - 1)),
 
-      ("0","affSub") ->   ifNull(affSub, null, Bytes.toBytes(affSub)),
-      ("0","s3") ->       ifNull(s3, null, Bytes.toBytes(s3)),
-      ("0","s4") ->       ifNull(s4, null, Bytes.toBytes(s4)),
-      ("0","s5") ->       ifNull(s5, null, Bytes.toBytes(s5)),
+      ("0","affSub") ->   setStr(affSub),//ifNull(affSub, null, Bytes.toBytes(affSub)),
+      ("0","s3") ->       setStr(s3),//ifNull(s3, null, Bytes.toBytes(s3)),
+      ("0","s4") ->       setStr(s4),//ifNull(s4, null, Bytes.toBytes(s4)),
+      ("0","s5") ->       setStr(s5),//ifNull(s5, null, Bytes.toBytes(s5)),
 
-      //新版写法
       ("0","packageName") -> setStr(packageName),
       ("0","domain")      -> setStr(domain),
       ("0","respStatus")  -> setInt(respStatus),
@@ -329,10 +327,10 @@ case class  SspTrafficDWI (
       ("0","caId")          -> setStr(caId),
       ("0","deviceid")      -> setStr(deviceid),
 
-      ("0","repeated") -> ifNull(repeated, null, Bytes.toBytes(repeated)),
-      ("0","l_time") ->   ifNull(l_time, null, Bytes.toBytes(l_time)),
-      ("0","b_date") ->   ifNull(b_date, null, Bytes.toBytes(b_date)),
-      ("0","b_time") ->   ifNull(b_time, null, Bytes.toBytes(b_time))
+      ("0","repeated") -> setStr(repeated),//ifNull(repeated, null, Bytes.toBytes(repeated)),
+      ("0","l_time") ->   setStr(l_time),//ifNull(l_time, null, Bytes.toBytes(l_time)),
+      ("0","b_date") ->   setStr(b_date),//ifNull(b_date, null, Bytes.toBytes(b_date)),
+      ("0","b_time") ->   setStr(b_time)//ifNull(b_time, null, Bytes.toBytes(b_time))
     )
   }
 
