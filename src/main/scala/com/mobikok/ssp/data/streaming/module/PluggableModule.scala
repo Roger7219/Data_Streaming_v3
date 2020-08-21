@@ -221,7 +221,7 @@ class PluggableModule(globalConfig: Config,
   var dwrIncludeRepeated = true
   if (globalConfig.hasPath(s"modules.$moduleName.dwr.include.repeated")) {
     dwrIncludeRepeated = globalConfig.getBoolean(s"modules.$moduleName.dwr.include.repeated")
-  } else if (isEnableDwiUuid) {
+  } else if (isEnableDwiUuid && isDwrStore) {
     dwrIncludeRepeated = false
   }
 

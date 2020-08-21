@@ -180,6 +180,7 @@ class BigQueryClient (moduleName: String, config: Config, ssc: StreamingContext,
     * 早期的按天上传
     * @param hivePartitionBDate eg: 2017-10-19
     */
+  @deprecated
   def overwrite (bigQueryTable: String, hiveTable: String, hivePartitionBDate: String): Unit = {
     var bqDay = hivePartitionBDate.split(" ")(0).replaceAll("-", "")
 

@@ -11,7 +11,7 @@ import org.apache.spark.storage.StorageLevel
   * Created by Administrator on 2018/8/21 0021.
   */
 
-class SspInfoCountHandler extends Handler{
+class SspInfoHandler extends Handler{
   val tableName = "ssp_info_dwi"
 
   override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, argsConfig: ArgsConfig, handlerConfig: Config, globalConfig: Config, messageClient: MessageClient, moduleTracer: ModuleTracer): Unit = {
@@ -40,19 +40,7 @@ class SspInfoCountHandler extends Handler{
          |
        """.stripMargin)
 
-    df.persist(StorageLevel.MEMORY_ONLY)
-
     LOG.warn("SspInfoCountHandler", "df count", df.collect().size, "df take 4", df.toJSON.take(4))
-
-
-    /*df
-      .coalesce(1)
-      .write
-      .mode(SaveMode.Append)
-      .format("orc")
-      .insertInto(tableName)*/
-
-    df.unpersist(true)
 
     LOG.warn("SspInfoCountHandler end")
 

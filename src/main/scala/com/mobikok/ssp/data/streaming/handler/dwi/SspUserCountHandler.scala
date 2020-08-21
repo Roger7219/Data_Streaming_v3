@@ -12,18 +12,18 @@ import org.apache.spark.storage.StorageLevel
 
 class SspUserCountHandler extends Handler {
 
-  var userIdHistoryTable = null.asInstanceOf[String]
-  val userNewTopic = "topic_ad_user_new_v2"
-  val userActiveTopic = "topic_ad_user_active_v2"
-  val SSPUSERCOUNT_DROP_EXCEEDTABLE_CER = "sspUserCount_dropExceedTable_cer"
-  val SSPUSERCOUNT_DROP_EXCEEDTABLE_TOPIC = "sspUserCount_dropExceedTable_topic"
+  var userIdHistoryTable = "SSP_USERID_HISTORY"
+  var userNewTopic = "topic_ad_user_new_v2"
+  var userActiveTopic = "topic_ad_user_active_v2"
+  val SSP_USER_COUNT_DROP_EXCEED_TABLE_CER = "sspUserCount_dropExceedTable_cer"
+  val SSP_USER_COUNT_DROP_EXCEED_TABLE_TOPIC = "sspUserCount_dropExceedTable_topic"
 
   override def init(moduleName: String, transactionManager: TransactionManager, rDBConfig: RDBConfig, hbaseClient: HBaseClient, hiveClient: HiveClient, kafkaClient: KafkaClient, argsConfig: ArgsConfig, handlerConfig: Config, globalConfig: Config, messageClient: MessageClient, moduleTracer: ModuleTracer): Unit = {
     super.init(moduleName, transactionManager, rDBConfig, hbaseClient, hiveClient, kafkaClient, argsConfig, handlerConfig, globalConfig, messageClient, moduleTracer)
-
-    userIdHistoryTable = handlerConfig.getString("uid.history.table")
+    userNewTopic = if(handlerConfig.hasPath("user.new.topic")) handlerConfig.getString("user.new.topic") else userNewTopic
+    userActiveTopic = if(handlerConfig.hasPath("user.active.topic")) handlerConfig.getString("user.active.topic") else userActiveTopic
+    userIdHistoryTable = if(handlerConfig.hasPath("uid.history.table")) handlerConfig.getString("uid.history.table") else userIdHistoryTable
   }
-
 
   override def doHandle (newDwi: DataFrame): DataFrame = {
 
@@ -231,7 +231,7 @@ class SspUserCountHandler extends Handler {
 
     //凌晨一点异步删除，之前的天表
     val dropTime = CSTTime.now.modifyHourAsDate(-1)
-    messageClient.pull(SSPUSERCOUNT_DROP_EXCEEDTABLE_CER, Array(SSPUSERCOUNT_DROP_EXCEEDTABLE_TOPIC), { x =>
+    messageClient.pull(SSP_USER_COUNT_DROP_EXCEED_TABLE_CER, Array(SSP_USER_COUNT_DROP_EXCEED_TABLE_TOPIC), { x =>
 
       val toadyNeedDropTable =  x.isEmpty || ( !x.map(_.getKeyBody).contains(dropTime))
 
@@ -249,7 +249,7 @@ class SspUserCountHandler extends Handler {
           }
         }).start()
 
-        messageClient.push(new PushReq(SSPUSERCOUNT_DROP_EXCEEDTABLE_TOPIC, dropTime))
+        messageClient.push(new PushReq(SSP_USER_COUNT_DROP_EXCEED_TABLE_TOPIC, dropTime))
       }
 
       true

@@ -341,11 +341,11 @@ object App {
       // 免去手动在配置文件里配置kafka.consumer.partitions这些固定的值，自动在这里补全配置
       ms.root().foreach{x=>
         // 自动补全为: kafka.consumer {partitions = [{topic = "topic_empty"}]}
-        if(!allModulesConfig.hasPath(s"modules.${x._1}.kafka.consumer.partitions")){
-          allModulesConfig = allModulesConfig.withValue(s"modules.${x._1}.kafka.consumer.partitions", ConfigValueFactory.fromIterable(Collections.singleton(Collections.singletonMap("topic", "topic_empty") )))
-          allModulesConfig = allModulesConfig.withValue(s"modules.${x._1}.dwi.kafka.schema", ConfigValueFactory.fromAnyRef(classOf[EmptyDWISchema].getName))
-          if(!allModulesConfig.hasPath(s"modules.${x._1}.b_time.by")){
-            allModulesConfig = allModulesConfig.withValue(s"modules.${x._1}.b_time.by", ConfigValueFactory.fromAnyRef("empty_time"))
+        if(!allModulesConfig.hasPath(s"modules.${vName}.kafka.consumer.partitions")){
+          allModulesConfig = allModulesConfig.withValue(s"modules.${vName}.kafka.consumer.partitions", ConfigValueFactory.fromIterable(Collections.singleton(Collections.singletonMap("topic", "topic_empty") )))
+          allModulesConfig = allModulesConfig.withValue(s"modules.${vName}.dwi.kafka.schema", ConfigValueFactory.fromAnyRef(classOf[EmptyDWISchema].getName))
+          if(!allModulesConfig.hasPath(s"modules.${vName}.b_time.by")){
+            allModulesConfig = allModulesConfig.withValue(s"modules.${vName}.b_time.by", ConfigValueFactory.fromAnyRef("empty_time"))
           }
         }
       }

@@ -19,7 +19,7 @@ import scala.collection.JavaConversions._
   * Created by Administrator on 2017/10/10.
   * recordHistoryBatches: 记录历史批次次数
   */
-class ModuleTracer(moduleName: String, globalConfig: Config, mixModulesBatchController: MixModulesBatchController, messageClient: MessageClient, recordHistoryBatches:Integer = 3) {
+class ModuleTracer(moduleName: String, globalConfig: Config, mixModulesBatchController: MixModulesBatchController, messageClient: MessageClient, recordHistoryBatches:Integer = 6) {
 
   // 等待mix组里的其它Modules
   def trace(traceMessage: String, waitingFor: => Unit, isWaitingOtherModules: Boolean): Unit = {

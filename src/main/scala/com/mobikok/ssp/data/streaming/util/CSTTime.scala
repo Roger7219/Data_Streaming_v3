@@ -230,7 +230,7 @@ object CSTTime {
   def main (args: Array[String]): Unit = {
 
 //    println(neighborBTimes("2002-01-12 12:00:00", 2).toList)
-//   print(intervalBTimes("2002-01-12 12:00:00", -1,1).toList)
+   print(intervalBTimes("2002-01-12 12:00:00", -1,0).toList)
 
     //    println(OM.toJOSN(CSTTime.neighborBTimes("2018-12-12 11:13:44", 0)))
 
