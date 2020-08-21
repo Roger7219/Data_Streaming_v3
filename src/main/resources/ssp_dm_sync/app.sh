@@ -29,8 +29,8 @@ hdfs:/libs/config-1.3.1.jar \
 --driver-class-path /apps/data-streaming/libs/mysql-connector-java-5.1.42.jar \
 --verbose   \
 --conf spark.yarn.executor.memoryOverhead=3g \
---files /apps/data-streaming/ssp/dm/sync/app.conf \
-/apps/data-streaming/ssp/dm/sync/data-streaming.jar \
+--files /apps/data-streaming/ssp_dm_sync/app.conf \
+/apps/data-streaming/ssp_dm_sync/data-streaming.jar \
 app.conf \
 kill = true \
 buration = 120

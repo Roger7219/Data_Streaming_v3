@@ -64,8 +64,8 @@ hdfs:/libs/config-1.3.1.jar \
 --verbose \
 --conf spark.driver.extraClassPath=guava-20.0.jar \
 --conf spark.executor.extraClassPath=guava-20.0.jar \
---files /apps/data-streaming/ssp/dm/bq_report/key.json,/apps/data-streaming/ssp/dm/bq_report/app.conf \
-/apps/data-streaming/ssp/dm/bq_report/data-streaming.jar \
+--files /apps/data-streaming/ssp_dm_bq_report/key.json,/apps/data-streaming/ssp_dm_bq_report/app.conf \
+/apps/data-streaming/ssp_dm_bq_report/data-streaming.jar \
 app.conf \
 buration=120 \
 kill=true

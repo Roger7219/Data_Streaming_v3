@@ -27,21 +27,8 @@ file:///apps/data-streaming/libs/hbase-protocol-1.1.10.jar,\
 file:///apps/data-streaming/libs/hbase-common-1.1.10.jar,\
 file:///apps/data-streaming/libs/hbase-client-1.1.10.jar \
 --verbose \
---files /apps/data-streaming/ssp/dm/ck_report/app.conf \
-/apps/data-streaming/ssp/dm/ck_report/data-streaming.jar \
+--files /apps/data-streaming/ssp_dm_ck_report/app.conf \
+/apps/data-streaming/ssp_dm_ck_report/data-streaming.jar \
 app.conf \
 kill=true \
 buration=60
-
-
-
-
-
-
-
-
-
-
-
-
-
