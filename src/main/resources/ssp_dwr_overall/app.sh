@@ -32,5 +32,6 @@ hdfs:/libs/config-1.3.1.jar \
 /apps/data-streaming/ssp_dwr_overall/data-streaming.jar \
 app.conf \
 buration = 300 \
+rate=4000000 \
 kill=true \
 version=4
