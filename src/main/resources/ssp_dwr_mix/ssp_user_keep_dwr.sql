@@ -26,34 +26,3 @@ PARTITIONED BY (
   `b_date` string,
   `b_time` string)
 STORED AS ORC;
-
--- set hive.exec.dynamic.partition.mode=nonstrict;
--- set spark.default.parallelism = 1;
--- set spark.sql.shuffle.partitions = 1;
--- insert overwrite table ssp_user_keep_dwr_tmp
--- select `appid` ,
---   `countryid` ,
---   `carrierid` ,
---   `sv` ,
---   `affsub` ,
---   `activedate` ,
---   `usercount` ,
---   `firstcount` ,
---   `secondcount` ,
---   `thirdcount` ,
---   `fourthcount` ,
---   `fifthcount` ,
---   `sixthcount` ,
---   `seventhcount` ,
---   `fiftycount` ,
---   `thirtycount` ,
---   `operatingsystem` ,
---   `systemlanguage` ,
---   `devicebrand` ,
---   `devicetype` ,
---   `browserkernel`,
---   `l_time` string,
---   `b_date` string,
---   `b_time` string
--- from ssp_user_keep_dwr
--- where b_date>="2020-08-15" limit 114376977

@@ -34,11 +34,3 @@ PARTITIONED BY (
   `b_time` string)
 STORED AS ORC;
 
-
--- set hive.exec.dynamic.partition.mode=nonstrict;
--- set spark.default.parallelism = 1;
--- set spark.sql.shuffle.partitions = 1;
--- insert overwrite table ssp_user_new_dwi_tmp
--- select *,
--- from_unixtime(unix_timestamp(createTime), 'yyyy-MM-dd HH:00:00') from ssp_user_new_dwi
--- where b_date>="2020-08-20"
