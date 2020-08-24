@@ -99,6 +99,7 @@ class BigQueryClient (moduleName: String, config: Config, ssc: StreamingContext,
   }
 
   // Copy方式分区表覆盖
+  @deprecated
   def overwriteByBDate(bigQueryTable: String, hiveTable: String, hivePartitionBDate: String): Unit = {
 
 
@@ -177,7 +178,7 @@ class BigQueryClient (moduleName: String, config: Config, ssc: StreamingContext,
   }
 
   /**
-    * 早期的按天上传
+    * 早期版本的按天上传
     * @param hivePartitionBDate eg: 2017-10-19
     */
   @deprecated
@@ -313,7 +314,7 @@ class BigQueryClient (moduleName: String, config: Config, ssc: StreamingContext,
 
   private var executorService = ExecutorServiceUtil.createdExecutorService(5)// must is 1
 
-  // 按b_time更新，基本是小时 new !!
+  // 推荐使用该方法。按b_time更新，基本是小时 new !!
   def overwriteByBTime (bigQueryPartitionedTable: String, hiveTable: String, hivePartitionBTimes: Array[String]): Unit = {
 
     LOG.warn(s"Overwrite bigQueryTable start", "bigQueryTable", bigQueryPartitionedTable, "hiveTable", hiveTable, "hivePartitionBTimes", hivePartitionBTimes)

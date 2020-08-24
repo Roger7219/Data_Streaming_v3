@@ -43,7 +43,7 @@ object App {
   //加载获取spark-submit启动命令中参数配置
   var sparkConf: SparkConf = null
   var appName: String = null
-  var appId: String = null
+  var latestSetupAppId: String = null
   var version: String = null
   var kafkaTopicVersion: String = null
   val kafkaOffsetTool = new KafkaOffsetTool(App.getClass.getSimpleName)
@@ -76,9 +76,9 @@ object App {
     sparkConf = new SparkConf(true)
     //      获取spark-submit启动命令中的--name参数指定的
     appName = sparkConf.get("spark.app.name").trim
-    appId = YarnAppManagerUtil.getLatestRunningApp(appName).getApplicationId.toString
+    latestSetupAppId = YarnAppManagerUtil.getLatestSetupApp(appName).getApplicationId.toString
 
-    LOG.warn("Starting App", "name", appName, "id", appId)
+    LOG.warn("Starting App", "name", appName, "latestSetupAppId", latestSetupAppId)
 
     if(args.length > 0) {
       var f = new File(args(0))
@@ -224,11 +224,11 @@ object App {
     ssc = new StreamingContext(conf, Seconds(allModulesConfig.getInt("spark.conf.streaming.batch.buration")))
 
     //check task Whether has been launched.
-    if(YarnAppManagerUtil.isAppRunning(appName)){
+    if(YarnAppManagerUtil.isPrevRunningApp(appName, latestSetupAppId)){
       if("true".equals(argsConfig.get(ArgsConfig.FORCE_KILL_PREV_REPEATED_APP))) {
-        YarnAppManagerUtil.killApps(appName, false, appId, messageClient)
+        YarnAppManagerUtil.killApps(appName, false, latestSetupAppId, messageClient)
       }else {
-        throw new RuntimeException(s"This app '$appName' has already submit,forbid to re-submit!")
+        throw new RuntimeException(s"This app '$appName' is already running, It cannot be run repeatedly, Please kill the previous app first")
       }
     }
   }

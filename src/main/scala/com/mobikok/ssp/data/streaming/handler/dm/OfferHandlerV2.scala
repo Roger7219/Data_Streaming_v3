@@ -341,6 +341,7 @@ class OfferHandlerV2 extends Handler{
 
 //      topUp.createOrReplaceTempView("top_offer_dm")
       topUp.write.mode(SaveMode.Overwrite).insertInto("top_offer_dwr")
+      messageClient.push(new PushReq("top_offer_dwr", OM.toJOSN(Array(Array(HivePartitionPart("b_date", x.value))))))
 
       topUp.unpersist()
 //      LOG.warn(s"OfferHandler createOrReplaceTempView count: ${topUp.count} take(10)",topUp.take(1))

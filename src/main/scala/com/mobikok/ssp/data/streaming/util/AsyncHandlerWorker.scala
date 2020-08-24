@@ -26,7 +26,7 @@ class AsyncHandlerWorker(moduleName: String, totalTaskSize:Int, moduleTracer: Mo
       def run() {
         try {
           runningTasks.incrementAndGet()
-          moduleTracer.startAsyncHandle(transactionOrder, parentTransactionId,  parentThreadId)
+          moduleTracer.startNested(transactionOrder, parentTransactionId,  parentThreadId)
 
           func
           countDownLatch.countDown()

@@ -802,23 +802,19 @@ class KafkaClient (moduleName: String, config: Config, messageClient: MessageCli
     }
   }
 
-  @deprecated
   def sendToKafka (topic: String, messages: String*): Unit = {
     messages.foreach { x =>
       sendToKafka(topic, null, x, true)
     }
     producer.flush()
   }
-  @deprecated
   def sendToKafka (topic: String, message: String): Unit = {
     sendToKafka(topic, null, message)
   }
-  @deprecated
   def sendToKafka (topic: String, key: String, message: String): Unit = {
     sendToKafka(topic, key, message, producerIsAsync)
   }
 
-  @deprecated
   //defaultProducerIsAsync: 是否异步发送，配置文件里配置了默认值
   def sendToKafka (topic: String, key: String, message: String, defaultProducerIsAsync: Boolean): Unit = {
     try {

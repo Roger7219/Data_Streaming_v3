@@ -14,7 +14,7 @@ import scala.collection.JavaConversions._
 
 /**
   * 事务管理器，负责开启、提交事务的实现。
-  * 同一个dwrShareTable的Module共享一个TransactionManager对象，共享tid
+  * 同一个dwrShareTable的Module共享一个TransactionManager对象，共享parent tid
   */
 class TransactionManager(config: Config, transactionalStrategy: TransactionalStrategy, dwrShareTable: String) {
 
@@ -206,6 +206,9 @@ class TransactionManager(config: Config, transactionalStrategy: TransactionalStr
     }
   }
 
+  /**
+    * @return  返回事务父ID (parentTransactionId)，同一个dwrShareTable的Module共享一个TransactionManager对象，所以会共享parentTransactionId
+    */
   def beginTransaction(moduleName: String, groupName: String, order: Long): String = {
 
 //    moduleTracer.trace("wait mix tx begin start")
@@ -230,7 +233,7 @@ class TransactionManager(config: Config, transactionalStrategy: TransactionalStr
           LOG.warn("Generate new transaction id", transactionParentIdCache)
 
         }else {
-          // 读写同一个dwr表的模块们共享一个transaction id
+          // 读写同一个dwr表的模块们共享一个parent transaction id
           LOG.warn("Use mix module previous generated transaction parent id", transactionParentIdCache)
         }
 

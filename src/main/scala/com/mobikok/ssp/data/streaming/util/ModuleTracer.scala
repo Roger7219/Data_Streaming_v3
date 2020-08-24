@@ -5,7 +5,7 @@ import java.util
 import java.util.{Date, Random}
 
 import com.mobikok.ssp.data.streaming.config.DynamicConfig
-import com.mobikok.ssp.data.streaming.exception.AppException
+import com.mobikok.ssp.data.streaming.exception.{AppException, ModuleTracerException}
 import com.mobikok.ssp.data.streaming.module.Module
 import com.mobikok.ssp.data.streaming.module.support.MixModulesBatchController
 import com.mobikok.ssp.data.streaming.transaction.TransactionCookie
@@ -19,7 +19,7 @@ import scala.collection.JavaConversions._
   * Created by Administrator on 2017/10/10.
   * recordHistoryBatches: 记录历史批次次数
   */
-class ModuleTracer(moduleName: String, globalConfig: Config, mixModulesBatchController: MixModulesBatchController, messageClient: MessageClient, recordHistoryBatches:Integer = 6) {
+class ModuleTracer(moduleName: String, globalConfig: Config, mixModulesBatchController: MixModulesBatchController, messageClient: MessageClient, recordHistoryBatches:Integer = 10) {
 
   // 等待mix组里的其它Modules
   def trace(traceMessage: String, waitingFor: => Unit, isWaitingOtherModules: Boolean): Unit = {
@@ -54,7 +54,7 @@ class ModuleTracer(moduleName: String, globalConfig: Config, mixModulesBatchCont
   private var batchActualTime = new ThreadLocal[Long]() //0.asInstanceOf[Long]
 
   private var lastTraceTimestamp = new ThreadLocal[Long]()//new Date().getTime
-  private var traceBatchUsingTimeLog = new ThreadLocal[mutable.ListBuffer[String]]()//mutable.ListBuffer[String]()
+  private var ownThreadTraceUsingTimeLog = new ThreadLocal[mutable.ListBuffer[String]]()//mutable.ListBuffer[String]()
   private var threadPrefix = new ThreadLocal[String](){
     override protected def initialValue: String = {
       ""
@@ -63,24 +63,24 @@ class ModuleTracer(moduleName: String, globalConfig: Config, mixModulesBatchCont
 
   private var historyBatchCollector = new FixedList[mutable.ListBuffer[String]](recordHistoryBatches)
 
-  def startBatch: Unit = {
-    batchBeginTime.set(new Date().getTime)
-    batchContinueTimestamp.set(batchBeginTime.get())
-    batchActualTime.set(0)
-    batchUsingTime.set(0)
-    lastTraceTimestamp.set(batchBeginTime.get())
-
-    var b = mutable.ListBuffer[String]()
-    historyBatchCollector.add(b)
-    traceBatchUsingTimeLog.set(b)
-
-    trace(s"thread: ${Thread.currentThread().getId}")
-  }
-  def startBatch(transactionOrder: Long, parentTid: String): Unit = {
+//  private def start: Unit = {
+//    batchBeginTime.set(new Date().getTime)
+//    batchContinueTimestamp.set(batchBeginTime.get())
+//    batchActualTime.set(0)
+//    batchUsingTime.set(0)
+//    lastTraceTimestamp.set(batchBeginTime.get())
+//
+//    var b = mutable.ListBuffer[String]()
+//    historyBatchCollector.add(b)
+//    ownThreadTraceUsingTimeLog.set(b)
+//
+//    trace(s"thread: ${Thread.currentThread().getId}")
+//  }
+  def start(transactionOrder: Long, parentTid: String): Unit = {
     start0(transactionOrder, parentTid, null, "")
   }
 
-  def startAsyncHandle(transactionOrder: Long, parentTid: String, parentThreadId: java.lang.Long): Unit = {
+  def startNested(transactionOrder: Long, parentTid: String, parentThreadId: java.lang.Long): Unit = {
     start0(transactionOrder, parentTid, parentThreadId, "    ")
   }
 
@@ -91,9 +91,9 @@ class ModuleTracer(moduleName: String, globalConfig: Config, mixModulesBatchCont
     batchUsingTime.set(0)
     lastTraceTimestamp.set(batchBeginTime.get())
 
-    var b = mutable.ListBuffer[String]()
+    val b = mutable.ListBuffer[String]()
     historyBatchCollector.add(b)
-    traceBatchUsingTimeLog.set(b)
+    ownThreadTraceUsingTimeLog.set(b)
     threadPrefix.set(prefix)
 
     if(parentThreadId != null) {
@@ -103,7 +103,7 @@ class ModuleTracer(moduleName: String, globalConfig: Config, mixModulesBatchCont
     }
   }
 
-  def endBatch(): Unit ={
+  def end(): Unit ={
     batchUsingTime.set(new Date().getTime - batchBeginTime.get())
     batchActualTime.set((new Date().getTime - batchContinueTimestamp.get()) + batchActualTime.get())
     moduleBatchEndTime = System.currentTimeMillis()
@@ -132,30 +132,30 @@ class ModuleTracer(moduleName: String, globalConfig: Config, mixModulesBatchCont
     val ms = System.currentTimeMillis() - lastTraceTimestamp.get()
     val m = traceBatchUsingTimeFormat.format((100.0*ms/1000/60).asInstanceOf[Int]/100.0)
     lastTraceTimestamp.set(new Date().getTime)
-    if (traceBatchUsingTimeLog.get() == null) {
-      startBatch
+    if (ownThreadTraceUsingTimeLog.get() == null) {
+      throw new ModuleTracerException("Required to initialize first: call the ModuleTracer.start(..) or ModuleTracer.startNested(..) method")
     }
-    traceBatchUsingTimeLog.get().append(s"${CSTTime.now.time}  $m  ${threadPrefix.get()}$title")
+    ownThreadTraceUsingTimeLog.get().append(s"${CSTTime.now.time}  $m  ${threadPrefix.get()}$title")
   }
 
   private def setUpdatableTrace (title: String) = {
-    traceBatchUsingTimeLog.get().append(s"${CSTTime.now.time}  ----  $title")
+    ownThreadTraceUsingTimeLog.get().append(s"${CSTTime.now.time}  ----  $title")
   }
 
   private def finalizeUpdatableTrace (title: String) = {
     val ms = new Date().getTime - lastTraceTimestamp.get()
     val m = traceBatchUsingTimeFormat.format((100.0*ms/1000/60).asInstanceOf[Int]/100.0)
-    val log = traceBatchUsingTimeLog.get()
+    val log = ownThreadTraceUsingTimeLog.get()
     val lastIdx = log.length - 1
     if(lastIdx >= 0) {
       log.remove(lastIdx)
     }
-    traceBatchUsingTimeLog.get().append(s"${CSTTime.now.time}  $m  $title")
+    ownThreadTraceUsingTimeLog.get().append(s"${CSTTime.now.time}  $m  $title")
     lastTraceTimestamp.set(new Date().getTime)
   }
 
   def getTraceResult (): String ={
-    traceBatchUsingTimeLog.get().mkString("\n")
+    ownThreadTraceUsingTimeLog.get().mkString("\n")
   }
 
   def getHistoryBatchesTraceResult():String ={

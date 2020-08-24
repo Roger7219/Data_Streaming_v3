@@ -324,7 +324,7 @@ class PluggableModule(globalConfig: Config,
       try {
 
         val order = transactionManager.generateTransactionOrder(moduleName)
-        moduleTracer.startBatch(order, "INIT")
+        moduleTracer.start(order, "INIT")
 
         val offsetRanges = source
           .asInstanceOf[HasOffsetRanges]
@@ -354,12 +354,12 @@ class PluggableModule(globalConfig: Config,
         moduleTracer.trace(s"offset detail cnt: ${dwiCount} lag: ${offsetDetail.map(_._3).sum}\n" + offsetDetail.map { x => s"        ${x._1.topic}, ${x._1.partition} -> cnt: ${x._2} lag: ${x._3}" }.mkString("\n"))
 
         // 判断是否可以空跑当前批次，需满足下面条件:
-        // 1) 必须是独立module, 即不需要汇合每个module自身的dwr数据到master module中
-        // 2) 并且上一个批次还未结束(如果结束了isLastUncompletedTransaction()不会返回true了);
-        // 3) 并且当前批次数据为空
-        if (!mixModulesBatchController.isMultipleModulesOperateSameShareDwrTable() && transactionManager.isLastUncompletedTransaction(moduleName) && dwiCount == 0) {
+        // 1) 上一个批次还未结束(如果结束了isLastUncompletedTransaction()不会返回true了);
+        // 2) 并且当前批次数据为空
+        // 3) 并且是独立module, 即不需要汇合每个module自身的dwr数据到master module中
+        if (transactionManager.isLastUncompletedTransaction(moduleName)  && dwiCount == 0 && !mixModulesBatchController.isMultipleModulesOperateSameShareDwrTable()) {
 
-          LOG.warn("Empty running, Fast polling", /*"concurrentGroup", concurrentGroup, */"moduleName", moduleName)
+          LOG.warn("Empty running, Fast polling", "moduleName", moduleName)
           moduleTracer.trace("fast polling")
 
         } else {
@@ -527,7 +527,7 @@ class PluggableModule(globalConfig: Config,
           cleanLastTransactionRollbackedCookies()
 
           moduleTracer.trace("batch done")
-          moduleTracer.endBatch()
+          moduleTracer.end()
 
           mySqlJDBCClient.execute(
             s"""
