@@ -10,9 +10,9 @@ spark-submit \
 --jars \
 file:///apps/data-streaming/libs/scala-library-2.11.8.jar,\
 file:///apps/data-streaming/libs/scala-reflect-2.11.8.jar,\
-file:///root/kairenlo//data-streaming/data_lib/datanucleus-api-jdo-3.2.6.jar,\
-file:///root/kairenlo//data-streaming/data_lib/datanucleus-core-3.2.10.jar,\
-file:///root/kairenlo//data-streaming/data_lib/datanucleus-rdbms-3.2.9.jar,\
+file:///apps/data-streaming/libs/datanucleus-api-jdo-3.2.6.jar,\
+file:///apps/data-streaming/libs/datanucleus-core-3.2.10.jar,\
+file:///apps/data-streaming/libs/datanucleus-rdbms-3.2.9.jar,\
 file:///apps/data-streaming/libs/metrics-core-2.2.0.jar,\
 file:///apps/data-streaming/libs/spark-streaming-kafka-0-10_2.11-2.1.1.jar,\
 file:///apps/data-streaming/libs/kafka_2.11-0.10.2.1.jar,\
