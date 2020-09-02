@@ -133,7 +133,8 @@ class ModuleTracer(moduleName: String, globalConfig: Config, mixModulesBatchCont
     val m = traceBatchUsingTimeFormat.format((100.0*ms/1000/60).asInstanceOf[Int]/100.0)
     lastTraceTimestamp.set(new Date().getTime)
     if (ownThreadTraceUsingTimeLog.get() == null) {
-      throw new ModuleTracerException("Required to initialize first: call the ModuleTracer.start(..) or ModuleTracer.startNested(..) method")
+      start
+      //throw new ModuleTracerException("Required to initialize first: call the ModuleTracer.start(..) or ModuleTracer.startNested(..) method")
     }
     ownThreadTraceUsingTimeLog.get().append(s"${CSTTime.now.time}  $m  ${threadPrefix.get()}$title")
   }
