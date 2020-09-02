@@ -63,19 +63,9 @@ class ModuleTracer(moduleName: String, globalConfig: Config, mixModulesBatchCont
 
   private var historyBatchCollector = new FixedList[mutable.ListBuffer[String]](recordHistoryBatches)
 
-//  private def start: Unit = {
-//    batchBeginTime.set(new Date().getTime)
-//    batchContinueTimestamp.set(batchBeginTime.get())
-//    batchActualTime.set(0)
-//    batchUsingTime.set(0)
-//    lastTraceTimestamp.set(batchBeginTime.get())
-//
-//    var b = mutable.ListBuffer[String]()
-//    historyBatchCollector.add(b)
-//    ownThreadTraceUsingTimeLog.set(b)
-//
-//    trace(s"thread: ${Thread.currentThread().getId}")
-//  }
+  private def start: Unit = {
+     start(null.asInstanceOf[Long], null)
+  }
   def start(transactionOrder: Long, parentTid: String): Unit = {
     start0(transactionOrder, parentTid, null, "")
   }
@@ -96,11 +86,11 @@ class ModuleTracer(moduleName: String, globalConfig: Config, mixModulesBatchCont
     ownThreadTraceUsingTimeLog.set(b)
     threadPrefix.set(prefix)
 
-    if(parentThreadId != null) {
+//    if(parentThreadId != null) {
       trace(s"thread: ${Thread.currentThread().getId}, pThread: ${parentThreadId}, order: ${transactionOrder}, pTid: ${parentTransactionId}")
-    }else {
-      trace(s"thread: ${Thread.currentThread().getId}, order: ${transactionOrder}, pTid: ${parentTransactionId}")
-    }
+//    }else {
+//      trace(s"thread: ${Thread.currentThread().getId}, order: ${transactionOrder}, pTid: ${parentTransactionId}")
+//    }
   }
 
   def end(): Unit ={
