@@ -435,7 +435,10 @@ class HBaseClient(moduleName: String, sc: SparkContext, config: Config, messageC
         LOG.warn("Deleting expired tables", dels.map{case(t, i) => t.getNameAsString})
 
         dels.foreach{case(t, i)=>
-          directHBaseAdmin.disableTable(t)
+          try{
+            directHBaseAdmin.disableTable(t)
+          }catch {case t:Throwable=>LOG.warn(s"Hbase disableTable '$t' error", t)}
+
           directHBaseAdmin.deleteTable(t)
           LOG.warn("HBase expired table delete done", t)
         }

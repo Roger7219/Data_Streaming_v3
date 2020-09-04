@@ -28,8 +28,8 @@ class BTimeRangeRepeatsFilter(dwiBTimeFormat: String = "yyyy-MM-dd HH:00:00", bT
   var bloomFilterBTimeFormat: String = dwiBTimeFormat
 
   // 这个值越大过滤精度越高(即本身不是重复的，却被误当重复的过滤掉的概率越低)，但内存占用越高，
-  // 20 来自于 Int.MaxValue/100000000，设置为20是占用内存和过滤精度的平衡点，是目前采用的
-  val wronglyFilterIndex = 20
+  // 40 来自于2倍的Int.MaxValue/100000000，设置为40是占用内存和过滤精度的平衡点，是目前采用的
+  val wronglyFilterIndex = 40
 
   val bTimeStartOffsetHour = bTimeRange(0)
   val bTimeEndOffsetHour = bTimeRange(1)
@@ -76,7 +76,7 @@ class BTimeRangeRepeatsFilter(dwiBTimeFormat: String = "yyyy-MM-dd HH:00:00", bT
 
     //            saved = repeatedCount(dwi).alias("saved")
 
-    val b_dates = dwi
+    val b_times = dwi
       .select(
         to_date(expr(businessTimeExtractBy)).cast("string").as("b_date"),
         expr(s"from_unixtime(unix_timestamp($businessTimeExtractBy), '${bloomFilterBTimeFormat}')").as("b_time")
@@ -89,7 +89,7 @@ class BTimeRangeRepeatsFilter(dwiBTimeFormat: String = "yyyy-MM-dd HH:00:00", bT
       )
     }.collect()
 
-    loadUuidsIfNonExists(dwiTable, b_dates)
+    loadUuidsIfNonExists(dwiTable, b_times)
     val saved = filterRepeatedUuids(ids).alias("saved")
 
     LOG.warn("saved schema fields", saved.schema.fieldNames)
@@ -137,19 +137,19 @@ class BTimeRangeRepeatsFilter(dwiBTimeFormat: String = "yyyy-MM-dd HH:00:00", bT
     //cacheUuidRepeats
   }
 
-  def intervalBTimes(b_times: Array[String]): Array[(String, String)] ={
-    var result = new util.ArrayList[(String, String)]()
+  def neighborBTimes(b_times: Array[String]): Array[(String, String)] ={
+    var result = new util.HashSet[(String, String)]()
     b_times.foreach{bt=>
-      CSTTime.intervalBTimes(bt, bTimeStartOffsetHour, bTimeEndOffsetHour).foreach{ x=> result.add((x.split(" ")(0), x))}
+      CSTTime.neighborBTimes(bt, bTimeStartOffsetHour, bTimeEndOffsetHour).foreach{ x=> result.add((x.split(" ")(0), x))}
     }
     result.toArray(new Array[(String, String)](0))
   }
 
-  def loadUuidsIfNonExists(dwiTable: String, b_dates:Array[(String, String)]): Unit = {
-    LOG.warn("BloomFilter try load uuids if not exists start", s"contained b_date: ${OM.toJOSN(uuidBloomFilterMap.keySet())}\ndwi table: $dwiTable\ntry apppend b_dates: ${OM.toJOSN(b_dates)}")
+  def loadUuidsIfNonExists(dwiTable: String, b_times:Array[(String, String)]): Unit = {
+    LOG.warn("BloomFilter try load uuids if not exists start", s"contained b_date: ${OM.toJOSN(uuidBloomFilterMap.keySet())}\ndwi table: $dwiTable\ntry apppend b_dates: ${OM.toJOSN(b_times)}")
 
-    val bts = intervalBTimes(b_dates.map(_._2).filter{x=>StringUtil.notEmpty(x)})
-    LOG.warn("BloomFilter try load history uuids neighborBTimes", bts)
+    val bts = neighborBTimes(b_times.map(_._2).filter{ x=>StringUtil.notEmpty(x)})
+    LOG.warn("BloomFilter try load history uuids neighborBTimes", "bTimes", bts, "bTimeStartOffsetHour", bTimeStartOffsetHour, "bTimeEndOffsetHour", bTimeEndOffsetHour)
 
     bts.foreach{case(b_date, b_time)=>
 
@@ -167,7 +167,8 @@ class BTimeRangeRepeatsFilter(dwiBTimeFormat: String = "yyyy-MM-dd HH:00:00", bT
           c = hiveContext
             .read
             .table(dwiTable)
-            .where(s"repeated = 'N' and b_date = '${b_date}' and from_unixtime(unix_timestamp($businessTimeExtractBy), '${bloomFilterBTimeFormat}') = '${b_time}' ")
+//            .where(s"repeated = 'N' and from_unixtime(unix_timestamp($businessTimeExtractBy), '${bloomFilterBTimeFormat}') = '${b_time}' ")
+            .where(s"repeated = 'N' and b_time = '${b_time}' ")
             .select(col(a))
             .rdd
             .map{x=>
@@ -216,12 +217,12 @@ class BTimeRangeRepeatsFilter(dwiBTimeFormat: String = "yyyy-MM-dd HH:00:00", bT
   def filterRepeatedUuids(ids: Array[(String, Iterable[(String, String)])] /*Array[String]*/): DataFrame ={
 
     //Uuid BloomFilter 去重（重复的rowkey）
-    val repeatedIds = ids.map{ case(_bt, _ids) =>
+    val repeatedIds = ids.map{ case(_btime, _ids) =>
 
-      var bts = CSTTime.intervalBTimes(_bt, bTimeStartOffsetHour, bTimeEndOffsetHour)
+      var bts = CSTTime.neighborBTimes(_btime, bTimeStartOffsetHour, bTimeEndOffsetHour)
 
       val vectorSize = math.max(wronglyFilterIndex*_ids.size, wronglyFilterIndex) * bts.length
-      LOG.warn("BloomFilter filter neighborTimes", "currBTime", _bt, "neighborTimes", bts, "sourceBTimes", ids.map(_._1), "dataCount", _ids.size, "vectorSize", vectorSize)
+      LOG.warn("BloomFilter filter neighborTimes", "currBTimes", _btime, "neighborTimes", bts, "sourceBTimes", ids.map(_._1), "dataCount", _ids.size, "vectorSize", vectorSize)
 
       val bf = new BloomFilter(vectorSize, 16, Hash.MURMUR_HASH)
 
@@ -244,7 +245,7 @@ class BTimeRangeRepeatsFilter(dwiBTimeFormat: String = "yyyy-MM-dd HH:00:00", bT
               if(f.membershipTest(k)) {
 //                LOG.warn("filterRepeatedUuids：data has repeated" , "repeated id: ",z)//test
                 re = true
-              }else if(_bt.equals(bt)){
+              }else if(_btime.equals(bt)){
                 bf.add(k)
               }
             }
@@ -253,10 +254,10 @@ class BTimeRangeRepeatsFilter(dwiBTimeFormat: String = "yyyy-MM-dd HH:00:00", bT
         re
       }
       //去重后的数据加入当前小时bf中
-      var wrap = uuidBloomFilterMap.get(_bt)
+      var wrap = uuidBloomFilterMap.get(_btime)
       if(wrap == null) {
         wrap = new BloomFilterWrapper()
-        uuidBloomFilterMap.put(_bt, wrap)
+        uuidBloomFilterMap.put(_btime, wrap)
       }
       wrap.append(bf)
 

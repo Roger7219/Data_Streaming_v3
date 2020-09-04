@@ -99,7 +99,8 @@ class PluggableModule(globalConfig: Config,
 
   //-------------------------  Tools  -------------------------
   val messageClient = new MessageClient(moduleName)
-  var moduleTracer: ModuleTracer = new ModuleTracer(moduleName, globalConfig, mixModulesBatchController, messageClient)
+  val yarnAppManagerClient = new YarnAppManagerClient(moduleName, messageClient)
+  var moduleTracer: ModuleTracer = new ModuleTracer(moduleName, globalConfig, mixModulesBatchController, messageClient, yarnAppManagerClient)
   //-------------------------  Tools End  -------------------------
 
   var stream: InputDStream[ConsumerRecord[String, Object]] = _  //Value Type: String or Array[Byte]
@@ -173,9 +174,9 @@ class PluggableModule(globalConfig: Config,
   if (globalConfig.hasPath(s"modules.$moduleName.uuid.filter.class")) {
     val f = globalConfig.getString(s"modules.$moduleName.uuid.filter.class")
     repeatsFilter = Class.forName(f).newInstance().asInstanceOf[RepeatsFilter]
-  } else if(globalConfig.hasPath(s"dwi.uuid.b_time.range")){
+  } else if(globalConfig.hasPath(s"modules.$moduleName.dwi.uuid.b_time.range")){
     // b_time小时级别
-    repeatsFilter = new BTimeRangeRepeatsFilter(dwiBTimeFormat, globalConfig.getStringList("dwi.uuid.b_time.range").map(_.toInt).toList)
+    repeatsFilter = new BTimeRangeRepeatsFilter(dwiBTimeFormat, globalConfig.getStringList(s"modules.$moduleName.dwi.uuid.b_time.range").map(_.toInt).toList)
   }else {
     repeatsFilter = new BTimeRangeRepeatsFilter(dwiBTimeFormat, 0)
   }
@@ -571,7 +572,7 @@ class PluggableModule(globalConfig: Config,
       } catch {
         case e: Exception => {
           LOG.warn(s"Kill self yarn app, because module execution error !!!", "module", moduleName,"important_notice", "Kill self yarn app at once !!!", "app_name", appName, "error", e)
-          YarnAppManagerUtil.killApps(appName, messageClient)
+          yarnAppManagerClient.killApps(appName)
           throw new ModuleException(s"${getClass.getSimpleName} '$moduleName' execution error !! ", e)
         }
       }
@@ -775,7 +776,7 @@ class PluggableModule(globalConfig: Config,
       ms.foreach{y=>
         appId = y.getKeyBody
         LOG.warn(s"Kill self yarn app via user operation !!!", "important_notice", "Kill self yarn app at once !!!", "app_name", appName)
-        YarnAppManagerUtil.killApps(appName, appId, messageClient)
+        yarnAppManagerClient.killApps(appName, appId)
       }
     }
 

@@ -186,36 +186,36 @@ object CSTTime {
 //    System.out.println(CSTTime.time(new Date(startDayMS + offsetMS)))
   }
 
-  /**
-    * @param time     当前时间，格式为：yyyy-MM-dd HH:mm:ss
-    * @param spanHour 分组时间跨度，eg: 值为3，表示每3小时一个组, 从0点开始
-    * @param parts    多少组，eg：值为0，则只有自身
-    * @return
-    */
-  private def neighborBTimes0(time:String, spanHour: java.lang.Double, parts: Integer): Array[String] ={
-//    val b_time = "2018-12-12 11:13:44"
-//    val spanHour = 2
-//    val parts = 1
+//  /**
+//    * @param time     当前时间，格式为：yyyy-MM-dd HH:mm:ss
+//    * @param spanHour 分组时间跨度，eg: 值为3，表示每3小时一个组, 从0点开始
+//    * @param parts    多少组，eg：值为0，则只有自身
+//    * @return
+//    */
+//  private def neighborBTimes0(time:String, spanHour: java.lang.Double, parts: Integer): Array[String] ={
+////    val b_time = "2018-12-12 11:13:44"
+////    val spanHour = 2
+////    val parts = 1
+//
+//    var result = new util.ArrayList[String]()
+//    val d = CSTTime.formatter("yyyy-MM-dd HH:mm:ss").parse(time)
+//
+//    var i = 0 - parts
+//    while ( {i < parts + 1}) {
+//
+//      val t = d.getTime - (1000L * 60 * 60 * spanHour * i).toLong
+//      result.add(CSTTime.time(new Date(t)))
+//
+//      {i += 1}
+//    }
+//    result.toArray(new Array[String](0))
+//  }
 
-    var result = new util.ArrayList[String]()
-    val d = CSTTime.formatter("yyyy-MM-dd HH:mm:ss").parse(time)
+//  def neighborBTimes(time:String, neighborHours: Integer): Array[String] ={
+//    neighborBTimes0(time, 1.0, neighborHours)
+//  }
 
-    var i = 0 - parts
-    while ( {i < parts + 1}) {
-
-      val t = d.getTime - (1000L * 60 * 60 * spanHour * i).toLong
-      result.add(CSTTime.time(new Date(t)))
-
-      {i += 1}
-    }
-    result.toArray(new Array[String](0))
-  }
-
-  def neighborBTimes(time:String, neighborHours: Integer): Array[String] ={
-    neighborBTimes0(time, 1.0, neighborHours)
-  }
-
-  def intervalBTimes(time:String, startOffsetHour: Int, endOffsetHour: Int): Array[String] ={
+  def neighborBTimes(time:String, startOffsetHour: Int, endOffsetHour: Int): Array[String] ={
     var result = new util.ArrayList[String]()
 
     val d = CSTTime.formatter("yyyy-MM-dd HH:mm:ss").parse(time)
@@ -230,7 +230,7 @@ object CSTTime {
   def main (args: Array[String]): Unit = {
 
 //    println(neighborBTimes("2002-01-12 12:00:00", 2).toList)
-   print(intervalBTimes("2002-01-12 12:00:00", -1,0).toList)
+   print(neighborBTimes("2002-01-12 12:00:00", -1,0).toList)
 
     //    println(OM.toJOSN(CSTTime.neighborBTimes("2018-12-12 11:13:44", 0)))
 

@@ -6,7 +6,7 @@ import java.util.Collections
 
 import com.fasterxml.jackson.core.`type`.TypeReference
 import com.mobikok.message.client.MessageClientApi
-import com.mobikok.ssp.data.streaming.App.{appName, argsConfig}
+import com.mobikok.ssp.data.streaming.App
 import com.mobikok.ssp.data.streaming.client.HBaseClient
 import com.mobikok.ssp.data.streaming.config.{ArgsConfig, RDBConfig}
 import com.mobikok.ssp.data.streaming.entity.{HivePartitionPart, LatestOffsetRecord, UuidStat}
@@ -33,7 +33,7 @@ class App {
 
 object App {
 
-  private[this] val LOG = Logger.getLogger(getClass().getName())
+  val LOG = Logger.getLogger(getClass().getName())
   var ssc: StreamingContext = null
   var mySqlJDBCClient: MySqlJDBCClient = null
   var allModulesConfig: Config = null
@@ -53,6 +53,7 @@ object App {
   //table, list<module>
   private var shareTableModulesControllerMap: java.util.Map[String, MixModulesBatchController] = null
   var messageClient: MessageClient = null
+  var yarnAppManagerClient: YarnAppManagerClient = null
 
   def main (args: Array[String]): Unit = {
     try {
@@ -76,9 +77,8 @@ object App {
     sparkConf = new SparkConf(true)
     //      获取spark-submit启动命令中的--name参数指定的
     appName = sparkConf.get("spark.app.name").trim
-    latestSetupAppId = YarnAppManagerUtil.getLatestSetupApp(appName).getApplicationId.toString
 
-    LOG.warn("Starting App", "name", appName, "latestSetupAppId", latestSetupAppId)
+    LOG.warn("Starting App", "name", appName)
 
     if(args.length > 0) {
       var f = new File(args(0))
@@ -107,7 +107,7 @@ object App {
   def initSparkStreaming() = {
     initLoggerLevel()
     initModulesConfig()
-    initMessageClient()
+    initClient()
     initRDBConfig()
     initStreamingContext()
     initAllModulesInstances()
@@ -224,9 +224,10 @@ object App {
     ssc = new StreamingContext(conf, Seconds(allModulesConfig.getInt("spark.conf.streaming.batch.buration")))
 
     //check task Whether has been launched.
-    if(YarnAppManagerUtil.isPrevRunningApp(appName, latestSetupAppId)){
+    latestSetupAppId = yarnAppManagerClient.getLatestSetupApp(appName).getApplicationId.toString
+    if(yarnAppManagerClient.isPrevRunningApp(appName, latestSetupAppId)){
       if("true".equals(argsConfig.get(ArgsConfig.FORCE_KILL_PREV_REPEATED_APP))) {
-        YarnAppManagerUtil.killApps(appName, false, latestSetupAppId, messageClient)
+        yarnAppManagerClient.killApps(appName, false, latestSetupAppId)
       }else {
         throw new RuntimeException(s"This app '$appName' is already running, It cannot be run repeatedly, Please kill the previous app first")
       }
@@ -299,9 +300,10 @@ object App {
     sparkConf
   }
 
-  def initMessageClient(): Unit ={
+  def initClient(): Unit ={
     MessageClient.init(allModulesConfig.getString("message.client.url"))
     messageClient  = new MessageClient(App.getClass.getSimpleName)
+    yarnAppManagerClient = new YarnAppManagerClient(App.getClass().getSimpleName, messageClient)
   }
 
   def initModulesConfig(): Unit ={
@@ -522,9 +524,11 @@ object App {
 
 
 }
+
+
 //object X{
 //  def main (args: Array[String]): Unit = {
-//    val refC = ConfigFactory.parseFile(new File("C:\\Users\\Administrator\\IdeaProjects\\datastreaming\\src\\main\\scala\\dw\\fee.conf"))//load(args(0))
+////    val refC = ConfigFactory.parseFile(new File("C:\\Users\\Administrator\\IdeaProjects\\datastreaming\\src\\main\\scala\\dw\\fee.conf"))//load(args(0))
 //
 //   //println(refC.getConfig("modules").withValue("asd", refC.getValue("")))
 //  }
