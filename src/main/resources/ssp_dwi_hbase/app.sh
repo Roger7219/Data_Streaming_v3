@@ -32,5 +32,8 @@ file:///apps/data-streaming/libs/hbase-client-1.1.10.jar \
 --files /apps/data-streaming/ssp_dwi_hbase/app.conf \
 /apps/data-streaming/ssp_dwi_hbase/data-streaming.jar \
 app.conf \
-modules=send2hbase,smartlink2hbase,events2hbase,postback2hbase \
+modules=send2hbase,send2hbase_key_subId_offerId,smartlink2hbase,events2hbase,postback2hbase \
 kill=true
+
+
+#2020年9月11日 Aaron 新添加modules:send2hbase_key_subId_offerId
