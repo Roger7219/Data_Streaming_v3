@@ -212,7 +212,8 @@ case class  SspTrafficDWI_KeySubIdOfferId(
 
   //用于保存时，生成hbase rowkey
   override def toHBaseRowkey: Array[Byte] = {
-    if(subId == null && offerId == null ) null else Bytes.toBytes(subId^offerId)
+    val int = (Math.random() * (99 - 10) + 10).toInt
+    if(subId == null && offerId == null ) null else Bytes.toBytes(subId+offerId+int)
   }
 
   override def hashCode(): Int = {
