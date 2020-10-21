@@ -11,7 +11,7 @@ import org.apache.spark.sql.DataFrame
 
 class HBaseDWIPersistHandler extends Handler {
 
-  val HBASE_WRITECOUNT_BATCH_TOPIC = "hbase_writecount_topic"
+//  val HBASE_WRITECOUNT_BATCH_TOPIC = "hbase_writecount_topic"
 
   var dwiPhoenixSubtableEnable = true
   var dwiPhoenixTable: String = _
@@ -39,7 +39,7 @@ class HBaseDWIPersistHandler extends Handler {
         hbaseClient.putsNonTransaction(dwiPhoenixTable, dwiP)
       }
       // 收集当前批次数据总量
-      messageClient.push(PushReq(HBASE_WRITECOUNT_BATCH_TOPIC, newDwi.count().toString))
+      messageClient.push(PushReq(dwiPhoenixTable, newDwi.count().toString))
 
       LOG.warn("hbaseClient putsNonTransaction done")
     }
