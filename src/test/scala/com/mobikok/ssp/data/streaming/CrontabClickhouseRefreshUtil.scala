@@ -31,13 +31,13 @@ object CrontabClickhouseRefreshUtil {
 
   //小时表：刷新（BI小时表）
   def refreshHour(startBTime:String, endBTime:String){
-    sendMsg_btimes_for_ck("ssp_report_overall_dwr",    startBTime, startBTime, "ck_report_overall")
+    sendMsg_btimes_for_ck("ssp_report_overall_dwr",    startBTime, endBTime, "ck_report_overall")
     //当刷新太多天数据时，需延长当前批次等待时间
     refreshHour_waitingLongTime()
   }
 
   def refreshHour_ssp_overall_postback_dwi(startBTime:String, endBTime:String){
-    sendMsg_btimes_for_ck("ssp_overall_postback_dwi",    startBTime, startBTime, "ck_report_overall")
+    sendMsg_btimes_for_ck("ssp_overall_postback_dwi",    startBTime, endBTime, "ck_report_overall")
     //当刷新太多天数据时，需延长当前批次等待时间
     refreshHour_waitingLongTime()
   }
