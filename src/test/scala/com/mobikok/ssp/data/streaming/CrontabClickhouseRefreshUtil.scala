@@ -36,6 +36,12 @@ object CrontabClickhouseRefreshUtil {
     refreshHour_waitingLongTime()
   }
 
+  def refreshHour_ssp_overall_postback_dwi(startBTime:String, endBTime:String){
+    sendMsg_btimes_for_ck("ssp_overall_postback_dwi",    startBTime, startBTime, "ck_report_overall")
+    //当刷新太多天数据时，需延长当前批次等待时间
+    refreshHour_waitingLongTime()
+  }
+
   // 天表：当刷新太多天数据时，需延长当前批次等待时间
   def refreshDay_waitingLongTime(): Unit = {
     sendMaxWaitingTimeMS(DynamicConfig.of("bq_report_mix", DynamicConfig.BATCH_PROCESSING_TIMEOUT_MS), String.valueOf(Integer.MAX_VALUE))
@@ -65,10 +71,13 @@ object CrontabClickhouseRefreshUtil {
   }
 
   def main (args: Array[String]): Unit = {
+
+    //刷新小时bigquery
+    refreshHour_ssp_overall_postback_dwi("2021-05-01 00:00:00", "2021-05-01 23:00:00")
       // 刷新天表
-//    refreshDay("2020-05-18", "2020-05-18");
+//    refreshDay("2021-03-30", "2020-03-30");
       // 刷新小时表
-    refreshHour("2020-07-17 13:00:00", "2020-07-17 13:00:00");
+//    refreshHour("2021-03-30 12:00:00", "2021-03-30 13:00:00")
 
 //    refreshHour_waitingLongTime()
 //    refreshDay_waitingLongTime()
