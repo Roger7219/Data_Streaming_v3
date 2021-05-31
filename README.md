@@ -3,9 +3,11 @@
 app.conf：放module配置  
 app.sh 放启动spark-submit命令  
 supervisord.conf 放supervisor的配置,部署的时候放到生产的/etc/supervisord.conf里面  
-打包的时候,不用把依赖包打进去data-streaming.jar内,打项目本身代码就行,7M左右,通过app.sh内的jars从公共的包目录里引入依赖包
-idea打包方式(Build --> Build Artifacts --> Build)生成目录out/artifacts/data_streaming_jar
-拷贝data-streaming.jar至/apps/data-streaming/目录
+打包的时候,不用把依赖包打进去data-streaming.jar内,打项目本身代码就行,7M左右,通过app.sh内的jars从公共的包目录里引入依赖包  
+##idea打包方式  
+(Build --> Build Artifacts --> Build)生成jar包目录out/artifacts/data_streaming_jar/  
+拷贝data-streaming.jar至服务器/apps/data-streaming/对应模块下  
+注意打包依赖文件MANIFEST.MF,以git上的为准
 
 #clickhouse登陆:
 clickhouse-client -m -h node110 --port 9000  --password 9036011d8fa79028f99488c2de6fdfb09d66beb5e4b8ca5178ee9ff9179ed6a8
